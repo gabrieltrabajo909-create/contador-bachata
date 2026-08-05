@@ -2,6 +2,1076 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cuentas · Bachata y Salsa</title>
+<style>
+  :root {
+    --ground: #0e0d12;
+    --ink: #f4f2f7;
+    --muted: #8b8599;
+    --dim: #5d5870;
+    --accent: #ff5a36;
+    --accent2: #3ecf8e;
+    --line: #262330;
+    --card: #17151d;
+    --card2: #1f1c28;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .wrap { max-width: 32rem; margin: 0 auto; padding: 14px 14px 40px; }
+
+  /* ---------- Pestañas ---------- */
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px;
+    margin-bottom: 18px;
+  }
+
+  .tabs button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 600;
+    padding: 11px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .tabs button[aria-selected="true"] {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .panel[hidden] { display: none; }
+
+  /* ---------- Bloques ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .card h2 {
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+
+  input[type=text] {
+    width: 100%;
+    font: inherit;
+    background: var(--card2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 11px 13px;
+    margin-bottom: 11px;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
+
+  .seg button {
+    flex: 1;
+    font: inherit;
+    font-weight: 600;
+    padding: 11px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card2);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .seg button[aria-pressed="true"] {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  button.primary, button.ghost, button.danger {
+    width: 100%;
+    font: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: 999px;
+    padding: 15px;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+
+  button.primary { background: var(--accent); color: #fff; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+  button.danger { background: transparent; border: 1px solid #6b2a22; color: #ff8a70; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .row { display: flex; gap: 8px; }
+  .row > button { margin-bottom: 8px; }
+
+  /* ---------- Zona de golpe ---------- */
+  .tapzone {
+    width: 100%;
+    aspect-ratio: 1.5;
+    border-radius: 20px;
+    border: 2px dashed var(--line);
+    background: var(--card);
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: background 0.06s linear, border-color 0.06s linear;
+  }
+
+  .tapzone.armed { border-color: var(--accent); border-style: solid; color: var(--accent); }
+  .tapzone.hit { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tapzone small { font-weight: 500; font-size: 0.78rem; color: var(--dim); }
+  .tapzone.hit small { color: rgba(255,255,255,0.8); }
+
+  /* ---------- Contador ---------- */
+  .display {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 22px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .big {
+    font-size: 5rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    min-height: 5rem;
+  }
+
+  .big.one { color: var(--accent); }
+  .big.tap { color: var(--accent2); font-size: 3.4rem; letter-spacing: 0; }
+
+  .sub { font-size: 0.8rem; color: var(--muted); margin-top: 8px; min-height: 1.2em; }
+
+  .beats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+
+  .beat {
+    aspect-ratio: 1.4;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .beat.on { background: #2a2536; color: var(--ink); }
+  .beat.on.one { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .beat.on.tapb { background: var(--accent2); border-color: var(--accent2); color: #04140d; }
+
+  /* ---------- Medidores ---------- */
+  .meter { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+  .meter > i { display: block; height: 100%; width: 0%; background: var(--accent2); }
+
+  /* ---------- Lista ---------- */
+  .song {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .song:last-child { border-bottom: none; }
+  .song .info { flex: 1; min-width: 0; }
+  .song .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .song .m { font-size: 0.76rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .song button {
+    border: 1px solid var(--line);
+    background: var(--card2);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 7px 11px;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .pill {
+    display: inline-block;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--card2);
+    color: var(--muted);
+    border: 1px solid var(--line);
+  }
+
+  .status { font-size: 0.82rem; color: var(--muted); line-height: 1.5; text-align: center; min-height: 2.4em; padding: 0 4px; }
+  .status.err { color: #ff8a70; }
+  .status.ok { color: var(--accent2); }
+
+  .empty { color: var(--dim); font-size: 0.85rem; text-align: center; padding: 14px 0; }
+
+  .taplist { max-height: 140px; overflow-y: auto; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .taplist div { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .taplist button { background: none; border: none; color: #ff8a70; cursor: pointer; font: inherit; padding: 0 4px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof">Profesor</button>
+    <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum">Alumno</button>
+  </div>
+
+  <!-- ============ PROFESOR ============ -->
+  <section class="panel" id="panel-prof" role="tabpanel">
+
+    <div class="card" id="p-setup">
+      <h2>Nueva canción</h2>
+      <label for="f-title">Canción</label>
+      <input type="text" id="f-title" placeholder="Propuesta indecente">
+      <label for="f-artist">Artista</label>
+      <input type="text" id="f-artist" placeholder="Romeo Santos">
+      <label for="f-teacher">Profesor</label>
+      <input type="text" id="f-teacher" placeholder="Tu nombre">
+      <label>Ritmo</label>
+      <div class="seg" id="f-rhythm">
+        <button data-r="bachata" aria-pressed="true">Bachata</button>
+        <button data-r="salsa1" aria-pressed="false">Salsa en 1</button>
+      </div>
+      <button class="primary" id="p-start">Empezar a grabar</button>
+    </div>
+
+    <div class="card" id="p-rec" hidden>
+      <h2>Grabando</h2>
+      <div class="meter"><i id="p-level"></i></div>
+      <button class="tapzone" id="p-tap">
+        <span id="p-tapmain">Toca en cada UNO</span>
+        <small id="p-taphint">Empieza cuando entre el 1 de la canción</small>
+      </button>
+      <div class="row">
+        <button class="ghost" id="p-undo">Borrar último</button>
+        <button class="primary" id="p-stop">Terminar</button>
+      </div>
+      <p class="status" id="p-status"></p>
+    </div>
+
+    <div class="card" id="p-review" hidden>
+      <h2>Revisar antes de guardar</h2>
+      <p class="status" id="p-revinfo"></p>
+      <label>Ajuste fino de todas las cuentas</label>
+      <div class="row">
+        <button class="ghost" id="p-nudge-b">−50 ms</button>
+        <button class="ghost" id="p-nudge-f">+50 ms</button>
+      </div>
+      <label style="margin-top:6px">Golpes marcados</label>
+      <div class="taplist" id="p-taplist"></div>
+      <button class="primary" id="p-save" style="margin-top:12px">Guardar canción</button>
+      <button class="danger" id="p-discard">Descartar</button>
+    </div>
+
+    <div class="card">
+      <h2>Canciones guardadas</h2>
+      <div id="p-list"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="ghost" id="p-export">Exportar</button>
+        <button class="ghost" id="p-import">Importar</button>
+      </div>
+      <input type="file" id="p-file" accept="application/json" hidden>
+    </div>
+  </section>
+
+  <!-- ============ ALUMNO ============ -->
+  <section class="panel" id="panel-alum" role="tabpanel" hidden>
+
+    <div class="display">
+      <div class="big" id="a-big">·</div>
+      <div class="sub" id="a-sub">Sin escuchar</div>
+    </div>
+
+    <div class="beats" id="a-beats"></div>
+
+    <div class="card">
+      <div class="meter"><i id="a-level"></i></div>
+      <button class="primary" id="a-start">Escuchar y reconocer</button>
+      <button class="ghost" id="a-stop" disabled>Parar</button>
+      <div class="row">
+        <button class="ghost" id="a-voice">Voz: no</button>
+        <button class="ghost" id="a-vibe">Vibrar: sí</button>
+      </div>
+      <p class="status" id="a-status">Pon la canción y dale a escuchar.</p>
+    </div>
+
+    <div class="card">
+      <h2>Repertorio</h2>
+      <div id="a-list"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* =========================================================================
+   Ritmos
+   ========================================================================= */
+const RHYTHMS = {
+  bachata: { name: "Bachata", labels: ["1","2","3","TAP","5","6","7","TAP"] },
+  salsa1:  { name: "Salsa en 1", labels: ["1","2","3","·","5","6","7","·"] }
+};
+const isOne = (i) => i === 0;
+const isTap = (i) => i === 3 || i === 7;
+
+/* =========================================================================
+   Huella de audio (constelación de picos, estilo landmark)
+
+   El espectro se muestrea a intervalo fijo. En cada frame se toman los picos
+   más fuertes por bandas; cada pico se empareja con picos de frames
+   posteriores y el par se empaqueta en un entero de 32 bits. La misma
+   canción produce los mismos hashes, así que comparando los desfases entre
+   los hashes guardados y los que se oyen ahora se sabe qué canción es y en
+   qué segundo va.
+   ========================================================================= */
+const FP = {
+  FFT: 2048,
+  HOP: 0.0464,        // segundos por frame (~21.6 frames/s)
+  MAXBIN: 232,        // ~5 kHz con 44.1 kHz
+  BANDS: [4, 12, 24, 48, 96, 160, 232],
+  PEAKS: 3,                    // picos por frame
+  DTS: [3, 6, 10, 15, 21],     // separaciones (en frames) a las que se empareja
+  DTMAX: 21,
+  PAIR: 2                      // picos del ancla × picos del objetivo
+};
+
+function packHash(f1, f2, dt) {
+  // f1,f2 en 0..255 (bin >> 1 para que quepan), dt en 0..31
+  return (((f1 & 255) << 13) | ((f2 & 255) << 5) | (dt & 31)) >>> 0;
+}
+
+class Fingerprinter {
+  constructor() {
+    this.N = FP.DTMAX + 1;
+    this.ring = new Array(this.N);   // últimos N frames de picos
+    this.keys = [];
+    this.times = [];
+  }
+
+  // spectrum: Float32Array en dB. frame: índice entero de frame.
+  push(spectrum, frame) {
+    const peaks = this.pickPeaks(spectrum);
+    this.ring[frame % this.N] = { frame, peaks };
+
+    // Emparejar con los frames ancla a distancias fijas. Acotar el número de
+    // pares es lo que mantiene la huella manejable en un teléfono.
+    for (const dt of FP.DTS) {
+      const prev = this.ring[(frame - dt + this.N * 2) % this.N];
+      if (!prev || prev.frame !== frame - dt) continue;
+      const na = Math.min(FP.PAIR, prev.peaks.length);
+      const nb = Math.min(FP.PAIR, peaks.length);
+      for (let i = 0; i < na; i++) {
+        for (let j = 0; j < nb; j++) {
+          const a = prev.peaks[i], b = peaks[j];
+          if (Math.abs(a - b) > 110) continue;
+          this.keys.push(packHash(a >> 1, b >> 1, dt));
+          this.times.push(prev.frame);
+        }
+      }
+    }
+  }
+
+  pickPeaks(spec) {
+    const found = [];
+    for (let b = 0; b < FP.BANDS.length - 1; b++) {
+      const lo = FP.BANDS[b], hi = FP.BANDS[b + 1];
+      let best = -Infinity, bestI = -1;
+      for (let i = lo; i < hi && i < FP.MAXBIN; i++) {
+        if (spec[i] > best) { best = spec[i]; bestI = i; }
+      }
+      if (bestI >= 0 && best > -85) found.push({ i: bestI, v: best });
+    }
+    found.sort((x, y) => y.v - x.v);
+    return found.slice(0, FP.PEAKS).map(p => p.i);
+  }
+
+  result() {
+    return { keys: Uint32Array.from(this.keys), times: Uint16Array.from(this.times) };
+  }
+}
+
+/* ---- Índice en memoria para reconocer ---- */
+class Matcher {
+  constructor() { this.index = new Map(); this.songs = new Map(); }
+
+  add(song) {
+    this.songs.set(song.id, song);
+    const { keys, times } = song.fp;
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      let list = this.index.get(k);
+      if (!list) { list = []; this.index.set(k, list); }
+      list.push(song.id, times[i]);   // plano para ahorrar memoria
+    }
+  }
+
+  remove(id) {
+    this.songs.delete(id);
+    for (const [k, list] of this.index) {
+      for (let i = list.length - 2; i >= 0; i -= 2) {
+        if (list[i] === id) list.splice(i, 2);
+      }
+      if (!list.length) this.index.delete(k);
+    }
+  }
+
+  clear() { this.index.clear(); this.songs.clear(); }
+
+  /* Devuelve {songId, offsetFrames, score} o null.
+     offsetFrames = frame de la canción guardada que corresponde
+     al frame 0 de la consulta. */
+  match(keys, times) {
+    const votes = new Map();   // songId -> Map(delta -> count)
+    for (let i = 0; i < keys.length; i++) {
+      const list = this.index.get(keys[i]);
+      if (!list) continue;
+      for (let j = 0; j < list.length; j += 2) {
+        const id = list[j], delta = list[j + 1] - times[i];
+        let m = votes.get(id);
+        if (!m) { m = new Map(); votes.set(id, m); }
+        m.set(delta, (m.get(delta) || 0) + 1);
+      }
+    }
+
+    let best = null;
+    for (const [id, m] of votes) {
+      for (const [delta, n] of m) {
+        // sumar bins vecinos: el desfase real puede repartirse en ±1 frame
+        const score = n + (m.get(delta - 1) || 0) + (m.get(delta + 1) || 0);
+        if (!best || score > best.score) best = { songId: id, offsetFrames: delta, score };
+      }
+    }
+    return best && best.score >= 12 ? best : null;
+  }
+}
+
+/* =========================================================================
+   Captura de audio compartida
+   ========================================================================= */
+class Listener {
+  constructor() { this.ctx = null; this.stream = null; this.analyser = null; this.running = false; }
+
+  async start(onFrame, onLevel) {
+    this.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === "suspended") await this.ctx.resume();
+
+    const src = this.ctx.createMediaStreamSource(this.stream);
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = FP.FFT;
+    this.analyser.smoothingTimeConstant = 0;
+    src.connect(this.analyser);
+
+    this.spec = new Float32Array(this.analyser.frequencyBinCount);
+    this.t0 = this.ctx.currentTime;
+    this.frame = -1;
+    this.running = true;
+
+    const tick = () => {
+      if (!this.running) return;
+      requestAnimationFrame(tick);
+      const elapsed = this.ctx.currentTime - this.t0;
+      const f = Math.floor(elapsed / FP.HOP);
+      if (f === this.frame) return;
+      this.frame = f;
+      this.analyser.getFloatFrequencyData(this.spec);
+      let e = 0;
+      for (let i = 2; i < 80; i++) e += Math.max(0, this.spec[i] + 100);
+      if (onLevel) onLevel(Math.min(1, e / 2200));
+      onFrame(this.spec, f, elapsed);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  get time() { return this.ctx ? this.ctx.currentTime - this.t0 : 0; }
+
+  stop() {
+    this.running = false;
+    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+    if (this.ctx) this.ctx.close();
+    this.ctx = null; this.stream = null;
+  }
+}
+
+/* =========================================================================
+   Almacenamiento (IndexedDB)
+   ========================================================================= */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("cuentas", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("songs", { keyPath: "id" });
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(mode) { return this.db.transaction("songs", mode).objectStore("songs"); },
+  all() {
+    return new Promise((res, rej) => {
+      const r = this.tx("readonly").getAll();
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  put(song) {
+    return new Promise((res, rej) => {
+      const r = this.tx("readwrite").put(song);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    });
+  },
+  del(id) {
+    return new Promise((res, rej) => {
+      const r = this.tx("readwrite").delete(id);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    });
+  }
+};
+
+/* =========================================================================
+   Cuentas a partir de los golpes del profesor
+
+   downbeats = tiempos (s) en los que el profesor marcó el "1".
+   Entre dos golpes consecutivos hay 8 cuentas repartidas por igual.
+   ========================================================================= */
+function countAt(downbeats, t) {
+  if (downbeats.length < 2) return null;
+  let i = 0;
+  while (i < downbeats.length - 2 && downbeats[i + 1] <= t) i++;
+  // fuera del rango marcado: extrapolar con el compás más cercano
+  let a = downbeats[i], b = downbeats[i + 1];
+  if (t < downbeats[0]) { a = downbeats[0]; b = downbeats[1]; }
+  else if (t >= downbeats[downbeats.length - 1]) {
+    const n = downbeats.length;
+    a = downbeats[n - 2]; b = downbeats[n - 1];
+    const per = b - a;
+    const k = Math.floor((t - b) / per);
+    a = b + k * per; b = a + per;
+  }
+  const per = b - a;
+  if (!(per > 0.2) || per > 8) return null;
+  const pos = (t - a) / per * 8;
+  return { index: ((Math.floor(pos) % 8) + 8) % 8, phase: pos - Math.floor(pos), period: per };
+}
+
+/* =========================================================================
+   UI
+   ========================================================================= */
+const $ = (id) => document.getElementById(id);
+const matcher = new Matcher();
+let songs = [];
+
+function fmt(s) {
+  const m = Math.floor(s / 60), r = Math.floor(s % 60);
+  return m + ":" + String(r).padStart(2, "0");
+}
+
+/* ---------- Pestañas ---------- */
+function selectTab(which) {
+  const prof = which === "prof";
+  $("tab-prof").setAttribute("aria-selected", prof);
+  $("tab-alum").setAttribute("aria-selected", !prof);
+  $("panel-prof").hidden = !prof;
+  $("panel-alum").hidden = prof;
+  if (prof) stopStudent(); else stopTeacher(true);
+}
+$("tab-prof").addEventListener("click", () => selectTab("prof"));
+$("tab-alum").addEventListener("click", () => selectTab("alum"));
+
+/* ---------- Rejilla de cuentas del alumno ---------- */
+const beatCells = [];
+function buildBeats(rhythm) {
+  const labels = RHYTHMS[rhythm].labels;
+  const el = $("a-beats");
+  el.textContent = "";
+  beatCells.length = 0;
+  labels.forEach((lab, i) => {
+    const d = document.createElement("div");
+    d.className = "beat" + (isOne(i) ? " one" : isTap(i) ? " tapb" : "");
+    d.textContent = lab;
+    el.appendChild(d);
+    beatCells.push(d);
+  });
+}
+buildBeats("bachata");
+
+/* =========================================================================
+   MODO PROFESOR
+   ========================================================================= */
+const teacher = {
+  listener: null, fp: null, downbeats: [], rhythm: "bachata", meta: null, active: false
+};
+
+$("f-rhythm").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-r]");
+  if (!b) return;
+  for (const x of $("f-rhythm").children) x.setAttribute("aria-pressed", x === b);
+  teacher.rhythm = b.dataset.r;
+});
+
+$("p-start").addEventListener("click", async () => {
+  const title = $("f-title").value.trim();
+  if (!title) { setP("Ponle nombre a la canción.", "err"); return; }
+
+  teacher.meta = {
+    title,
+    artist: $("f-artist").value.trim(),
+    teacher: $("f-teacher").value.trim(),
+    rhythm: teacher.rhythm
+  };
+  teacher.fp = new Fingerprinter();
+  teacher.downbeats = [];
+
+  teacher.listener = new Listener();
+  try {
+    await teacher.listener.start(
+      (spec, frame) => teacher.fp.push(spec, frame),
+      (lvl) => { $("p-level").style.width = (lvl * 100) + "%"; }
+    );
+  } catch (e) {
+    setP("No se pudo abrir el micrófono: " + e.name, "err");
+    return;
+  }
+
+  teacher.active = true;
+  $("p-setup").hidden = true;
+  $("p-rec").hidden = false;
+  $("p-review").hidden = true;
+  $("p-tap").classList.add("armed");
+  setP("Toca en cada 1. Necesito al menos 2 golpes.");
+});
+
+function tapNow() {
+  if (!teacher.active) return;
+  const t = teacher.listener.time;
+  const last = teacher.downbeats[teacher.downbeats.length - 1];
+  if (last !== undefined && t - last < 0.35) return;   // rebote
+  teacher.downbeats.push(t);
+
+  const z = $("p-tap");
+  z.classList.add("hit");
+  setTimeout(() => z.classList.remove("hit"), 90);
+  if (navigator.vibrate) navigator.vibrate(12);
+
+  const n = teacher.downbeats.length;
+  $("p-tapmain").textContent = n + (n === 1 ? " golpe" : " golpes");
+  if (n >= 2) {
+    const per = teacher.downbeats[n - 1] - teacher.downbeats[n - 2];
+    $("p-taphint").textContent = Math.round(60 / (per / 8)) + " BPM aprox.";
+  }
+}
+
+$("p-tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tapNow(); });
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && teacher.active) { e.preventDefault(); tapNow(); }
+});
+
+$("p-undo").addEventListener("click", () => {
+  teacher.downbeats.pop();
+  const n = teacher.downbeats.length;
+  $("p-tapmain").textContent = n ? n + (n === 1 ? " golpe" : " golpes") : "Toca en cada UNO";
+});
+
+$("p-stop").addEventListener("click", () => {
+  if (!teacher.active) return;
+  if (teacher.downbeats.length < 2) { setP("Necesito al menos 2 golpes para sacar el compás.", "err"); return; }
+
+  const dur = teacher.listener.time;
+  teacher.listener.stop();
+  teacher.active = false;
+  teacher.duration = dur;
+
+  $("p-rec").hidden = true;
+  $("p-review").hidden = false;
+  renderReview();
+});
+
+function renderReview() {
+  const d = teacher.downbeats;
+  const per = (d[d.length - 1] - d[0]) / (d.length - 1);
+  $("p-revinfo").textContent =
+    d.length + " golpes · " + Math.round(60 / (per / 8)) + " BPM · " +
+    fmt(teacher.duration) + " grabados · " + RHYTHMS[teacher.meta.rhythm].name;
+
+  const list = $("p-taplist");
+  list.textContent = "";
+  d.forEach((t, i) => {
+    const row = document.createElement("div");
+    const span = document.createElement("span");
+    span.textContent = "#" + (i + 1) + "  " + t.toFixed(2) + " s";
+    const del = document.createElement("button");
+    del.textContent = "quitar";
+    del.addEventListener("click", () => {
+      if (teacher.downbeats.length <= 2) return;
+      teacher.downbeats.splice(i, 1);
+      renderReview();
+    });
+    row.appendChild(span); row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+function nudge(ms) {
+  teacher.downbeats = teacher.downbeats.map(t => Math.max(0, t + ms / 1000));
+  renderReview();
+  setP("Ajustado " + (ms > 0 ? "+" : "") + ms + " ms.", "ok");
+}
+$("p-nudge-b").addEventListener("click", () => nudge(-50));
+$("p-nudge-f").addEventListener("click", () => nudge(50));
+
+$("p-discard").addEventListener("click", () => resetTeacher());
+
+$("p-save").addEventListener("click", async () => {
+  const fp = teacher.fp.result();
+  const song = {
+    id: "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    ...teacher.meta,
+    duration: teacher.duration,
+    createdAt: Date.now(),
+    downbeats: teacher.downbeats.slice(),
+    fp: { keys: fp.keys, times: fp.times }
+  };
+  await DB.put(song);
+  await reload();
+  resetTeacher();
+  setP("Guardada: " + song.title, "ok");
+});
+
+function resetTeacher() {
+  stopTeacher(true);
+  $("p-setup").hidden = false;
+  $("p-rec").hidden = true;
+  $("p-review").hidden = true;
+  $("p-tapmain").textContent = "Toca en cada UNO";
+  $("p-taphint").textContent = "Empieza cuando entre el 1 de la canción";
+  $("p-level").style.width = "0%";
+  teacher.downbeats = [];
+}
+
+function stopTeacher(silent) {
+  if (teacher.listener) { teacher.listener.stop(); teacher.listener = null; }
+  teacher.active = false;
+  if (!silent) setP("");
+}
+
+function setP(msg, kind) {
+  const el = $("p-status");
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+/* ---------- Exportar / importar ---------- */
+$("p-export").addEventListener("click", () => {
+  const plain = songs.map(s => ({
+    ...s,
+    fp: { keys: Array.from(s.fp.keys), times: Array.from(s.fp.times) }
+  }));
+  const blob = new Blob([JSON.stringify({ v: 1, songs: plain })], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cuentas.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$("p-import").addEventListener("click", () => $("p-file").click());
+$("p-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    for (const s of data.songs) {
+      s.fp = { keys: Uint32Array.from(s.fp.keys), times: Uint16Array.from(s.fp.times) };
+      await DB.put(s);
+    }
+    await reload();
+    setP("Importadas " + data.songs.length + " canciones.", "ok");
+  } catch (err) {
+    setP("Archivo no válido.", "err");
+  }
+  e.target.value = "";
+});
+
+/* =========================================================================
+   MODO ALUMNO
+   ========================================================================= */
+const student = {
+  listener: null, fp: null, song: null, offset: 0, syncAt: 0,
+  voice: false, vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null
+};
+
+$("a-voice").addEventListener("click", (e) => {
+  student.voice = !student.voice;
+  e.target.textContent = "Voz: " + (student.voice ? "sí" : "no");
+});
+$("a-vibe").addEventListener("click", (e) => {
+  student.vibe = !student.vibe;
+  e.target.textContent = "Vibrar: " + (student.vibe ? "sí" : "no");
+});
+
+$("a-start").addEventListener("click", async () => {
+  if (!songs.length) { setA("No hay canciones guardadas todavía.", "err"); return; }
+
+  student.fp = new Fingerprinter();
+  student.song = null;
+  student.lastIdx = -1;
+  student.lastMatchTry = 0;
+  student.listener = new Listener();
+
+  try {
+    await student.listener.start(onStudentFrame, (lvl) => {
+      $("a-level").style.width = (lvl * 100) + "%";
+    });
+  } catch (e) {
+    setA("No se pudo abrir el micrófono: " + e.name, "err");
+    return;
+  }
+
+  $("a-start").disabled = true;
+  $("a-stop").disabled = false;
+  setA(student.forced ? "Buscando el punto de la canción…" : "Escuchando para reconocer la canción…");
+});
+
+$("a-stop").addEventListener("click", () => stopStudent());
+
+function stopStudent() {
+  if (student.listener) { student.listener.stop(); student.listener = null; }
+  student.song = null;
+  student.forced = null;
+  $("a-start").disabled = false;
+  $("a-stop").disabled = true;
+  $("a-big").textContent = "·";
+  $("a-big").className = "big";
+  $("a-sub").textContent = "Sin escuchar";
+  $("a-level").style.width = "0%";
+  beatCells.forEach(c => c.classList.remove("on"));
+}
+
+function onStudentFrame(spec, frame, elapsed) {
+  student.fp.push(spec, frame);
+
+  // Reconocer al principio, y luego revalidar cada 10 s para corregir deriva
+  const need = student.song ? 10 : 3.5;
+  if (!student.matching && elapsed - student.lastMatchTry > need) {
+    student.lastMatchTry = elapsed;
+    tryMatch(elapsed);
+  }
+
+  if (student.song) paintStudent();
+}
+
+function tryMatch(elapsed) {
+  student.matching = true;
+  const { keys, times } = student.fp.result();
+  // usar solo los últimos ~6 s de consulta
+  const minFrame = Math.max(0, Math.floor((elapsed - 6) / FP.HOP));
+  const qk = [], qt = [];
+  for (let i = 0; i < keys.length; i++) {
+    if (times[i] >= minFrame) { qk.push(keys[i]); qt.push(times[i]); }
+  }
+
+  const res = matcher.match(qk, qt);
+  student.matching = false;
+  if (!res) {
+    if (!student.song) setA("No la reconozco todavía… acerca el teléfono al altavoz.");
+    return;
+  }
+  if (student.forced && res.songId !== student.forced) return;
+
+  const song = matcher.songs.get(res.songId);
+  const first = student.song === null;
+  student.song = song;
+  // tiempo de la canción = tiempo de escucha + desfase
+  student.offset = res.offsetFrames * FP.HOP;
+
+  if (first) {
+    buildBeats(song.rhythm);
+    setA(song.title + (song.artist ? " · " + song.artist : ""), "ok");
+    $("a-sub").textContent = RHYTHMS[song.rhythm].name +
+      (song.teacher ? " · " + song.teacher : "");
+  }
+}
+
+function paintStudent() {
+  const songTime = student.listener.time + student.offset;
+  const c = countAt(student.song.downbeats, songTime);
+  if (!c) return;
+
+  if (c.index !== student.lastIdx) {
+    student.lastIdx = c.index;
+    const labels = RHYTHMS[student.song.rhythm].labels;
+    const big = $("a-big");
+    big.textContent = labels[c.index];
+    big.className = "big" + (isOne(c.index) ? " one" : isTap(c.index) ? " tap" : "");
+    beatCells.forEach((cell, i) => cell.classList.toggle("on", i === c.index));
+
+    if (student.vibe && navigator.vibrate) navigator.vibrate(isOne(c.index) ? 60 : 15);
+    if (student.voice) speak(labels[c.index], isOne(c.index));
+  }
+}
+
+/* Voz: un tono corto por cuenta (hablar números va con retraso en el móvil) */
+function speak(label, one) {
+  const ctx = student.listener && student.listener.ctx;
+  if (!ctx) return;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = one ? 1320 : (label === "TAP" ? 660 : 880);
+  g.gain.setValueAtTime(one ? 0.3 : 0.14, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime + 0.07);
+}
+
+function setA(msg, kind) {
+  const el = $("a-status");
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+/* =========================================================================
+   Listas de canciones
+   ========================================================================= */
+function renderLists() {
+  const mk = (s, forStudent) => {
+    const row = document.createElement("div");
+    row.className = "song";
+
+    const info = document.createElement("div");
+    info.className = "info";
+    const t = document.createElement("div");
+    t.className = "t";
+    t.textContent = s.title;
+    const m = document.createElement("div");
+    m.className = "m";
+    m.textContent = [s.artist, RHYTHMS[s.rhythm].name, s.teacher, fmt(s.duration || 0)]
+      .filter(Boolean).join(" · ");
+    info.appendChild(t); info.appendChild(m);
+
+    const btn = document.createElement("button");
+    if (forStudent) {
+      btn.textContent = "solo esta";
+      btn.addEventListener("click", () => {
+        student.forced = student.forced === s.id ? null : s.id;
+        renderLists();
+        setA(student.forced ? "Buscaré solo: " + s.title : "Buscaré cualquier canción.");
+      });
+      if (student.forced === s.id) btn.style.borderColor = "var(--accent)";
+    } else {
+      btn.textContent = "borrar";
+      btn.addEventListener("click", async () => {
+        await DB.del(s.id);
+        await reload();
+      });
+    }
+
+    row.appendChild(info); row.appendChild(btn);
+    return row;
+  };
+
+  for (const [id, forStudent] of [["p-list", false], ["a-list", true]]) {
+    const el = $(id);
+    el.textContent = "";
+    if (!songs.length) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = forStudent
+        ? "Todavía no hay canciones. Grábalas desde Profesor."
+        : "Ninguna guardada.";
+      el.appendChild(e);
+      continue;
+    }
+    songs.forEach(s => el.appendChild(mk(s, forStudent)));
+  }
+}
+
+async function reload() {
+  songs = await DB.all();
+  songs.sort((a, b) => b.createdAt - a.createdAt);
+  matcher.clear();
+  songs.forEach(s => matcher.add(s));
+  renderLists();
+}
+
+/* Expuesto para poder probar el algoritmo desde la consola sin micrófono. */
+window.__cuentas = { Fingerprinter, Matcher, countAt, FP, packHash };
+
+/* =========================================================================
+   Arranque
+   ========================================================================= */
+(async () => {
+  try {
+    await DB.open();
+    await reload();
+  } catch (e) {
+    setP("No se pudo abrir la base de datos: " + e.message, "err");
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Contador de Bachata</title>
 <style>
