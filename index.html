@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Contador de Bachata</title>
+<style>
+  :root {
+    --ground: #0e0d12;
+    --ink: #f4f2f7;
+    --muted: #8b8599;
+    --accent: #ff5a36;
+    --accent-soft: #ff5a3622;
+    --line: #262330;
+    --card: #17151d;
+    --good: #3ecf8e;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px 16px 40px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 30rem;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  /* --- Cuenta de 8 --- */
+  .beats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .beat {
+    aspect-ratio: 1;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    transition: background 0.08s linear, color 0.08s linear, border-color 0.08s linear;
+  }
+
+  .beat.uno {
+    border-color: #3a3547;
+    color: #c9c3d8;
+  }
+
+  /* el 4 y el 8 llevan el tap/pop de la bachata */
+  .beat.tap::after {
+    content: "";
+    position: absolute;
+    margin-top: 2.4rem;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .beat { position: relative; }
+
+  .beat.on {
+    background: #2a2536;
+    color: var(--ink);
+  }
+
+  .beat.on.uno {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* --- Panel grande --- */
+  .stage {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .big {
+    font-size: 5.5rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+    transition: color 0.08s linear;
+  }
+
+  .big.uno { color: var(--accent); }
+
+  .bpm {
+    font-size: 0.85rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- Medidor de señal --- */
+  .meter {
+    height: 4px;
+    width: 100%;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .meter > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--good);
+    border-radius: 999px;
+  }
+
+  /* --- Controles --- */
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: 999px;
+    padding: 16px 24px;
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    transition: filter 0.12s ease, transform 0.1s ease;
+  }
+
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: scale(0.98); }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+
+  button.tapbtn {
+    background: transparent;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    padding: 22px 24px;
+    font-size: 1.05rem;
+  }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  .status {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+    text-align: center;
+    min-height: 2.6em;
+  }
+
+  .status.err { color: var(--accent); }
+
+  details {
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+  details p { margin: 10px 0 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="app">
+  <header>
+    <span class="eyebrow">Micrófono · tiempo real</span>
+    <h1>Contador de bachata</h1>
+  </header>
+
+  <div class="stage">
+    <div class="big" id="big">–</div>
+    <div class="bpm" id="bpm">sin señal</div>
+    <div class="meter"><i id="level"></i></div>
+  </div>
+
+  <div class="beats" id="beats"></div>
+
+  <div class="controls">
+    <button id="start">Escuchar música</button>
+    <button class="tapbtn" id="tap" disabled>Toca aquí en el UNO</button>
+    <div class="row">
+      <button class="ghost" id="sound">Clic: no</button>
+      <button class="ghost" id="stop" disabled>Parar</button>
+    </div>
+  </div>
+
+  <p class="status" id="status">Dale a escuchar y permite el micrófono.</p>
+
+  <details>
+    <summary>Cómo usarla</summary>
+    <p>El tempo lo saca sola del audio: espera 4–8 segundos con música sonando y verás los BPM estabilizarse.</p>
+    <p>El "uno" no lo puede adivinar de forma fiable, así que lo marcas tú: toca el botón grande justo en el uno. Con un toque basta — a partir de ahí la cuenta va sola y sigue el tempo aunque cambie un poco.</p>
+    <p>Los puntos bajo el 4 y el 8 son los tiempos del tap de cadera.</p>
+  </details>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Estado ----------
+  let ctx = null, stream = null, analyser = null, freq = null;
+  let running = false;
+  let clickOn = false;
+
+  // Envolvente de energía muestreada a intervalo fijo
+  const SR = 50;                 // muestras por segundo del detector
+  const HIST = 8 * SR;           // 8 segundos de historia
+  const env = new Float32Array(HIST);
+  let envWrite = 0, envFilled = 0;
+  let lastSample = 0;
+  let prevSpec = null;
+
+  // Tempo / fase
+  let period = 0;                // segundos por pulso
+  let phaseRef = 0;              // instante (ctx.currentTime) de un pulso
+  let beatIndex = 0;             // 0..7, se muestra +1
+  let lastBeatShown = -1;
+  let unoSet = false;
+
+  const $ = (id) => document.getElementById(id);
+  const beatsEl = $("beats"), bigEl = $("big"), bpmEl = $("bpm");
+  const levelEl = $("level"), statusEl = $("status");
+
+  // ---------- Construir la rejilla 1..8 ----------
+  const cells = [];
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement("div");
+    d.className = "beat" + (i === 0 ? " uno" : "") + (i === 3 || i === 7 ? " tap" : "");
+    d.textContent = i + 1;
+    beatsEl.appendChild(d);
+    cells.push(d);
+  }
+
+  function setStatus(msg, isErr) {
+    statusEl.textContent = msg;
+    statusEl.classList.toggle("err", !!isErr);
+  }
+
+  // ---------- Arranque del micro ----------
+  async function start() {
+    try {
+      setStatus("Pidiendo acceso al micrófono…");
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,   // queremos la música cruda
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    } catch (e) {
+      setStatus("No se pudo abrir el micrófono: " + e.name +
+                ". Si estás dentro de un iframe puede estar bloqueado — ábrelo en pestaña propia.", true);
+      return;
+    }
+
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === "suspended") await ctx.resume();
+
+    const src = ctx.createMediaStreamSource(stream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0;
+    src.connect(analyser);
+    freq = new Uint8Array(analyser.frequencyBinCount);
+    prevSpec = new Float32Array(analyser.frequencyBinCount);
+
+    running = true;
+    $("start").disabled = true;
+    $("stop").disabled = false;
+    $("tap").disabled = false;
+    setStatus("Escuchando… deja sonar la música unos segundos.");
+    lastSample = ctx.currentTime;
+    requestAnimationFrame(loop);
+  }
+
+  function stop() {
+    running = false;
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (ctx) ctx.close();
+    ctx = null; stream = null;
+    period = 0; unoSet = false; envFilled = 0; envWrite = 0;
+    $("start").disabled = false;
+    $("stop").disabled = true;
+    $("tap").disabled = true;
+    bigEl.textContent = "–";
+    bigEl.classList.remove("uno");
+    bpmEl.textContent = "sin señal";
+    levelEl.style.width = "0%";
+    cells.forEach(c => c.classList.remove("on"));
+    setStatus("Parado.");
+  }
+
+  // ---------- Bucle de análisis ----------
+  let sinceAnalysis = 0;
+
+  function loop() {
+    if (!running) return;
+    requestAnimationFrame(loop);
+
+    const now = ctx.currentTime;
+    if (now - lastSample < 1 / SR) { paint(now); return; }
+    lastSample = now;
+
+    analyser.getByteFrequencyData(freq);
+
+    // Flujo espectral en la banda grave-media: bombo, bajo y güira marcan el pulso.
+    // Bins hasta ~2 kHz con fftSize 1024 @ 48k -> ~43 Hz por bin.
+    const top = Math.min(48, freq.length);
+    let flux = 0, energy = 0;
+    for (let i = 1; i < top; i++) {
+      const v = freq[i] / 255;
+      energy += v;
+      const d = v - prevSpec[i];
+      if (d > 0) flux += d;          // solo incrementos = ataques
+      prevSpec[i] = v;
+    }
+
+    env[envWrite] = flux;
+    envWrite = (envWrite + 1) % HIST;
+    if (envFilled < HIST) envFilled++;
+
+    levelEl.style.width = Math.min(100, (energy / top) * 260) + "%";
+
+    // Reanalizar tempo ~2 veces por segundo, con al menos 4 s de historia
+    if (++sinceAnalysis >= SR / 2) {
+      sinceAnalysis = 0;
+      if (envFilled >= 4 * SR) estimateTempo(now);
+    }
+
+    paint(now);
+  }
+
+  // Envolvente en orden cronológico
+  function ordered() {
+    const n = envFilled;
+    const out = new Float32Array(n);
+    const startIdx = (envWrite - n + HIST) % HIST;
+    for (let i = 0; i < n; i++) out[i] = env[(startIdx + i) % HIST];
+    // quitar media para que la autocorrelación no premie el nivel absoluto
+    let mean = 0;
+    for (let i = 0; i < n; i++) mean += out[i];
+    mean /= n;
+    for (let i = 0; i < n; i++) out[i] -= mean;
+    return out;
+  }
+
+  // Autocorrelación -> periodo; luego fase que maximiza la energía en los pulsos
+  function estimateTempo(now) {
+    const x = ordered();
+    const n = x.length;
+
+    // Bachata: ~110–160 BPM. Buscamos con margen: 90–180.
+    const minLag = Math.floor(SR * 60 / 180);
+    const maxLag = Math.ceil(SR * 60 / 90);
+
+    let bestLag = 0, bestScore = -Infinity;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let s = 0;
+      const count = n - lag;
+      for (let i = 0; i < count; i++) s += x[i] * x[i + lag];
+      s /= count;
+      if (s > bestScore) { bestScore = s; bestLag = lag; }
+    }
+    if (!bestLag || bestScore <= 0) return;
+
+    // Interpolación parabólica para afinar el pico
+    const at = (l) => {
+      let s = 0; const c = n - l;
+      for (let i = 0; i < c; i++) s += x[i] * x[i + l];
+      return s / c;
+    };
+    let lagF = bestLag;
+    if (bestLag > minLag && bestLag < maxLag) {
+      const y0 = at(bestLag - 1), y1 = bestScore, y2 = at(bestLag + 1);
+      const den = y0 - 2 * y1 + y2;
+      if (den !== 0) lagF = bestLag + 0.5 * (y0 - y2) / den;
+    }
+
+    const newPeriod = lagF / SR;
+
+    // Fase: probar cada desplazamiento dentro de un periodo y quedarse
+    // con el que acumula más energía de ataque en los instantes de pulso.
+    const lagI = Math.round(lagF);
+    let bestOff = 0, bestSum = -Infinity;
+    for (let off = 0; off < lagI; off++) {
+      let s = 0;
+      for (let i = n - 1 - off; i >= 0; i -= lagI) s += x[i];
+      if (s > bestSum) { bestSum = s; bestOff = off; }
+    }
+
+    // bestOff son muestras hacia atrás desde el final -> instante del último pulso
+    const lastBeatTime = now - bestOff / SR;
+
+    if (!period) {
+      period = newPeriod;
+      phaseRef = lastBeatTime;
+    } else {
+      // suavizar el tempo; reenganchar la fase de forma continua
+      period = period * 0.8 + newPeriod * 0.2;
+      const k = Math.round((lastBeatTime - phaseRef) / period);
+      const predicted = phaseRef + k * period;
+      const drift = lastBeatTime - predicted;
+      if (Math.abs(drift) < period * 0.25) phaseRef += drift * 0.25;
+    }
+
+    bpmEl.textContent = Math.round(60 / period) + " BPM" + (unoSet ? "" : " · marca el uno");
+  }
+
+  // ---------- Pintado ----------
+  function paint(now) {
+    if (!period) return;
+    const beats = Math.floor((now - phaseRef) / period);
+    const idx = ((beats % 8) + 8) % 8;
+    if (idx === lastBeatShown) return;
+    lastBeatShown = idx;
+
+    const shown = ((idx - beatIndex) % 8 + 8) % 8;
+
+    cells.forEach((c, i) => c.classList.toggle("on", i === shown));
+    bigEl.textContent = shown + 1;
+    bigEl.classList.toggle("uno", shown === 0);
+
+    if (clickOn) click(shown === 0);
+  }
+
+  // ---------- Marcar el uno ----------
+  function markUno() {
+    if (!period) {
+      setStatus("Espera a que detecte el tempo (unos segundos de música).", true);
+      return;
+    }
+    const now = ctx.currentTime;
+    const beats = Math.floor((now - phaseRef) / period);
+    beatIndex = ((beats % 8) + 8) % 8;
+    unoSet = true;
+    lastBeatShown = -1;
+    setStatus("Uno marcado. La cuenta va sola — vuelve a tocar si se desfasa.");
+  }
+
+  // ---------- Clic audible ----------
+  function click(isUno) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = isUno ? 1400 : 900;
+    g.gain.setValueAtTime(isUno ? 0.25 : 0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.06);
+  }
+
+  // ---------- Eventos ----------
+  $("start").addEventListener("click", start);
+  $("stop").addEventListener("click", stop);
+  $("tap").addEventListener("click", markUno);
+  $("sound").addEventListener("click", (e) => {
+    clickOn = !clickOn;
+    e.target.textContent = "Clic: " + (clickOn ? "sí" : "no");
+  });
+
+  // Barra espaciadora también marca el uno
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && running) { e.preventDefault(); markUno(); }
+  });
+})();
+</script>
+
+</html>
