@@ -245,6 +245,81 @@
     border: 1px solid var(--line);
   }
 
+  /* ---------- Juego ---------- */
+  .verdict {
+    font-size: 3.2rem;
+    font-weight: 750;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    min-height: 3.5rem;
+    color: var(--dim);
+    transition: color 0.08s linear, transform 0.08s ease;
+  }
+  .verdict.perfecto { color: var(--accent2); }
+  .verdict.bien     { color: #8fd98f; }
+  .verdict.casi     { color: #ffc94d; }
+  .verdict.fuera    { color: #ff7a5c; }
+  .verdict.pop      { transform: scale(1.08); }
+
+  .offby { font-size: 0.85rem; color: var(--muted); min-height: 1.3em; }
+
+  .scoreline {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .scoreline > div {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sv { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .sk { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+
+  .grade {
+    font-size: 2rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 14px;
+    color: var(--accent2);
+  }
+
+  .resgrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .resgrid > div {
+    background: var(--card2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .rv { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .rk { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+
+  .scorerow {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--line);
+    font-size: 0.85rem;
+  }
+  .scorerow:last-child { border-bottom: none; }
+  .scorerow .t { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scorerow .d { color: var(--dim); font-size: 0.76rem; }
+  .scorerow .p { color: var(--accent2); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
   .status { font-size: 0.82rem; color: var(--muted); line-height: 1.5; text-align: center; min-height: 2.4em; padding: 0 4px; }
   .status.err { color: #ff8a70; }
   .status.ok { color: var(--accent2); }
@@ -327,12 +402,54 @@
   <!-- ============ ALUMNO ============ -->
   <section class="panel" id="panel-alum" role="tabpanel" hidden>
 
-    <div class="display">
-      <div class="big" id="a-big">·</div>
-      <div class="sub" id="a-sub">Sin escuchar</div>
+    <div class="seg" id="a-mode">
+      <button data-m="guia" aria-pressed="true">Ver la cuenta</button>
+      <button data-m="juego" aria-pressed="false">Practicar</button>
     </div>
 
-    <div class="beats" id="a-beats"></div>
+    <!-- --- Modo guía: muestra la cuenta --- -->
+    <div id="a-guide">
+      <div class="display">
+        <div class="big" id="a-big">·</div>
+        <div class="sub" id="a-sub">Sin escuchar</div>
+      </div>
+      <div class="beats" id="a-beats"></div>
+    </div>
+
+    <!-- --- Modo juego: la cuenta queda oculta --- -->
+    <div id="a-game" hidden>
+      <div class="display">
+        <div class="verdict" id="g-verdict">—</div>
+        <div class="offby" id="g-offby">Toca en cada UNO. No te voy a mostrar dónde está.</div>
+      </div>
+
+      <button class="tapzone" id="g-tap">
+        <span id="g-tapmain">Toca en el UNO</span>
+        <small id="g-taphint">Escuchá el compás y marcá</small>
+      </button>
+
+      <div class="scoreline">
+        <div><span class="sv" id="g-points">0</span><span class="sk">puntos</span></div>
+        <div><span class="sv" id="g-hits">0</span><span class="sk">aciertos</span></div>
+        <div><span class="sv" id="g-streak">0</span><span class="sk">seguidos</span></div>
+      </div>
+
+      <button class="primary" id="g-finish" disabled>Terminar y ver resultado</button>
+
+      <!-- Resultado final -->
+      <div class="card" id="g-result" hidden>
+        <h2>Resultado</h2>
+        <div class="grade" id="g-grade">—</div>
+        <div class="resgrid">
+          <div><span class="rv" id="r-points">0</span><span class="rk">puntos</span></div>
+          <div><span class="rv" id="r-acc">0%</span><span class="rk">precisión</span></div>
+          <div><span class="rv" id="r-err">0 ms</span><span class="rk">error medio</span></div>
+          <div><span class="rv" id="r-streak">0</span><span class="rk">mejor racha</span></div>
+        </div>
+        <p class="status" id="r-tip"></p>
+        <button class="ghost" id="g-again">Otra vez</button>
+      </div>
+    </div>
 
     <div class="card">
       <div class="meter"><i id="a-level"></i></div>
@@ -348,6 +465,11 @@
     <div class="card">
       <h2>Repertorio</h2>
       <div id="a-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tus puntajes</h2>
+      <div id="a-scores"></div>
     </div>
   </section>
 
@@ -555,30 +677,35 @@ const DB = {
   db: null,
   open() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open("cuentas", 1);
-      r.onupgradeneeded = () => r.result.createObjectStore("songs", { keyPath: "id" });
+      const r = indexedDB.open("cuentas", 2);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        // Crear solo lo que falte: quien ya tenía canciones guardadas no las pierde.
+        if (!db.objectStoreNames.contains("songs")) db.createObjectStore("songs", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("scores")) db.createObjectStore("scores", { keyPath: "id" });
+      };
       r.onsuccess = () => { this.db = r.result; res(); };
       r.onerror = () => rej(r.error);
     });
   },
-  tx(mode) { return this.db.transaction("songs", mode).objectStore("songs"); },
-  all() {
+  tx(store, mode) { return this.db.transaction(store, mode).objectStore(store); },
+  all(store) {
     return new Promise((res, rej) => {
-      const r = this.tx("readonly").getAll();
+      const r = this.tx(store || "songs", "readonly").getAll();
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
     });
   },
-  put(song) {
+  put(item, store) {
     return new Promise((res, rej) => {
-      const r = this.tx("readwrite").put(song);
+      const r = this.tx(store || "songs", "readwrite").put(item);
       r.onsuccess = () => res();
       r.onerror = () => rej(r.error);
     });
   },
-  del(id) {
+  del(id, store) {
     return new Promise((res, rej) => {
-      const r = this.tx("readwrite").delete(id);
+      const r = this.tx(store || "songs", "readwrite").delete(id);
       r.onsuccess = () => res();
       r.onerror = () => rej(r.error);
     });
@@ -610,6 +737,46 @@ function countAt(downbeats, t) {
   const pos = (t - a) / per * 8;
   return { index: ((Math.floor(pos) % 8) + 8) % 8, phase: pos - Math.floor(pos), period: per };
 }
+
+/* Distancia (con signo) del instante t al "1" más cercano.
+   Negativo = te adelantaste. Positivo = te atrasaste. */
+function nearestOne(db, t) {
+  if (!db || db.length < 2) return null;
+  const n = db.length;
+
+  // Antes del primer golpe o después del último: extrapolar con el compás del borde
+  if (t <= db[0]) {
+    const per = db[1] - db[0];
+    const k = Math.round((t - db[0]) / per);
+    const target = db[0] + k * per;
+    return { err: t - target, per };
+  }
+  if (t >= db[n - 1]) {
+    const per = db[n - 1] - db[n - 2];
+    const k = Math.round((t - db[n - 1]) / per);
+    const target = db[n - 1] + k * per;
+    return { err: t - target, per };
+  }
+
+  // Dentro del tramo marcado: el "1" real es el golpe del profesor más cercano
+  let best = null, idx = 0;
+  for (let i = 0; i < n; i++) {
+    const e = t - db[i];
+    if (!best || Math.abs(e) < Math.abs(best.err)) { best = { err: e }; idx = i; }
+  }
+  const per = idx < n - 1 ? db[idx + 1] - db[idx] : db[idx] - db[idx - 1];
+  best.per = per;
+  return best;
+}
+
+/* Valoración de un golpe, en milisegundos absolutos. */
+const BANDS = [
+  { max: 0.080, name: "perfecto", label: "¡PERFECTO!", pts: 100 },
+  { max: 0.160, name: "bien",     label: "¡BIEN!",     pts: 70  },
+  { max: 0.280, name: "casi",     label: "CASI",       pts: 35  },
+  { max: Infinity, name: "fuera", label: "FUERA",      pts: 0   }
+];
+const judge = (err) => BANDS.find(b => Math.abs(err) <= b.max);
 
 /* =========================================================================
    UI
@@ -720,7 +887,9 @@ function tapNow() {
 
 $("p-tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tapNow(); });
 document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && teacher.active) { e.preventDefault(); tapNow(); }
+  if (e.code !== "Space") return;
+  if (teacher.active) { e.preventDefault(); tapNow(); }
+  else if (game.on && student.listener) { e.preventDefault(); gameTap(); }
 });
 
 $("p-undo").addEventListener("click", () => {
@@ -950,6 +1119,9 @@ function tryMatch(elapsed) {
 }
 
 function paintStudent() {
+  // En modo juego no se dibuja nada de la cuenta: ese es el punto del ejercicio.
+  if (game.on) return;
+
   const songTime = student.listener.time + student.offset;
   const c = countAt(student.song.downbeats, songTime);
   if (!c) return;
@@ -984,6 +1156,139 @@ function setA(msg, kind) {
   el.textContent = msg;
   el.className = "status" + (kind ? " " + kind : "");
 }
+
+/* =========================================================================
+   MODO JUEGO: marcar el uno a ciegas
+   ========================================================================= */
+const game = {
+  on: false, taps: [], points: 0, hits: 0, streak: 0, best: 0, lastTap: 0
+};
+
+$("a-mode").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-m]");
+  if (!b) return;
+  for (const x of $("a-mode").children) x.setAttribute("aria-pressed", x === b);
+  setGameMode(b.dataset.m === "juego");
+});
+
+function setGameMode(on) {
+  game.on = on;
+  $("a-guide").hidden = on;
+  $("a-game").hidden = !on;
+  if (on) {
+    resetGame();
+    setA(student.song
+      ? "Marcá el UNO. La cuenta está oculta a propósito."
+      : "Poné la canción y dale a escuchar; cuando la reconozca, empezá a marcar.");
+  } else {
+    student.lastIdx = -1;
+  }
+}
+
+function resetGame() {
+  game.taps = []; game.points = 0; game.hits = 0; game.streak = 0; game.best = 0; game.lastTap = 0;
+  $("g-points").textContent = "0";
+  $("g-hits").textContent = "0";
+  $("g-streak").textContent = "0";
+  $("g-verdict").textContent = "—";
+  $("g-verdict").className = "verdict";
+  $("g-offby").textContent = "Toca en cada UNO. No te voy a mostrar dónde está.";
+  $("g-result").hidden = true;
+  $("g-finish").disabled = true;
+  $("g-tapmain").textContent = "Toca en el UNO";
+  $("g-taphint").textContent = "Escuchá el compás y marcá";
+}
+
+function gameTap() {
+  if (!game.on) return;
+  if (!student.song) { setA("Todavía no reconocí la canción.", "err"); return; }
+
+  const now = student.listener.time;
+  if (now - game.lastTap < 0.25) return;          // rebote
+  game.lastTap = now;
+
+  const songTime = now + student.offset;
+  const res = nearestOne(student.song.downbeats, songTime);
+  if (!res) return;
+
+  const band = judge(res.err);
+  const ms = Math.round(res.err * 1000);
+
+  game.taps.push({ err: res.err, band: band.name });
+  game.points += band.pts;
+  if (band.pts > 0) { game.hits++; game.streak++; game.best = Math.max(game.best, game.streak); }
+  else game.streak = 0;
+
+  const v = $("g-verdict");
+  v.textContent = band.label;
+  v.className = "verdict " + band.name + " pop";
+  setTimeout(() => v.classList.remove("pop"), 110);
+
+  $("g-offby").textContent = band.name === "perfecto"
+    ? "Justo en el tiempo"
+    : (ms < 0 ? Math.abs(ms) + " ms adelantado" : ms + " ms atrasado");
+
+  $("g-points").textContent = game.points;
+  $("g-hits").textContent = game.hits;
+  $("g-streak").textContent = game.streak;
+  $("g-tapmain").textContent = game.taps.length + (game.taps.length === 1 ? " golpe" : " golpes");
+  $("g-taphint").textContent = "Seguí marcando";
+  $("g-finish").disabled = game.taps.length < 4;
+
+  if (student.vibe && navigator.vibrate) navigator.vibrate(band.pts > 0 ? 30 : 10);
+  const z = $("g-tap");
+  z.classList.add("hit");
+  setTimeout(() => z.classList.remove("hit"), 90);
+}
+
+$("g-tap").addEventListener("pointerdown", (e) => { e.preventDefault(); gameTap(); });
+$("g-again").addEventListener("click", () => resetGame());
+
+$("g-finish").addEventListener("click", async () => {
+  if (game.taps.length < 4) return;
+
+  const n = game.taps.length;
+  const avgErr = game.taps.reduce((s, t) => s + Math.abs(t.err), 0) / n;
+  const maxPts = n * 100;
+  const accuracy = Math.round(game.points / maxPts * 100);
+
+  const grade =
+    accuracy >= 85 ? "Impecable" :
+    accuracy >= 70 ? "Muy bien" :
+    accuracy >= 50 ? "Vas bien" :
+    accuracy >= 30 ? "A practicar" : "Cuesta arriba";
+
+  $("g-grade").textContent = grade;
+  $("r-points").textContent = game.points;
+  $("r-acc").textContent = accuracy + "%";
+  $("r-err").textContent = Math.round(avgErr * 1000) + " ms";
+  $("r-streak").textContent = game.best;
+
+  // Consejo según la tendencia: adelantarse y atrasarse se corrigen distinto
+  const bias = game.taps.reduce((s, t) => s + t.err, 0) / n;
+  $("r-tip").textContent =
+    Math.abs(bias) < 0.04 ? "Tu error no tira para ningún lado: es cuestión de afinar."
+    : bias < 0 ? "Te adelantás de forma constante (" + Math.round(Math.abs(bias) * 1000) + " ms). Esperá un pelín más el golpe."
+    : "Te atrasás de forma constante (" + Math.round(bias * 1000) + " ms). Anticipá un poco el movimiento.";
+
+  $("g-result").hidden = false;
+
+  const score = {
+    id: "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    songId: student.song.id,
+    songTitle: student.song.title,
+    rhythm: student.song.rhythm,
+    when: Date.now(),
+    taps: n, hits: game.hits, points: game.points,
+    accuracy, avgError: Math.round(avgErr * 1000), best: game.best
+  };
+  try {
+    await DB.put(score, "scores");
+    await reloadScores();
+  } catch (e) {
+    setA("El puntaje no se pudo guardar: " + e.message, "err");
+  }
+});
 
 /* =========================================================================
    Listas de canciones
@@ -1041,16 +1346,51 @@ function renderLists() {
   }
 }
 
+async function reloadScores() {
+  const scores = (await DB.all("scores")).sort((a, b) => b.when - a.when).slice(0, 20);
+  const el = $("a-scores");
+  el.textContent = "";
+  if (!scores.length) {
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "Todavía no jugaste ninguna.";
+    el.appendChild(e);
+    return;
+  }
+  scores.forEach(s => {
+    const row = document.createElement("div");
+    row.className = "scorerow";
+
+    const left = document.createElement("div");
+    const t = document.createElement("div");
+    t.className = "t";
+    t.textContent = s.songTitle;
+    const d = document.createElement("div");
+    d.className = "d";
+    d.textContent = new Date(s.when).toLocaleDateString() + " · " +
+      s.hits + "/" + s.taps + " · " + s.avgError + " ms";
+    left.appendChild(t); left.appendChild(d);
+
+    const p = document.createElement("div");
+    p.className = "p";
+    p.textContent = s.accuracy + "%";
+
+    row.appendChild(left); row.appendChild(p);
+    el.appendChild(row);
+  });
+}
+
 async function reload() {
-  songs = await DB.all();
+  songs = await DB.all("songs");
   songs.sort((a, b) => b.createdAt - a.createdAt);
   matcher.clear();
   songs.forEach(s => matcher.add(s));
   renderLists();
+  await reloadScores();
 }
 
 /* Expuesto para poder probar el algoritmo desde la consola sin micrófono. */
-window.__cuentas = { Fingerprinter, Matcher, countAt, FP, packHash };
+window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, packHash };
 
 /* =========================================================================
    Arranque
