@@ -1534,14 +1534,14 @@ function renderLists() {
 
     const info = document.createElement("div");
     info.className = "info";
-    const t = document.createElement("div");
-    t.className = "t";
-    t.textContent = s.title;
+    const titleEl = document.createElement("div");
+    titleEl.className = "t";
+    titleEl.textContent = s.title;
     const m = document.createElement("div");
     m.className = "m";
     m.textContent = [s.artist, rhythmName(s.rhythm), s.teacher, fmt(s.duration || 0)]
       .filter(Boolean).join(" · ");
-    info.appendChild(t); info.appendChild(m);
+    info.appendChild(titleEl); info.appendChild(m);
 
     if (!usable(s)) {
       const w = document.createElement("div");
@@ -1604,14 +1604,14 @@ async function reloadScores() {
     row.className = "scorerow";
 
     const left = document.createElement("div");
-    const t = document.createElement("div");
-    t.className = "t";
-    t.textContent = s.songTitle;
+    const titleEl = document.createElement("div");
+    titleEl.className = "t";
+    titleEl.textContent = s.songTitle;
     const d = document.createElement("div");
     d.className = "d";
     d.textContent = new Date(s.when).toLocaleDateString() + " · " +
       s.hits + "/" + s.taps + " · " + s.avgError + " ms";
-    left.appendChild(t); left.appendChild(d);
+    left.appendChild(titleEl); left.appendChild(d);
 
     const p = document.createElement("div");
     p.className = "p";
