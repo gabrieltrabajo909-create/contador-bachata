@@ -59,6 +59,20 @@
     color: #fff;
   }
 
+  /* ---------- Selector de idioma ---------- */
+  .topbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .langsw {
+    display: flex; gap: 2px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px;
+  }
+  .langsw button {
+    border: none; background: transparent; color: var(--dim);
+    font: inherit; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+    padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  }
+  .langsw button[aria-pressed="true"] { background: var(--card2); color: var(--ink); }
+
   .panel[hidden] { display: none; }
 
   /* ---------- Bloques ---------- */
@@ -336,64 +350,71 @@
 <body>
 <div class="wrap">
 
+  <div class="topbar">
+    <div class="langsw" id="langsw">
+      <button data-lang="es" aria-pressed="true">ES</button>
+      <button data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+
   <div class="tabs" role="tablist">
-    <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof">Profesor</button>
-    <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum">Alumno</button>
+    <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof" data-i18n="tabProf">Profesor</button>
+    <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum" data-i18n="tabAlum">Alumno</button>
   </div>
 
   <!-- ============ PROFESOR ============ -->
   <section class="panel" id="panel-prof" role="tabpanel">
 
     <div class="card" id="p-setup">
-      <h2>Nueva canción</h2>
-      <label for="f-title">Canción</label>
-      <input type="text" id="f-title" placeholder="Propuesta indecente">
-      <label for="f-artist">Artista</label>
-      <input type="text" id="f-artist" placeholder="Romeo Santos">
-      <label for="f-teacher">Profesor</label>
-      <input type="text" id="f-teacher" placeholder="Tu nombre">
-      <label>Ritmo</label>
+      <h2 data-i18n="newSong">Nueva canción</h2>
+      <label for="f-title" data-i18n="song">Canción</label>
+      <input type="text" id="f-title" placeholder="Propuesta indecente" data-i18n-ph="phSong">
+      <label for="f-artist" data-i18n="artist">Artista</label>
+      <input type="text" id="f-artist" placeholder="Romeo Santos" data-i18n-ph="phArtist">
+      <label for="f-teacher" data-i18n="teacher">Profesor</label>
+      <input type="text" id="f-teacher" placeholder="Tu nombre" data-i18n-ph="phTeacher">
+      <label data-i18n="rhythm">Ritmo</label>
       <div class="seg" id="f-rhythm">
-        <button data-r="bachata" aria-pressed="true">Bachata</button>
-        <button data-r="salsa1" aria-pressed="false">Salsa en 1</button>
+        <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
+        <button data-r="salsa1" aria-pressed="false" data-i18n="salsa1">Salsa en 1</button>
       </div>
-      <button class="primary" id="p-start">Empezar a grabar</button>
+      <button class="primary" id="p-start" data-i18n="startRec">Empezar a grabar</button>
     </div>
 
     <div class="card" id="p-rec" hidden>
-      <h2>Grabando</h2>
+      <h2 data-i18n="recording">Grabando</h2>
       <div class="meter"><i id="p-level"></i></div>
       <button class="tapzone" id="p-tap">
-        <span id="p-tapmain">Toca en cada UNO</span>
-        <small id="p-taphint">Empieza cuando entre el 1 de la canción</small>
+        <span id="p-tapmain" data-i18n="tapOne">Toca en cada UNO</span>
+        <small id="p-taphint" data-i18n="tapHint">Empieza cuando entre el 1 de la canción</small>
       </button>
       <div class="row">
-        <button class="ghost" id="p-undo">Borrar último</button>
-        <button class="primary" id="p-stop">Terminar</button>
+        <button class="ghost" id="p-undo" data-i18n="undo">Borrar último</button>
+        <button class="primary" id="p-stop" data-i18n="finish">Terminar</button>
       </div>
       <p class="status" id="p-status"></p>
     </div>
 
     <div class="card" id="p-review" hidden>
-      <h2>Revisar antes de guardar</h2>
+      <h2 data-i18n="review">Revisar antes de guardar</h2>
       <p class="status" id="p-revinfo"></p>
-      <label>Ajuste fino de todas las cuentas</label>
+      <label data-i18n="nudgeLabel">Ajuste fino de todas las cuentas</label>
       <div class="row">
         <button class="ghost" id="p-nudge-b">−50 ms</button>
         <button class="ghost" id="p-nudge-f">+50 ms</button>
       </div>
-      <label style="margin-top:6px">Golpes marcados</label>
+      <label style="margin-top:6px" data-i18n="tapsMarked">Golpes marcados</label>
       <div class="taplist" id="p-taplist"></div>
-      <button class="primary" id="p-save" style="margin-top:12px">Guardar canción</button>
-      <button class="danger" id="p-discard">Descartar</button>
+      <button class="primary" id="p-save" style="margin-top:12px" data-i18n="save">Guardar canción</button>
+      <button class="danger" id="p-discard" data-i18n="discard">Descartar</button>
     </div>
 
     <div class="card">
-      <h2>Canciones guardadas</h2>
+      <h2 data-i18n="savedSongs">Canciones guardadas</h2>
       <div id="p-list"></div>
       <div class="row" style="margin-top:10px">
-        <button class="ghost" id="p-export">Exportar</button>
-        <button class="ghost" id="p-import">Importar</button>
+        <button class="ghost" id="p-export" data-i18n="exportBtn">Exportar</button>
+        <button class="ghost" id="p-import" data-i18n="importBtn">Importar</button>
       </div>
       <input type="file" id="p-file" accept="application/json" hidden>
     </div>
@@ -403,15 +424,15 @@
   <section class="panel" id="panel-alum" role="tabpanel" hidden>
 
     <div class="seg" id="a-mode">
-      <button data-m="guia" aria-pressed="true">Ver la cuenta</button>
-      <button data-m="juego" aria-pressed="false">Practicar</button>
+      <button data-m="guia" aria-pressed="true" data-i18n="seeCount">Ver la cuenta</button>
+      <button data-m="juego" aria-pressed="false" data-i18n="practise">Practicar</button>
     </div>
 
     <!-- --- Modo guía: muestra la cuenta --- -->
     <div id="a-guide">
       <div class="display">
         <div class="big" id="a-big">·</div>
-        <div class="sub" id="a-sub">Sin escuchar</div>
+        <div class="sub" id="a-sub" data-i18n="notListening">Sin escuchar</div>
       </div>
       <div class="beats" id="a-beats"></div>
     </div>
@@ -420,55 +441,55 @@
     <div id="a-game" hidden>
       <div class="display">
         <div class="verdict" id="g-verdict">—</div>
-        <div class="offby" id="g-offby">Toca en cada UNO. No te voy a mostrar dónde está.</div>
+        <div class="offby" id="g-offby" data-i18n="gameHint">Toca en cada UNO. No te voy a mostrar dónde está.</div>
       </div>
 
       <button class="tapzone" id="g-tap">
-        <span id="g-tapmain">Toca en el UNO</span>
-        <small id="g-taphint">Escuchá el compás y marcá</small>
+        <span id="g-tapmain" data-i18n="gameTap">Toca en el UNO</span>
+        <small id="g-taphint" data-i18n="gameTapHint">Escuchá el compás y marcá</small>
       </button>
 
       <div class="scoreline">
-        <div><span class="sv" id="g-points">0</span><span class="sk">puntos</span></div>
-        <div><span class="sv" id="g-hits">0</span><span class="sk">aciertos</span></div>
-        <div><span class="sv" id="g-streak">0</span><span class="sk">seguidos</span></div>
+        <div><span class="sv" id="g-points">0</span><span class="sk" data-i18n="points">puntos</span></div>
+        <div><span class="sv" id="g-hits">0</span><span class="sk" data-i18n="hits">aciertos</span></div>
+        <div><span class="sv" id="g-streak">0</span><span class="sk" data-i18n="streak">seguidos</span></div>
       </div>
 
-      <button class="primary" id="g-finish" disabled>Terminar y ver resultado</button>
+      <button class="primary" id="g-finish" disabled data-i18n="finishGame">Terminar y ver resultado</button>
 
       <!-- Resultado final -->
       <div class="card" id="g-result" hidden>
-        <h2>Resultado</h2>
+        <h2 data-i18n="result">Resultado</h2>
         <div class="grade" id="g-grade">—</div>
         <div class="resgrid">
-          <div><span class="rv" id="r-points">0</span><span class="rk">puntos</span></div>
-          <div><span class="rv" id="r-acc">0%</span><span class="rk">precisión</span></div>
-          <div><span class="rv" id="r-err">0 ms</span><span class="rk">error medio</span></div>
-          <div><span class="rv" id="r-streak">0</span><span class="rk">mejor racha</span></div>
+          <div><span class="rv" id="r-points">0</span><span class="rk" data-i18n="points">puntos</span></div>
+          <div><span class="rv" id="r-acc">0%</span><span class="rk" data-i18n="accuracy">precisión</span></div>
+          <div><span class="rv" id="r-err">0 ms</span><span class="rk" data-i18n="avgErr">error medio</span></div>
+          <div><span class="rv" id="r-streak">0</span><span class="rk" data-i18n="bestStreak">mejor racha</span></div>
         </div>
         <p class="status" id="r-tip"></p>
-        <button class="ghost" id="g-again">Otra vez</button>
+        <button class="ghost" id="g-again" data-i18n="again">Otra vez</button>
       </div>
     </div>
 
     <div class="card">
       <div class="meter"><i id="a-level"></i></div>
-      <button class="primary" id="a-start">Escuchar y reconocer</button>
-      <button class="ghost" id="a-stop" disabled>Parar</button>
+      <button class="primary" id="a-start" data-i18n="listen">Escuchar y reconocer</button>
+      <button class="ghost" id="a-stop" disabled data-i18n="stop">Parar</button>
       <div class="row">
         <button class="ghost" id="a-voice">Voz: no</button>
         <button class="ghost" id="a-vibe">Vibrar: sí</button>
       </div>
-      <p class="status" id="a-status">Pon la canción y dale a escuchar.</p>
+      <p class="status" id="a-status" data-i18n="startHint">Pon la canción y dale a escuchar.</p>
     </div>
 
     <div class="card">
-      <h2>Repertorio</h2>
+      <h2 data-i18n="repertoire">Repertorio</h2>
       <div id="a-list"></div>
     </div>
 
     <div class="card">
-      <h2>Tus puntajes</h2>
+      <h2 data-i18n="yourScores">Tus puntajes</h2>
       <div id="a-scores"></div>
     </div>
   </section>
@@ -480,12 +501,144 @@
 "use strict";
 
 /* =========================================================================
+   Idiomas
+
+   Cada texto visible tiene una clave. En el HTML se marcan con data-i18n
+   (contenido) o data-i18n-ph (placeholder); los que se generan desde el
+   código pasan por t(). Así añadir un idioma es añadir una columna.
+   ========================================================================= */
+const STR = {
+  es: {
+    tabProf: "Profesor", tabAlum: "Alumno",
+    newSong: "Nueva canción", song: "Canción", artist: "Artista", teacher: "Profesor",
+    rhythm: "Ritmo", bachata: "Bachata", salsa1: "Salsa en 1",
+    startRec: "Empezar a grabar", recording: "Grabando",
+    tapOne: "Toca en cada UNO", tapHint: "Empieza cuando entre el 1 de la canción",
+    undo: "Borrar último", finish: "Terminar",
+    review: "Revisar antes de guardar", nudgeLabel: "Ajuste fino de todas las cuentas",
+    tapsMarked: "Golpes marcados", save: "Guardar canción", discard: "Descartar",
+    savedSongs: "Canciones guardadas", exportBtn: "Exportar", importBtn: "Importar",
+    seeCount: "Ver la cuenta", practise: "Practicar",
+    notListening: "Sin escuchar",
+    gameHint: "Toca en cada UNO. No te voy a mostrar dónde está.",
+    gameTap: "Toca en el UNO", gameTapHint: "Escuchá el compás y marcá",
+    points: "puntos", hits: "aciertos", streak: "seguidos",
+    finishGame: "Terminar y ver resultado", result: "Resultado",
+    accuracy: "precisión", avgErr: "error medio", bestStreak: "mejor racha",
+    again: "Otra vez", listen: "Escuchar y reconocer", stop: "Parar",
+    repertoire: "Repertorio", yourScores: "Tus puntajes",
+    noScores: "Todavía no jugaste ninguna.",
+    noSongsYet: "Todavía no hay canciones. Grábalas desde Profesor.",
+    noneSaved: "Ninguna guardada.",
+    onlyThis: "solo esta", del: "borrar",
+    voice: "Voz", vibrate: "Vibrar", yes: "sí", no: "no",
+    vibeNA: "Vibrar: no disponible",
+    vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
+    startHint: "Pon la canción y dale a escuchar.",
+    needName: "Ponle nombre a la canción.",
+    micFail: "No se pudo abrir el micrófono: ",
+    tapAtLeast: "Toca en cada 1. Necesito al menos 2 golpes.",
+    need2: "Necesito al menos 2 golpes para sacar el compás.",
+    saved: "Guardada: ", nudged: "Ajustado ",
+    imported: "Importadas {0} canciones.", badFile: "Archivo no válido.",
+    dbFail: "No se pudo abrir la base de datos: ",
+    scoreFail: "El puntaje no se pudo guardar: ",
+    noSongs: "No hay canciones guardadas todavía.",
+    searching: "Escuchando para reconocer la canción…",
+    notYet: "No la reconozco todavía… acerca el teléfono al altavoz.",
+    onlySearch: "Buscaré solo: ", anySong: "Buscaré cualquier canción.",
+    gameReady: "Marcá el UNO. La cuenta está oculta a propósito.",
+    gameWait: "Poné la canción y dale a escuchar; cuando la reconozca, empezá a marcar.",
+    notRecognised: "Todavía no reconocí la canción.",
+    oldFormat: "Formato antiguo · hay que regrabarla",
+    oldFormatMsg: "{0} grabada(s) con una versión anterior: hay que volver a grabarlas.",
+    vPerfect: "¡PERFECTO!", vGood: "¡BIEN!", vClose: "CASI", vOff: "FUERA",
+    onTime: "Justo en el tiempo", early: "{0} ms adelantado", late: "{0} ms atrasado",
+    gFlawless: "Impecable", gVeryGood: "Muy bien", gOk: "Vas bien",
+    gPractise: "A practicar", gRough: "Cuesta arriba",
+    tipEven: "Tu error no tira para ningún lado: es cuestión de afinar.",
+    tipEarly: "Te adelantás de forma constante ({0} ms). Esperá un pelín más el golpe.",
+    tipLate: "Te atrasás de forma constante ({0} ms). Anticipá un poco el movimiento.",
+    tapCount: "{0} golpe", tapCountN: "{0} golpes", keepTapping: "Seguí marcando",
+    bpmApprox: "{0} BPM aprox.", remove: "quitar",
+    revInfo: "{0} golpes · {1} BPM · {2} grabados · {3}",
+    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Tu nombre"
+  },
+  en: {
+    tabProf: "Teacher", tabAlum: "Student",
+    newSong: "New song", song: "Song", artist: "Artist", teacher: "Teacher",
+    rhythm: "Rhythm", bachata: "Bachata", salsa1: "Salsa on 1",
+    startRec: "Start recording", recording: "Recording",
+    tapOne: "Tap on every ONE", tapHint: "Start when the 1 comes round",
+    undo: "Undo last", finish: "Done",
+    review: "Check before saving", nudgeLabel: "Nudge every count",
+    tapsMarked: "Marked taps", save: "Save song", discard: "Discard",
+    savedSongs: "Saved songs", exportBtn: "Export", importBtn: "Import",
+    seeCount: "Show the count", practise: "Practise",
+    notListening: "Not listening",
+    gameHint: "Tap on every ONE. I won't show you where it is.",
+    gameTap: "Tap on the ONE", gameTapHint: "Feel the bar and mark it",
+    points: "points", hits: "hits", streak: "in a row",
+    finishGame: "Finish and see result", result: "Result",
+    accuracy: "accuracy", avgErr: "average error", bestStreak: "best streak",
+    again: "Again", listen: "Listen and recognise", stop: "Stop",
+    repertoire: "Repertoire", yourScores: "Your scores",
+    noScores: "You haven't played yet.",
+    noSongsYet: "No songs yet. Record them from the Teacher tab.",
+    noneSaved: "None saved.",
+    onlyThis: "this one", del: "delete",
+    voice: "Sound", vibrate: "Vibrate", yes: "on", no: "off",
+    vibeNA: "Vibrate: unavailable",
+    vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
+    startHint: "Put the song on and press listen.",
+    needName: "Give the song a name.",
+    micFail: "Couldn't open the microphone: ",
+    tapAtLeast: "Tap on every 1. I need at least 2 taps.",
+    need2: "I need at least 2 taps to work out the bar.",
+    saved: "Saved: ", nudged: "Nudged ",
+    imported: "Imported {0} songs.", badFile: "Invalid file.",
+    dbFail: "Couldn't open the database: ",
+    scoreFail: "The score couldn't be saved: ",
+    noSongs: "No songs saved yet.",
+    searching: "Listening to recognise the song…",
+    notYet: "Can't place it yet… move the phone closer to the speaker.",
+    onlySearch: "I'll only look for: ", anySong: "I'll look for any song.",
+    gameReady: "Mark the ONE. The count is hidden on purpose.",
+    gameWait: "Put the song on and press listen; once I recognise it, start marking.",
+    notRecognised: "I haven't recognised the song yet.",
+    oldFormat: "Old format · needs re-recording",
+    oldFormatMsg: "{0} recorded with an older version: they need re-recording.",
+    vPerfect: "PERFECT!", vGood: "GOOD!", vClose: "CLOSE", vOff: "OFF",
+    onTime: "Right on the beat", early: "{0} ms early", late: "{0} ms late",
+    gFlawless: "Flawless", gVeryGood: "Very good", gOk: "Getting there",
+    gPractise: "Keep practising", gRough: "Rough",
+    tipEven: "Your error doesn't lean either way: just fine-tuning left.",
+    tipEarly: "You're consistently early ({0} ms). Wait a touch longer.",
+    tipLate: "You're consistently late ({0} ms). Anticipate the beat a little.",
+    tapCount: "{0} tap", tapCountN: "{0} taps", keepTapping: "Keep marking",
+    bpmApprox: "~{0} BPM", remove: "remove",
+    revInfo: "{0} taps · {1} BPM · {2} recorded · {3}",
+    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Your name"
+  }
+};
+
+let lang = localStorage.getItem("lang") ||
+  ((navigator.language || "es").toLowerCase().startsWith("es") ? "es" : "en");
+
+function t(key, ...args) {
+  let s = (STR[lang] && STR[lang][key]) !== undefined ? STR[lang][key] : key;
+  args.forEach((v, i) => { s = s.replace("{" + i + "}", v); });
+  return s;
+}
+
+/* =========================================================================
    Ritmos
    ========================================================================= */
 const RHYTHMS = {
-  bachata: { name: "Bachata", labels: ["1","2","3","TAP","5","6","7","TAP"] },
-  salsa1:  { name: "Salsa en 1", labels: ["1","2","3","·","5","6","7","·"] }
+  bachata: { key: "bachata", labels: ["1","2","3","TAP","5","6","7","TAP"] },
+  salsa1:  { key: "salsa1",  labels: ["1","2","3","·","5","6","7","·"] }
 };
+const rhythmName = (r) => t(RHYTHMS[r].key);
 const isOne = (i) => i === 0;
 const isTap = (i) => i === 3 || i === 7;
 
@@ -500,6 +653,10 @@ const isTap = (i) => i === 3 || i === 7;
    qué segundo va.
    ========================================================================= */
 const FP = {
+  // Si algún día cambia cómo se calculan las huellas, sube este número.
+  // Las canciones guardadas con otra versión no se pueden comparar con las
+  // nuevas, así que la app las detecta y avisa en vez de fallar en silencio.
+  VERSION: 1,
   FFT: 2048,
   HOP: 0.0464,        // segundos por frame (~21.6 frames/s)
   MAXBIN: 232,        // ~5 kHz con 44.1 kHz
@@ -771,10 +928,10 @@ function nearestOne(db, t) {
 
 /* Valoración de un golpe, en milisegundos absolutos. */
 const BANDS = [
-  { max: 0.080, name: "perfecto", label: "¡PERFECTO!", pts: 100 },
-  { max: 0.160, name: "bien",     label: "¡BIEN!",     pts: 70  },
-  { max: 0.280, name: "casi",     label: "CASI",       pts: 35  },
-  { max: Infinity, name: "fuera", label: "FUERA",      pts: 0   }
+  { max: 0.080, name: "perfecto", key: "vPerfect", pts: 100 },
+  { max: 0.160, name: "bien",     key: "vGood",    pts: 70  },
+  { max: 0.280, name: "casi",     key: "vClose",   pts: 35  },
+  { max: Infinity, name: "fuera", key: "vOff",     pts: 0   }
 ];
 const judge = (err) => BANDS.find(b => Math.abs(err) <= b.max);
 
@@ -835,7 +992,7 @@ $("f-rhythm").addEventListener("click", (e) => {
 
 $("p-start").addEventListener("click", async () => {
   const title = $("f-title").value.trim();
-  if (!title) { setP("Ponle nombre a la canción.", "err"); return; }
+  if (!title) { setP(t("needName"), "err"); return; }
 
   teacher.meta = {
     title,
@@ -853,7 +1010,7 @@ $("p-start").addEventListener("click", async () => {
       (lvl) => { $("p-level").style.width = (lvl * 100) + "%"; }
     );
   } catch (e) {
-    setP("No se pudo abrir el micrófono: " + e.name, "err");
+    setP(t("micFail") + e.name, "err");
     return;
   }
 
@@ -862,7 +1019,7 @@ $("p-start").addEventListener("click", async () => {
   $("p-rec").hidden = false;
   $("p-review").hidden = true;
   $("p-tap").classList.add("armed");
-  setP("Toca en cada 1. Necesito al menos 2 golpes.");
+  setP(t("tapAtLeast"));
 });
 
 function tapNow() {
@@ -878,10 +1035,10 @@ function tapNow() {
   if (navigator.vibrate) navigator.vibrate(12);
 
   const n = teacher.downbeats.length;
-  $("p-tapmain").textContent = n + (n === 1 ? " golpe" : " golpes");
+  $("p-tapmain").textContent = t(n === 1 ? "tapCount" : "tapCountN", n);
   if (n >= 2) {
     const per = teacher.downbeats[n - 1] - teacher.downbeats[n - 2];
-    $("p-taphint").textContent = Math.round(60 / (per / 8)) + " BPM aprox.";
+    $("p-taphint").textContent = t("bpmApprox", Math.round(60 / (per / 8)));
   }
 }
 
@@ -895,12 +1052,12 @@ document.addEventListener("keydown", (e) => {
 $("p-undo").addEventListener("click", () => {
   teacher.downbeats.pop();
   const n = teacher.downbeats.length;
-  $("p-tapmain").textContent = n ? n + (n === 1 ? " golpe" : " golpes") : "Toca en cada UNO";
+  $("p-tapmain").textContent = n ? t(n === 1 ? "tapCount" : "tapCountN", n) : t("tapOne");
 });
 
 $("p-stop").addEventListener("click", () => {
   if (!teacher.active) return;
-  if (teacher.downbeats.length < 2) { setP("Necesito al menos 2 golpes para sacar el compás.", "err"); return; }
+  if (teacher.downbeats.length < 2) { setP(t("need2"), "err"); return; }
 
   const dur = teacher.listener.time;
   teacher.listener.stop();
@@ -915,9 +1072,8 @@ $("p-stop").addEventListener("click", () => {
 function renderReview() {
   const d = teacher.downbeats;
   const per = (d[d.length - 1] - d[0]) / (d.length - 1);
-  $("p-revinfo").textContent =
-    d.length + " golpes · " + Math.round(60 / (per / 8)) + " BPM · " +
-    fmt(teacher.duration) + " grabados · " + RHYTHMS[teacher.meta.rhythm].name;
+  $("p-revinfo").textContent = t("revInfo", d.length, Math.round(60 / (per / 8)),
+    fmt(teacher.duration), rhythmName(teacher.meta.rhythm));
 
   const list = $("p-taplist");
   list.textContent = "";
@@ -926,7 +1082,7 @@ function renderReview() {
     const span = document.createElement("span");
     span.textContent = "#" + (i + 1) + "  " + t.toFixed(2) + " s";
     const del = document.createElement("button");
-    del.textContent = "quitar";
+    del.textContent = t("remove");
     del.addEventListener("click", () => {
       if (teacher.downbeats.length <= 2) return;
       teacher.downbeats.splice(i, 1);
@@ -940,7 +1096,7 @@ function renderReview() {
 function nudge(ms) {
   teacher.downbeats = teacher.downbeats.map(t => Math.max(0, t + ms / 1000));
   renderReview();
-  setP("Ajustado " + (ms > 0 ? "+" : "") + ms + " ms.", "ok");
+  setP(t("nudged") + (ms > 0 ? "+" : "") + ms + " ms.", "ok");
 }
 $("p-nudge-b").addEventListener("click", () => nudge(-50));
 $("p-nudge-f").addEventListener("click", () => nudge(50));
@@ -954,13 +1110,14 @@ $("p-save").addEventListener("click", async () => {
     ...teacher.meta,
     duration: teacher.duration,
     createdAt: Date.now(),
+    fpv: FP.VERSION,
     downbeats: teacher.downbeats.slice(),
     fp: { keys: fp.keys, times: fp.times }
   };
   await DB.put(song);
   await reload();
   resetTeacher();
-  setP("Guardada: " + song.title, "ok");
+  setP(t("saved") + song.title, "ok");
 });
 
 function resetTeacher() {
@@ -968,8 +1125,8 @@ function resetTeacher() {
   $("p-setup").hidden = false;
   $("p-rec").hidden = true;
   $("p-review").hidden = true;
-  $("p-tapmain").textContent = "Toca en cada UNO";
-  $("p-taphint").textContent = "Empieza cuando entre el 1 de la canción";
+  $("p-tapmain").textContent = t("tapOne");
+  $("p-taphint").textContent = t("tapHint");
   $("p-level").style.width = "0%";
   teacher.downbeats = [];
 }
@@ -1011,9 +1168,9 @@ $("p-file").addEventListener("change", async (e) => {
       await DB.put(s);
     }
     await reload();
-    setP("Importadas " + data.songs.length + " canciones.", "ok");
+    setP(t("imported", data.songs.length), "ok");
   } catch (err) {
-    setP("Archivo no válido.", "err");
+    setP(t("badFile"), "err");
   }
   e.target.value = "";
 });
@@ -1030,13 +1187,34 @@ $("a-voice").addEventListener("click", (e) => {
   student.voice = !student.voice;
   e.target.textContent = "Voz: " + (student.voice ? "sí" : "no");
 });
+/* iOS no expone vibración a las páginas web: no es un permiso que se pueda
+   pedir, la API directamente no existe. En vez de dejar un botón que no hace
+   nada, lo desactivamos y explicamos por qué. */
+const CAN_VIBRATE = typeof navigator.vibrate === "function";
+
+function initVibe() {
+  const b = $("a-vibe");
+  if (CAN_VIBRATE) {
+    student.vibe = true;
+    b.textContent = t("vibrate") + ": " + t("yes");
+    return;
+  }
+  student.vibe = false;
+  b.textContent = t("vibeNA");
+  b.disabled = true;
+  b.title = t("vibeNAHint");
+}
+
 $("a-vibe").addEventListener("click", (e) => {
+  if (!CAN_VIBRATE) return;
   student.vibe = !student.vibe;
   e.target.textContent = "Vibrar: " + (student.vibe ? "sí" : "no");
 });
 
+const buzz = (ms) => { if (student.vibe && CAN_VIBRATE) navigator.vibrate(ms); };
+
 $("a-start").addEventListener("click", async () => {
-  if (!songs.length) { setA("No hay canciones guardadas todavía.", "err"); return; }
+  if (!songs.length) { setA(t("noSongs"), "err"); return; }
 
   student.fp = new Fingerprinter();
   student.song = null;
@@ -1049,13 +1227,13 @@ $("a-start").addEventListener("click", async () => {
       $("a-level").style.width = (lvl * 100) + "%";
     });
   } catch (e) {
-    setA("No se pudo abrir el micrófono: " + e.name, "err");
+    setA(t("micFail") + e.name, "err");
     return;
   }
 
   $("a-start").disabled = true;
   $("a-stop").disabled = false;
-  setA(student.forced ? "Buscando el punto de la canción…" : "Escuchando para reconocer la canción…");
+  setA(t("searching"));
 });
 
 $("a-stop").addEventListener("click", () => stopStudent());
@@ -1099,7 +1277,7 @@ function tryMatch(elapsed) {
   const res = matcher.match(qk, qt);
   student.matching = false;
   if (!res) {
-    if (!student.song) setA("No la reconozco todavía… acerca el teléfono al altavoz.");
+    if (!student.song) setA(t("notYet"));
     return;
   }
   if (student.forced && res.songId !== student.forced) return;
@@ -1113,7 +1291,7 @@ function tryMatch(elapsed) {
   if (first) {
     buildBeats(song.rhythm);
     setA(song.title + (song.artist ? " · " + song.artist : ""), "ok");
-    $("a-sub").textContent = RHYTHMS[song.rhythm].name +
+    $("a-sub").textContent = rhythmName(song.rhythm) +
       (song.teacher ? " · " + song.teacher : "");
   }
 }
@@ -1134,7 +1312,7 @@ function paintStudent() {
     big.className = "big" + (isOne(c.index) ? " one" : isTap(c.index) ? " tap" : "");
     beatCells.forEach((cell, i) => cell.classList.toggle("on", i === c.index));
 
-    if (student.vibe && navigator.vibrate) navigator.vibrate(isOne(c.index) ? 60 : 15);
+    buzz(isOne(c.index) ? 60 : 15);
     if (student.voice) speak(labels[c.index], isOne(c.index));
   }
 }
@@ -1178,8 +1356,8 @@ function setGameMode(on) {
   if (on) {
     resetGame();
     setA(student.song
-      ? "Marcá el UNO. La cuenta está oculta a propósito."
-      : "Poné la canción y dale a escuchar; cuando la reconozca, empezá a marcar.");
+      ? t("gameReady")
+      : t("gameWait"));
   } else {
     student.lastIdx = -1;
   }
@@ -1192,16 +1370,16 @@ function resetGame() {
   $("g-streak").textContent = "0";
   $("g-verdict").textContent = "—";
   $("g-verdict").className = "verdict";
-  $("g-offby").textContent = "Toca en cada UNO. No te voy a mostrar dónde está.";
+  $("g-offby").textContent = t("gameHint");
   $("g-result").hidden = true;
   $("g-finish").disabled = true;
-  $("g-tapmain").textContent = "Toca en el UNO";
-  $("g-taphint").textContent = "Escuchá el compás y marcá";
+  $("g-tapmain").textContent = t("gameTap");
+  $("g-taphint").textContent = t("gameTapHint");
 }
 
 function gameTap() {
   if (!game.on) return;
-  if (!student.song) { setA("Todavía no reconocí la canción.", "err"); return; }
+  if (!student.song) { setA(t("notRecognised"), "err"); return; }
 
   const now = student.listener.time;
   if (now - game.lastTap < 0.25) return;          // rebote
@@ -1220,22 +1398,22 @@ function gameTap() {
   else game.streak = 0;
 
   const v = $("g-verdict");
-  v.textContent = band.label;
+  v.textContent = t(band.key);
   v.className = "verdict " + band.name + " pop";
   setTimeout(() => v.classList.remove("pop"), 110);
 
   $("g-offby").textContent = band.name === "perfecto"
-    ? "Justo en el tiempo"
-    : (ms < 0 ? Math.abs(ms) + " ms adelantado" : ms + " ms atrasado");
+    ? t("onTime")
+    : (ms < 0 ? t("early", Math.abs(ms)) : t("late", ms));
 
   $("g-points").textContent = game.points;
   $("g-hits").textContent = game.hits;
   $("g-streak").textContent = game.streak;
-  $("g-tapmain").textContent = game.taps.length + (game.taps.length === 1 ? " golpe" : " golpes");
-  $("g-taphint").textContent = "Seguí marcando";
+  $("g-tapmain").textContent = t(game.taps.length === 1 ? "tapCount" : "tapCountN", game.taps.length);
+  $("g-taphint").textContent = t("keepTapping");
   $("g-finish").disabled = game.taps.length < 4;
 
-  if (student.vibe && navigator.vibrate) navigator.vibrate(band.pts > 0 ? 30 : 10);
+  buzz(band.pts > 0 ? 30 : 10);
   const z = $("g-tap");
   z.classList.add("hit");
   setTimeout(() => z.classList.remove("hit"), 90);
@@ -1253,10 +1431,10 @@ $("g-finish").addEventListener("click", async () => {
   const accuracy = Math.round(game.points / maxPts * 100);
 
   const grade =
-    accuracy >= 85 ? "Impecable" :
-    accuracy >= 70 ? "Muy bien" :
-    accuracy >= 50 ? "Vas bien" :
-    accuracy >= 30 ? "A practicar" : "Cuesta arriba";
+    accuracy >= 85 ? t("gFlawless") :
+    accuracy >= 70 ? t("gVeryGood") :
+    accuracy >= 50 ? t("gOk") :
+    accuracy >= 30 ? t("gPractise") : t("gRough");
 
   $("g-grade").textContent = grade;
   $("r-points").textContent = game.points;
@@ -1267,9 +1445,9 @@ $("g-finish").addEventListener("click", async () => {
   // Consejo según la tendencia: adelantarse y atrasarse se corrigen distinto
   const bias = game.taps.reduce((s, t) => s + t.err, 0) / n;
   $("r-tip").textContent =
-    Math.abs(bias) < 0.04 ? "Tu error no tira para ningún lado: es cuestión de afinar."
-    : bias < 0 ? "Te adelantás de forma constante (" + Math.round(Math.abs(bias) * 1000) + " ms). Esperá un pelín más el golpe."
-    : "Te atrasás de forma constante (" + Math.round(bias * 1000) + " ms). Anticipá un poco el movimiento.";
+    Math.abs(bias) < 0.04 ? t("tipEven")
+    : bias < 0 ? t("tipEarly", Math.round(Math.abs(bias) * 1000))
+    : t("tipLate", Math.round(bias * 1000));
 
   $("g-result").hidden = false;
 
@@ -1286,7 +1464,7 @@ $("g-finish").addEventListener("click", async () => {
     await DB.put(score, "scores");
     await reloadScores();
   } catch (e) {
-    setA("El puntaje no se pudo guardar: " + e.message, "err");
+    setA(t("scoreFail") + e.message, "err");
   }
 });
 
@@ -1305,21 +1483,29 @@ function renderLists() {
     t.textContent = s.title;
     const m = document.createElement("div");
     m.className = "m";
-    m.textContent = [s.artist, RHYTHMS[s.rhythm].name, s.teacher, fmt(s.duration || 0)]
+    m.textContent = [s.artist, rhythmName(s.rhythm), s.teacher, fmt(s.duration || 0)]
       .filter(Boolean).join(" · ");
     info.appendChild(t); info.appendChild(m);
 
+    if (!usable(s)) {
+      const w = document.createElement("div");
+      w.className = "m";
+      w.style.color = "#ff8a70";
+      w.textContent = t("oldFormat");
+      info.appendChild(w);
+    }
+
     const btn = document.createElement("button");
     if (forStudent) {
-      btn.textContent = "solo esta";
+      btn.textContent = t("onlyThis");
       btn.addEventListener("click", () => {
         student.forced = student.forced === s.id ? null : s.id;
         renderLists();
-        setA(student.forced ? "Buscaré solo: " + s.title : "Buscaré cualquier canción.");
+        setA(student.forced ? t("onlySearch") + s.title : t("anySong"));
       });
       if (student.forced === s.id) btn.style.borderColor = "var(--accent)";
     } else {
-      btn.textContent = "borrar";
+      btn.textContent = t("del");
       btn.addEventListener("click", async () => {
         await DB.del(s.id);
         await reload();
@@ -1337,8 +1523,8 @@ function renderLists() {
       const e = document.createElement("div");
       e.className = "empty";
       e.textContent = forStudent
-        ? "Todavía no hay canciones. Grábalas desde Profesor."
-        : "Ninguna guardada.";
+        ? t("noSongsYet")
+        : t("noneSaved");
       el.appendChild(e);
       continue;
     }
@@ -1353,7 +1539,7 @@ async function reloadScores() {
   if (!scores.length) {
     const e = document.createElement("div");
     e.className = "empty";
-    e.textContent = "Todavía no jugaste ninguna.";
+    e.textContent = t("noScores");
     el.appendChild(e);
     return;
   }
@@ -1380,14 +1566,66 @@ async function reloadScores() {
   });
 }
 
+/* Las canciones sin marca de versión son de antes de que existiera el campo,
+   y se hicieron con el algoritmo actual: cuentan como versión 1. */
+const fpVersionOf = (s) => s.fpv || 1;
+const usable = (s) => fpVersionOf(s) === FP.VERSION;
+
 async function reload() {
   songs = await DB.all("songs");
   songs.sort((a, b) => b.createdAt - a.createdAt);
   matcher.clear();
-  songs.forEach(s => matcher.add(s));
+  // Solo se indexan las que esta versión sabe comparar
+  songs.filter(usable).forEach(s => matcher.add(s));
   renderLists();
   await reloadScores();
+
+  const viejas = songs.filter(s => !usable(s)).length;
+  if (viejas) {
+    setA(t("oldFormatMsg", viejas), "err");
+  }
 }
+
+/* =========================================================================
+   Cambio de idioma en caliente
+   ========================================================================= */
+function applyLang() {
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const v = STR[lang][el.dataset.i18n];
+    if (v !== undefined) el.textContent = v;
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => {
+    const v = STR[lang][el.dataset.i18nPh];
+    if (v !== undefined) el.placeholder = v;
+  });
+
+  for (const b of $("langsw").children) {
+    b.setAttribute("aria-pressed", b.dataset.lang === lang);
+  }
+
+  // Botones cuyo texto lleva un estado dentro
+  $("a-voice").textContent = t("voice") + ": " + t(student.voice ? "yes" : "no");
+  if (CAN_VIBRATE) $("a-vibe").textContent = t("vibrate") + ": " + t(student.vibe ? "yes" : "no");
+  else { $("a-vibe").textContent = t("vibeNA"); $("a-vibe").title = t("vibeNAHint"); }
+
+  // Listas y textos generados
+  if (DB.db) { renderLists(); reloadScores(); }
+  if (!$("p-review").hidden && teacher.meta) renderReview();
+  if (student.song) {
+    $("a-sub").textContent = rhythmName(student.song.rhythm) +
+      (student.song.teacher ? " · " + student.song.teacher : "");
+  }
+}
+
+$("langsw").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-lang]");
+  if (!b || b.dataset.lang === lang) return;
+  lang = b.dataset.lang;
+  localStorage.setItem("lang", lang);
+  applyLang();
+});
 
 /* Expuesto para poder probar el algoritmo desde la consola sin micrófono. */
 window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, packHash };
@@ -1396,11 +1634,13 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
    Arranque
    ========================================================================= */
 (async () => {
+  initVibe();
+  applyLang();
   try {
     await DB.open();
     await reload();
   } catch (e) {
-    setP("No se pudo abrir la base de datos: " + e.message, "err");
+    setP(t("dbFail") + e.message, "err");
   }
 })();
 
