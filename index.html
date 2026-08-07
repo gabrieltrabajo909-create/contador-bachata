@@ -95,7 +95,7 @@
 
   label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
 
-  input[type=text] {
+  input[type=text], input[type=password], input[type=email] {
     width: 100%;
     font: inherit;
     background: var(--card2);
@@ -108,7 +108,12 @@
     user-select: text;
   }
 
-  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- Cuenta ---------- */
+  .who { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; margin-bottom: 10px; color: var(--muted); }
+  .who b { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot-on { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); flex: none; }
 
   .seg { display: flex; gap: 6px; margin-bottom: 12px; }
 
@@ -357,6 +362,29 @@
     </div>
   </div>
 
+  <div class="card" id="acct">
+    <h2 data-i18n="account">Cuenta</h2>
+
+    <div id="acct-out">
+      <input type="email" id="ac-email" placeholder="tu@email.com" data-i18n-ph="phEmail" autocomplete="email">
+      <input type="password" id="ac-pass" placeholder="Contraseña" data-i18n-ph="phPass" autocomplete="current-password">
+      <div class="row">
+        <button class="primary" id="ac-in" data-i18n="signIn">Entrar</button>
+        <button class="ghost" id="ac-up" data-i18n="signUp">Crear cuenta</button>
+      </div>
+    </div>
+
+    <div id="acct-in" hidden>
+      <div class="who"><span class="dot-on"></span><b id="ac-who"></b></div>
+      <div class="row">
+        <button class="primary" id="ac-sync" data-i18n="sync">Sincronizar</button>
+        <button class="ghost" id="ac-out" data-i18n="signOut">Salir</button>
+      </div>
+    </div>
+
+    <p class="status" id="ac-status"></p>
+  </div>
+
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof" data-i18n="tabProf">Profesor</button>
     <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum" data-i18n="tabAlum">Alumno</button>
@@ -562,7 +590,21 @@ const STR = {
     tapCount: "{0} golpe", tapCountN: "{0} golpes", keepTapping: "Seguí marcando",
     bpmApprox: "{0} BPM aprox.", remove: "quitar",
     revInfo: "{0} golpes · {1} BPM · {2} grabados · {3}",
-    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Tu nombre"
+    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Tu nombre",
+    account: "Cuenta", signIn: "Entrar", signUp: "Crear cuenta", signOut: "Salir",
+    sync: "Sincronizar", phEmail: "tu@email.com", phPass: "Contraseña",
+    needEmail: "Escribí tu email y una contraseña.",
+    shortPass: "La contraseña necesita al menos 6 caracteres.",
+    signingIn: "Entrando…", signingUp: "Creando cuenta…",
+    welcome: "Listo, sesión iniciada.", created: "Cuenta creada y sesión iniciada.",
+    badLogin: "Email o contraseña incorrectos.",
+    alreadyUser: "Ese email ya tiene cuenta. Probá con Entrar.",
+    authFail: "No se pudo conectar: ",
+    syncing: "Sincronizando…",
+    synced: "Sincronizado: {0} canciones y {1} puntajes.",
+    syncFail: "Falló la sincronización: ",
+    offlineNote: "Sin cuenta, todo se guarda solo en este teléfono y el navegador puede borrarlo.",
+    loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono."
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -618,7 +660,21 @@ const STR = {
     tapCount: "{0} tap", tapCountN: "{0} taps", keepTapping: "Keep marking",
     bpmApprox: "~{0} BPM", remove: "remove",
     revInfo: "{0} taps · {1} BPM · {2} recorded · {3}",
-    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Your name"
+    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Your name",
+    account: "Account", signIn: "Sign in", signUp: "Create account", signOut: "Sign out",
+    sync: "Sync", phEmail: "you@email.com", phPass: "Password",
+    needEmail: "Enter your email and a password.",
+    shortPass: "The password needs at least 6 characters.",
+    signingIn: "Signing in…", signingUp: "Creating account…",
+    welcome: "You're signed in.", created: "Account created and signed in.",
+    badLogin: "Wrong email or password.",
+    alreadyUser: "That email already has an account. Try Sign in.",
+    authFail: "Couldn't connect: ",
+    syncing: "Syncing…",
+    synced: "Synced: {0} songs and {1} scores.",
+    syncFail: "Sync failed: ",
+    offlineNote: "Without an account everything stays on this phone only, and the browser may erase it.",
+    loggedOut: "Signed out. Your data is still on this phone."
   }
 };
 
@@ -1587,6 +1643,232 @@ async function reload() {
 }
 
 /* =========================================================================
+   NUBE: cuenta y sincronización
+
+   Se habla directo con la API de Supabase por HTTP, sin librerías, para que
+   la app siga siendo un solo archivo. La clave de abajo es pública a
+   propósito: lo que protege los datos son las reglas de acceso del
+   servidor, que sólo dejan a cada quien tocar lo suyo.
+   ========================================================================= */
+const SB_URL = "https://nzeluclzrmivzwerllsx.supabase.co";
+const SB_KEY = "sb_publishable_94eyhAp8FvL-cSebaDOjtw_8-sSGGqh";
+
+const cloud = {
+  session: null,
+
+  load() {
+    try { this.session = JSON.parse(localStorage.getItem("sb_session") || "null"); }
+    catch (e) { this.session = null; }
+    return this.session;
+  },
+  save(s) {
+    this.session = s;
+    if (s) localStorage.setItem("sb_session", JSON.stringify(s));
+    else localStorage.removeItem("sb_session");
+  },
+
+  async auth(path, body) {
+    const r = await fetch(SB_URL + "/auth/v1/" + path, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.msg || d.error_description || d.error || ("HTTP " + r.status));
+    return d;
+  },
+
+  async signUp(email, password) {
+    const d = await this.auth("signup", { email, password });
+    if (!d.access_token) throw new Error("no-token");
+    this.keep(d);
+    return d;
+  },
+  async signIn(email, password) {
+    const d = await this.auth("token?grant_type=password", { email, password });
+    this.keep(d);
+    return d;
+  },
+  keep(d) {
+    this.save({
+      access_token: d.access_token,
+      refresh_token: d.refresh_token,
+      expires_at: Date.now() + (d.expires_in || 3600) * 1000,
+      email: d.user && d.user.email,
+      uid: d.user && d.user.id
+    });
+  },
+  signOut() { this.save(null); },
+
+  /* El token dura una hora; se renueva solo antes de caducar. */
+  async token() {
+    if (!this.session) return null;
+    if (Date.now() < this.session.expires_at - 60000) return this.session.access_token;
+    try {
+      const d = await this.auth("token?grant_type=refresh_token",
+        { refresh_token: this.session.refresh_token });
+      this.keep(d);
+      return this.session.access_token;
+    } catch (e) {
+      this.save(null);
+      return null;
+    }
+  },
+
+  async rest(path, opts) {
+    opts = opts || {};
+    const tk = await this.token();
+    if (!tk) throw new Error("sin sesion");
+    const r = await fetch(SB_URL + "/rest/v1/" + path, Object.assign({}, opts, {
+      headers: Object.assign({
+        apikey: SB_KEY,
+        Authorization: "Bearer " + tk,
+        "Content-Type": "application/json"
+      }, opts.headers || {})
+    }));
+    if (!r.ok) throw new Error(await r.text());
+    return r.status === 204 ? null : r.json();
+  }
+};
+
+/* Las huellas son arrays de numeros; viajan como texto en base64. */
+function toB64(arr) {
+  const b = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+  let s = "";
+  for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
+  return btoa(s);
+}
+function fromB64(str, Type) {
+  const bin = atob(str);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return new Type(b.buffer);
+}
+
+const rowToSong = (r) => ({
+  id: r.id, title: r.title, artist: r.artist || "", teacher: r.teacher || "",
+  rhythm: r.rhythm, duration: r.duration || 0, fpv: r.fpv,
+  createdAt: new Date(r.created_at).getTime(),
+  downbeats: r.downbeats,
+  fp: { keys: fromB64(r.fp_keys, Uint32Array), times: fromB64(r.fp_times, Uint16Array) }
+});
+
+const songToRow = (s, uid) => ({
+  id: s.id, owner: uid, title: s.title, artist: s.artist || null,
+  teacher: s.teacher || null, rhythm: s.rhythm, duration: s.duration || 0,
+  fpv: fpVersionOf(s), downbeats: Array.from(s.downbeats),
+  fp_keys: toB64(s.fp.keys), fp_times: toB64(s.fp.times), shared: true
+});
+
+const scoreToRow = (p, uid) => ({
+  id: p.id, owner: uid, song_id: p.songId, song_title: p.songTitle,
+  rhythm: p.rhythm, played_at: new Date(p.when).toISOString(),
+  taps: p.taps, hits: p.hits, points: p.points,
+  accuracy: p.accuracy, avg_error: p.avgError, best: p.best
+});
+
+const rowToScore = (r) => ({
+  id: r.id, songId: r.song_id, songTitle: r.song_title, rhythm: r.rhythm,
+  when: new Date(r.played_at).getTime(), taps: r.taps, hits: r.hits,
+  points: r.points, accuracy: r.accuracy, avgError: r.avg_error, best: r.best
+});
+
+/* Sube lo del telefono y baja lo de la nube. Es idempotente: repetirlo no
+   duplica nada, porque las filas se identifican por su id. */
+async function syncNow() {
+  const uid = cloud.session.uid;
+  const merge = { headers: { Prefer: "resolution=merge-duplicates" } };
+
+  const localSongs = (await DB.all("songs")).filter(usable);
+  if (localSongs.length) {
+    await cloud.rest("songs", Object.assign({
+      method: "POST",
+      body: JSON.stringify(localSongs.map(s => songToRow(s, uid)))
+    }, merge));
+  }
+  const localScores = await DB.all("scores");
+  if (localScores.length) {
+    await cloud.rest("scores", Object.assign({
+      method: "POST",
+      body: JSON.stringify(localScores.map(p => scoreToRow(p, uid)))
+    }, merge));
+  }
+
+  const remoteSongs = await cloud.rest("songs?select=*");
+  for (const r of remoteSongs) await DB.put(rowToSong(r), "songs");
+
+  const remoteScores = await cloud.rest("scores?select=*");
+  for (const r of remoteScores) await DB.put(rowToScore(r), "scores");
+
+  await reload();
+  return { songs: remoteSongs.length, scores: remoteScores.length };
+}
+
+/* ---------- Interfaz de la cuenta ---------- */
+function setAc(msg, kind) {
+  const el = $("ac-status");
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+function renderAccount() {
+  const on = !!cloud.session;
+  $("acct-out").hidden = on;
+  $("acct-in").hidden = !on;
+  if (on) $("ac-who").textContent = cloud.session.email || "";
+  else if (!$("ac-status").textContent) setAc(t("offlineNote"));
+}
+
+async function doAuth(kind) {
+  const email = $("ac-email").value.trim();
+  const pass = $("ac-pass").value;
+  if (!email || !pass) { setAc(t("needEmail"), "err"); return; }
+  if (pass.length < 6) { setAc(t("shortPass"), "err"); return; }
+
+  setAc(t(kind === "up" ? "signingUp" : "signingIn"));
+  $("ac-in").disabled = $("ac-up").disabled = true;
+  try {
+    if (kind === "up") await cloud.signUp(email, pass);
+    else await cloud.signIn(email, pass);
+    $("ac-pass").value = "";
+    renderAccount();
+    setAc(t(kind === "up" ? "created" : "welcome"), "ok");
+    await doSync();
+  } catch (e) {
+    const m = String(e.message || e);
+    setAc(/already registered|already been registered/i.test(m) ? t("alreadyUser")
+        : /Invalid login|invalid_grant/i.test(m) ? t("badLogin")
+        : t("authFail") + m, "err");
+  } finally {
+    $("ac-in").disabled = $("ac-up").disabled = false;
+  }
+}
+
+async function doSync() {
+  if (!cloud.session) return;
+  setAc(t("syncing"));
+  $("ac-sync").disabled = true;
+  try {
+    const n = await syncNow();
+    setAc(t("synced", n.songs, n.scores), "ok");
+  } catch (e) {
+    setAc(t("syncFail") + String(e.message || e), "err");
+  } finally {
+    $("ac-sync").disabled = false;
+  }
+}
+
+$("ac-in").addEventListener("click", () => doAuth("in"));
+$("ac-up").addEventListener("click", () => doAuth("up"));
+$("ac-sync").addEventListener("click", doSync);
+$("ac-out").addEventListener("click", () => {
+  cloud.signOut();
+  renderAccount();
+  setAc(t("loggedOut"));
+});
+$("ac-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth("in"); });
+
+/* =========================================================================
    Cambio de idioma en caliente
    ========================================================================= */
 function applyLang() {
@@ -1611,6 +1893,7 @@ function applyLang() {
   else { $("a-vibe").textContent = t("vibeNA"); $("a-vibe").title = t("vibeNAHint"); }
 
   // Listas y textos generados
+  if (typeof cloud !== "undefined") renderAccount();
   if (DB.db) { renderLists(); reloadScores(); }
   if (!$("p-review").hidden && teacher.meta) renderReview();
   if (student.song) {
@@ -1635,7 +1918,9 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
    ========================================================================= */
 (async () => {
   initVibe();
+  cloud.load();
   applyLang();
+  renderAccount();
   try {
     await DB.open();
     await reload();
