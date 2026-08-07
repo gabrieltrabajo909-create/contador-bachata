@@ -1727,7 +1727,10 @@ const cloud = {
       }, opts.headers || {})
     }));
     if (!r.ok) throw new Error(await r.text());
-    return r.status === 204 ? null : r.json();
+    // Al insertar, el servidor contesta 201 sin cuerpo: hay que leerlo como
+    // texto antes de decidir si hay algo que interpretar.
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : null;
   }
 };
 
