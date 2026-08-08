@@ -630,7 +630,10 @@ const STR = {
     fromOther: "de otro",
     notYetLocked: "No la reconozco. Si es una canción bloqueada, no puedo identificarla hasta que la desbloquees.",
     notFound: "Esta canción no está en la biblioteca: nadie la grabó todavía. Podés grabarla vos desde la pestaña Profesor.",
-    notFoundLocked: "No la encuentro. O está bloqueada, o nadie la grabó todavía."
+    notFoundLocked: "No la encuentro. O está bloqueada, o nadie la grabó todavía.",
+    songChanged: "Cambió la canción → ",
+    songLost: "Cambió la canción y esta no está grabada. Alguien tiene que grabarla desde Profesor.",
+    songLostLocked: "Cambió la canción y no la reconozco: o está bloqueada, o nadie la grabó."
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -714,7 +717,10 @@ const STR = {
     fromOther: "not yours",
     notYetLocked: "Can't place it. If the song is locked I can't identify it until you unlock it.",
     notFound: "This song isn't in the library: nobody has recorded it yet. You can record it yourself from the Teacher tab.",
-    notFoundLocked: "Can't find it. Either it's locked, or nobody has recorded it yet."
+    notFoundLocked: "Can't find it. Either it's locked, or nobody has recorded it yet.",
+    songChanged: "Song changed → ",
+    songLost: "The song changed and this one isn't recorded. Someone needs to record it from the Teacher tab.",
+    songLostLocked: "The song changed and I can't place it: either it's locked, or nobody recorded it."
   }
 };
 
@@ -1345,6 +1351,7 @@ $("a-start").addEventListener("click", async () => {
   student.song = null;
   student.lastIdx = -1;
   student.lastMatchTry = 0;
+  student.misses = 0;
   student.listener = new Listener();
 
   try {
@@ -1380,7 +1387,7 @@ function onStudentFrame(spec, frame, elapsed) {
   student.fp.push(spec, frame);
 
   // Reconocer al principio, y luego revalidar cada 10 s para corregir deriva
-  const need = student.song ? 10 : 3.5;
+  const need = student.song ? 5 : 3.5;
   if (!student.matching && elapsed - student.lastMatchTry > need) {
     student.lastMatchTry = elapsed;
     tryMatch(elapsed);
@@ -1407,7 +1414,15 @@ function tryMatch(elapsed) {
        telefono, o si esa cancion sencillamente no existe. Un reconocimiento
        normal engancha en menos de diez segundos; pasados veinte, la respuesta
        honesta es que no esta. */
-    if (!student.song) {
+    if (student.song) {
+      /* Ya habia una cancion sonando y de pronto no coincide: lo mas probable
+         es que hayan cambiado de tema. Se esperan dos fallos seguidos porque
+         justo al cambiar la ventana de audio mezcla el final de una con el
+         principio de la otra. Mientras tanto NO se sigue contando: marcar el
+         compas de la cancion anterior es peor que no marcar nada. */
+      student.misses = (student.misses || 0) + 1;
+      if (student.misses >= 2) perdioLaCancion();
+    } else {
       const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
       if (elapsed < 8) {
         setA(t("searching"));
@@ -1419,20 +1434,46 @@ function tryMatch(elapsed) {
     }
     return;
   }
-  if (student.forced && res.songId !== student.forced) return;
 
+  // Si el alumno fijo una cancion concreta, cualquier otra cosa es un fallo
+  if (student.forced && res.songId !== student.forced) {
+    if (student.song) {
+      student.misses = (student.misses || 0) + 1;
+      if (student.misses >= 2) perdioLaCancion();
+    }
+    return;
+  }
+
+  student.misses = 0;
   const song = matcher.songs.get(res.songId);
+  const cambio = student.song && student.song.id !== song.id;
   const first = student.song === null;
   student.song = song;
   // tiempo de la canción = tiempo de escucha + desfase
   student.offset = res.offsetFrames * FP.HOP;
 
-  if (first) {
+  if (first || cambio) {
     buildBeats(song.rhythm);
-    setA(song.title + (song.artist ? " · " + song.artist : ""), "ok");
+    student.lastIdx = -1;
+    setA((cambio ? t("songChanged") : "") + song.title +
+         (song.artist ? " · " + song.artist : ""), "ok");
     $("a-sub").textContent = rhythmName(song.rhythm) +
       (song.teacher ? " · " + song.teacher : "");
   }
+}
+
+/* Se dejo de reconocer lo que suena: cortar la cuenta y decirlo. */
+function perdioLaCancion() {
+  student.song = null;
+  student.lastIdx = -1;
+  student.misses = 0;
+  $("a-big").textContent = "·";
+  $("a-big").className = "big";
+  $("a-sub").textContent = t("notListening");
+  beatCells.forEach(c => c.classList.remove("on"));
+
+  const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
+  setA(hayBloqueadas ? t("songLostLocked") : t("songLost"), "err");
 }
 
 function paintStudent() {
