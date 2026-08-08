@@ -56,3 +56,9 @@ create view public.songs_catalog as
   from public.songs where shared;
 
 grant select on public.songs_catalog to authenticated;
+
+-- ---------- IMPORTANTE: cerrar el catalogo a los anonimos ----------
+-- Supabase concede lectura al rol anonimo por defecto sobre lo nuevo del
+-- esquema publico. Sin este revoke, cualquiera en internet lee los titulos
+-- y el nombre del profesor sin tener cuenta.
+revoke all on public.songs_catalog from anon;
