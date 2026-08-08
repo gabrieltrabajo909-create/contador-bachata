@@ -24,20 +24,9 @@ create policy profiles_self on public.profiles for all to authenticated
   using (id = auth.uid())
   with check (id = auth.uid() and sub_source in ('none','test'));
 
--- El perfil se crea solo al registrarse
-create or replace function public.on_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.profiles (id) values (new.id) on conflict do nothing;
-  return new;
-end $$;
-
-drop trigger if exists trg_new_user on auth.users;
-create trigger trg_new_user after insert on auth.users
-  for each row execute function public.on_new_user();
-
--- Perfiles para las cuentas que ya existian
-insert into public.profiles (id) select id from auth.users on conflict do nothing;
+-- El perfil lo crea la propia app la primera vez que entras.
+-- No se usa un disparador sobre auth.users porque esa tabla es del sistema
+-- y Supabase no deja colgarle nada: intentarlo hace fallar todo el script.
 
 -- ---------- Canciones gratis ----------
 alter table public.songs add column if not exists free boolean not null default false;
