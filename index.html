@@ -626,7 +626,9 @@ const STR = {
     confirmDelete: "¿Borrar «{0}»?\n\nSe va del servidor y de todos los teléfonos. No se puede deshacer.",
     deleted: "Borrada: {0}",
     deleteNeedsLogin: "Entrá con la cuenta que la creó para poder borrarla del servidor.",
-    deleteFailed: "No se pudo borrar del servidor: "
+    deleteFailed: "No se pudo borrar del servidor: ",
+    fromOther: "de otro",
+    notYetLocked: "No la reconozco. Si es una canción bloqueada, no puedo identificarla hasta que la desbloquees."
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -706,7 +708,9 @@ const STR = {
     confirmDelete: "Delete \u201c{0}\u201d?\n\nIt goes from the server and every phone. This cannot be undone.",
     deleted: "Deleted: {0}",
     deleteNeedsLogin: "Sign in with the account that created it to delete it from the server.",
-    deleteFailed: "Couldn't delete from the server: "
+    deleteFailed: "Couldn't delete from the server: ",
+    fromOther: "not yours",
+    notYetLocked: "Can't place it. If the song is locked I can't identify it until you unlock it."
   }
 };
 
@@ -853,15 +857,43 @@ class Matcher {
       }
     }
 
-    let best = null;
+    /* Una coincidencia de verdad concentra casi todos sus votos en UN solo
+       desfase. Si los votos estan repartidos, es ruido: dos canciones
+       distintas siempre comparten algunos sonidos sueltos. Por eso no basta
+       con superar un minimo, tiene que DESTACAR sobre lo demas. Sin esto, con
+       pocas canciones guardadas la app confundia una con otra, que es peor
+       que no reconocer nada: le marca el tiempo equivocado al alumno. */
+    const puntuar = (m, delta) => (m.get(delta) || 0) +
+      (m.get(delta - 1) || 0) + (m.get(delta + 1) || 0);
+
+    let best = null, segundaCancion = 0;
     for (const [id, m] of votes) {
-      for (const [delta, n] of m) {
-        // sumar bins vecinos: el desfase real puede repartirse en ±1 frame
-        const score = n + (m.get(delta - 1) || 0) + (m.get(delta + 1) || 0);
-        if (!best || score > best.score) best = { songId: id, offsetFrames: delta, score };
+      let bBin = null, bScore = 0;
+      for (const delta of m.keys()) {
+        const sc = puntuar(m, delta);
+        if (sc > bScore) { bScore = sc; bBin = delta; }
+      }
+      // El mejor desfase que NO sea el ganador ni sus vecinos
+      let rival = 0;
+      for (const delta of m.keys()) {
+        if (Math.abs(delta - bBin) <= 3) continue;
+        const sc = puntuar(m, delta);
+        if (sc > rival) rival = sc;
+      }
+      if (!best || bScore > best.score) {
+        if (best) segundaCancion = Math.max(segundaCancion, best.score);
+        best = { songId: id, offsetFrames: bBin, score: bScore, rival };
+      } else {
+        segundaCancion = Math.max(segundaCancion, bScore);
       }
     }
-    return best && best.score >= 12 ? best : null;
+    if (!best) return null;
+
+    const MINIMO = 25;      // votos absolutos
+    const DOMINIO = 2.5;    // cuanto debe destacar sobre el ruido
+    if (best.score < MINIMO) return null;
+    if (best.score < DOMINIO * Math.max(best.rival, segundaCancion, 1)) return null;
+    return best;
   }
 }
 
@@ -1366,7 +1398,13 @@ function tryMatch(elapsed) {
   const res = matcher.match(qk, qt);
   student.matching = false;
   if (!res) {
-    if (!student.song) setA(t("notYet"));
+    // Si hay canciones bloqueadas, lo mas probable es que este sonando una de
+    // ellas: sin su huella no hay forma de identificarla, y decir "no se cual
+    // es" es mucho mejor que arriesgar y marcar el tiempo equivocado.
+    if (!student.song) {
+      const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
+      setA(hayBloqueadas ? t("notYetLocked") : t("notYet"));
+    }
     return;
   }
   if (student.forced && res.songId !== student.forced) return;
@@ -1594,8 +1632,16 @@ function renderLists() {
       });
       if (student.forced === s.id) btn.style.borderColor = "var(--accent)";
     } else {
-      btn.textContent = t("del");
-      btn.addEventListener("click", () => borrarCancion(s));
+      // Solo se ofrece borrar lo propio: mostrar el boton en canciones ajenas
+      // hace creer que se pueden borrar, y no es cierto.
+      const propia = !s.owner || (cloud.session && cloud.session.uid === s.owner);
+      if (propia) {
+        btn.textContent = t("del");
+        btn.addEventListener("click", () => borrarCancion(s));
+      } else {
+        btn.textContent = t("fromOther");
+        btn.disabled = true;
+      }
     }
 
     row.appendChild(info); row.appendChild(btn);
