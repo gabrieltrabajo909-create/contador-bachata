@@ -1927,7 +1927,17 @@ async function syncNow() {
 
   // Y aparte, las que el servidor deja bajar: propias, gratis o con suscripcion
   const remoteSongs = await cloud.rest("songs?select=*");
+  const permitidas = new Set(remoteSongs.map(r => r.id));
   for (const r of remoteSongs) await DB.put(rowToSong(r), "songs");
+
+  // Y se borran las de otros que el servidor ya NO autoriza. Sin esto, una vez
+  // bajada una cancion se queda para siempre y quitarle el acceso a alguien no
+  // servia de nada. Las propias y las aun no subidas no se tocan.
+  for (const s of await DB.all("songs")) {
+    if (s.owner && s.owner !== uid && !permitidas.has(s.id)) {
+      await DB.del(s.id, "songs");
+    }
+  }
 
   const remoteScores = await cloud.rest("scores?select=*");
   for (const r of remoteScores) await DB.put(rowToScore(r), "scores");
