@@ -622,7 +622,11 @@ const STR = {
     subOff: "Sin suscripción", subOn: "Suscribirme (prueba)", subCancel: "Cancelar suscripción",
     subTest: "Suscripción de prueba: es gratis y sirve para probar el mecanismo.",
     lockedHint: "{0} canciones bloqueadas. Con suscripción se abren todas.",
-    freeTag: "gratis"
+    freeTag: "gratis",
+    confirmDelete: "¿Borrar «{0}»?\n\nSe va del servidor y de todos los teléfonos. No se puede deshacer.",
+    deleted: "Borrada: {0}",
+    deleteNeedsLogin: "Entrá con la cuenta que la creó para poder borrarla del servidor.",
+    deleteFailed: "No se pudo borrar del servidor: "
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -698,7 +702,11 @@ const STR = {
     subOff: "No subscription", subOn: "Subscribe (test)", subCancel: "Cancel subscription",
     subTest: "Test subscription: it is free and exists to check the mechanism.",
     lockedHint: "{0} songs locked. A subscription opens all of them.",
-    freeTag: "free"
+    freeTag: "free",
+    confirmDelete: "Delete \u201c{0}\u201d?\n\nIt goes from the server and every phone. This cannot be undone.",
+    deleted: "Deleted: {0}",
+    deleteNeedsLogin: "Sign in with the account that created it to delete it from the server.",
+    deleteFailed: "Couldn't delete from the server: "
   }
 };
 
@@ -1587,10 +1595,7 @@ function renderLists() {
       if (student.forced === s.id) btn.style.borderColor = "var(--accent)";
     } else {
       btn.textContent = t("del");
-      btn.addEventListener("click", async () => {
-        await DB.del(s.id);
-        await reload();
-      });
+      btn.addEventListener("click", () => borrarCancion(s));
     }
 
     row.appendChild(info); row.appendChild(btn);
@@ -1667,6 +1672,30 @@ function renderLists() {
     }
     songs.forEach(s => el.appendChild(mk(s, forStudent)));
   }
+}
+
+/* Borrar de verdad: del servidor y del telefono. Antes solo se quitaba del
+   telefono, asi que la cancion reaparecia en la siguiente sincronizacion. */
+async function borrarCancion(s) {
+  if (!confirm(t("confirmDelete", s.title))) return;
+
+  if (s.owner) {                                    // ya estaba subida
+    if (!cloud.session || cloud.session.uid !== s.owner) {
+      setP(t("deleteNeedsLogin"), "err");
+      return;
+    }
+    try {
+      await cloud.rest("songs?id=eq." + encodeURIComponent(s.id), { method: "DELETE" });
+    } catch (e) {
+      setP(t("deleteFailed") + String(e.message || e), "err");
+      return;
+    }
+  }
+
+  await DB.del(s.id, "songs");
+  await DB.del(s.id, "catalog");
+  await reload();
+  setP(t("deleted", s.title), "ok");
 }
 
 async function reloadScores() {
