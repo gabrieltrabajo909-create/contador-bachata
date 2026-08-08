@@ -2083,10 +2083,23 @@ async function syncNow() {
 
   const misSongs = (await DB.all("songs")).filter(usable).filter(mio);
   if (misSongs.length) {
-    await cloud.rest("songs", Object.assign({
+    /* La huella rala vive en columnas nuevas. Si la base todavia no las tiene
+       se reintenta sin ellas: es preferible sincronizar sin poder identificar
+       las bloqueadas que no poder sincronizar en absoluto. */
+    const subir = (conRala) => cloud.rest("songs", Object.assign({
       method: "POST",
-      body: JSON.stringify(misSongs.map(s => songToRow(s, uid)))
+      body: JSON.stringify(misSongs.map(s => {
+        const fila = songToRow(s, uid);
+        if (!conRala) { delete fila.fpl_keys; delete fila.fpl_times; }
+        return fila;
+      }))
     }, merge));
+    try {
+      await subir(true);
+    } catch (e) {
+      if (!/fpl_keys|fpl_times|PGRST204/.test(String(e.message || e))) throw e;
+      await subir(false);
+    }
     // Quedan marcadas como mias para no volver a dudar en la proxima subida
     for (const s of misSongs) if (!s.owner) await DB.put({ ...s, owner: uid }, "songs");
   }
