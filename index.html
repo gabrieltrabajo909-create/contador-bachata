@@ -339,6 +339,16 @@
   .scorerow .d { color: var(--dim); font-size: 0.76rem; }
   .scorerow .p { color: var(--accent2); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+  .song.locked .t, .song.locked .m { opacity: .5 }
+  .lock { font-size: .95rem; opacity: .75; margin-right: 2px }
+  .tag-free {
+    font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent2); border: 1px solid rgba(62,207,142,.4);
+    border-radius: 999px; padding: 1px 6px; margin-left: 6px;
+  }
+  .subline { display:flex; align-items:center; gap:8px; font-size:.8rem;
+    color: var(--muted); margin: 2px 0 10px }
+
   .status { font-size: 0.82rem; color: var(--muted); line-height: 1.5; text-align: center; min-height: 2.4em; padding: 0 4px; }
   .status.err { color: #ff8a70; }
   .status.ok { color: var(--accent2); }
@@ -376,6 +386,8 @@
 
     <div id="acct-in" hidden>
       <div class="who"><span class="dot-on"></span><b id="ac-who"></b></div>
+      <div class="subline"><span id="ac-sub">—</span></div>
+      <button class="ghost" id="ac-subbtn" data-i18n="subOn">Suscribirme (prueba)</button>
       <div class="row">
         <button class="primary" id="ac-sync" data-i18n="sync">Sincronizar</button>
         <button class="ghost" id="ac-out" data-i18n="signOut">Salir</button>
@@ -605,7 +617,12 @@ const STR = {
     syncFail: "Falló la sincronización: ",
     offlineNote: "Sin cuenta, todo se guarda solo en este teléfono y el navegador puede borrarlo.",
     loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono.",
-    syncDenied: "El servidor rechazó parte de los datos. Volvé a intentar; si sigue, avisame."
+    syncDenied: "El servidor rechazó parte de los datos. Volvé a intentar; si sigue, avisame.",
+    locked: "Bloqueada", unlock: "Desbloquear todo", subActive: "Suscripción activa",
+    subOff: "Sin suscripción", subOn: "Suscribirme (prueba)", subCancel: "Cancelar suscripción",
+    subTest: "Suscripción de prueba: es gratis y sirve para probar el mecanismo.",
+    lockedHint: "{0} canciones bloqueadas. Con suscripción se abren todas.",
+    freeTag: "gratis"
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -676,7 +693,12 @@ const STR = {
     syncFail: "Sync failed: ",
     offlineNote: "Without an account everything stays on this phone only, and the browser may erase it.",
     loggedOut: "Signed out. Your data is still on this phone.",
-    syncDenied: "The server refused some of the data. Try again; if it persists, tell me."
+    syncDenied: "The server refused some of the data. Try again; if it persists, tell me.",
+    locked: "Locked", unlock: "Unlock everything", subActive: "Subscription active",
+    subOff: "No subscription", subOn: "Subscribe (test)", subCancel: "Cancel subscription",
+    subTest: "Test subscription: it is free and exists to check the mechanism.",
+    lockedHint: "{0} songs locked. A subscription opens all of them.",
+    freeTag: "free"
   }
 };
 
@@ -892,12 +914,13 @@ const DB = {
   db: null,
   open() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open("cuentas", 2);
+      const r = indexedDB.open("cuentas", 3);
       r.onupgradeneeded = () => {
         const db = r.result;
         // Crear solo lo que falte: quien ya tenía canciones guardadas no las pierde.
         if (!db.objectStoreNames.contains("songs")) db.createObjectStore("songs", { keyPath: "id" });
         if (!db.objectStoreNames.contains("scores")) db.createObjectStore("scores", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("catalog")) db.createObjectStore("catalog", { keyPath: "id" });
       };
       r.onsuccess = () => { this.db = r.result; res(); };
       r.onerror = () => rej(r.error);
@@ -998,7 +1021,7 @@ const judge = (err) => BANDS.find(b => Math.abs(err) <= b.max);
    ========================================================================= */
 const $ = (id) => document.getElementById(id);
 const matcher = new Matcher();
-let songs = [];
+let songs = [], catalog = [];
 
 function fmt(s) {
   const m = Math.floor(s / 60), r = Math.floor(s % 60);
@@ -1574,7 +1597,63 @@ function renderLists() {
     return row;
   };
 
-  for (const [id, forStudent] of [["p-list", false], ["a-list", true]]) {
+  // El alumno ve el catalogo entero: lo que puede usar y lo que esta bloqueado
+  const catEl = $("a-list");
+  catEl.textContent = "";
+  const conHuella = new Set(songs.map(s => s.id));
+  const bloqueadas = catalog.filter(c => !conHuella.has(c.id)).length;
+
+  if (catalog.length) {
+    catalog.forEach(c => {
+      const abierta = conHuella.has(c.id);
+      const row = document.createElement("div");
+      row.className = "song" + (abierta ? "" : " locked");
+
+      const info = document.createElement("div");
+      info.className = "info";
+      const titleEl = document.createElement("div");
+      titleEl.className = "t";
+      if (!abierta) { const l = document.createElement("span"); l.className = "lock"; l.textContent = "🔒"; titleEl.appendChild(l); }
+      titleEl.appendChild(document.createTextNode(c.title));
+      if (c.free) { const f = document.createElement("span"); f.className = "tag-free"; f.textContent = t("freeTag"); titleEl.appendChild(f); }
+
+      const m = document.createElement("div");
+      m.className = "m";
+      m.textContent = [c.artist, rhythmName(c.rhythm), c.teacher, fmt(c.duration || 0)]
+        .filter(Boolean).join(" · ");
+      info.appendChild(titleEl); info.appendChild(m);
+
+      const btn = document.createElement("button");
+      if (abierta) {
+        btn.textContent = t("onlyThis");
+        btn.addEventListener("click", () => {
+          student.forced = student.forced === c.id ? null : c.id;
+          renderLists();
+          setA(student.forced ? t("onlySearch") + c.title : t("anySong"));
+        });
+        if (student.forced === c.id) btn.style.borderColor = "var(--accent)";
+      } else {
+        btn.textContent = t("locked");
+        btn.disabled = true;
+      }
+      row.appendChild(info); row.appendChild(btn);
+      catEl.appendChild(row);
+    });
+    if (bloqueadas) {
+      const p = document.createElement("div");
+      p.className = "empty";
+      p.style.textAlign = "left";
+      p.textContent = t("lockedHint", bloqueadas);
+      catEl.appendChild(p);
+    }
+  } else {
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = t("noSongsYet");
+    catEl.appendChild(e);
+  }
+
+  for (const [id, forStudent] of [["p-list", false]]) {
     const el = $(id);
     el.textContent = "";
     if (!songs.length) {
@@ -1631,6 +1710,8 @@ const usable = (s) => fpVersionOf(s) === FP.VERSION;
 
 async function reload() {
   songs = await DB.all("songs");
+  catalog = (await DB.all("catalog")).sort((a, b) =>
+    new Date(b.created_at) - new Date(a.created_at));
   songs.sort((a, b) => b.createdAt - a.createdAt);
   matcher.clear();
   // Solo se indexan las que esta versión sabe comparar
@@ -1736,6 +1817,34 @@ const cloud = {
   }
 };
 
+/* ---------- Perfil: nombre y estado de suscripcion ----------
+   El perfil se crea aqui la primera vez, no con un disparador en la base:
+   la tabla de usuarios es del sistema y no admite que le cuelguen nada. */
+async function cargarPerfil() {
+  const uid = cloud.session.uid;
+  let filas = await cloud.rest("profiles?select=*&id=eq." + uid);
+  if (!filas || !filas.length) {
+    await cloud.rest("profiles", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify([{ id: uid }])
+    });
+    filas = await cloud.rest("profiles?select=*&id=eq." + uid);
+  }
+  cloud.profile = (filas && filas[0]) || { subscribed: false };
+  return cloud.profile;
+}
+
+/* Suscripcion DE PRUEBA. Existe para poder verificar el mecanismo antes de
+   que haya pagos. Hay que cerrarla en la base antes de cobrar dinero. */
+async function activarPrueba(on) {
+  await cloud.rest("profiles?id=eq." + cloud.session.uid, {
+    method: "PATCH",
+    body: JSON.stringify({ subscribed: on, sub_source: on ? "test" : "none" })
+  });
+  await cargarPerfil();
+}
+
 /* Las huellas son arrays de numeros; viajan como texto en base64. */
 function toB64(arr) {
   const b = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
@@ -1808,12 +1917,22 @@ async function syncNow() {
     for (const p of misScores) if (!p.owner) await DB.put({ ...p, owner: uid }, "scores");
   }
 
+  // El catalogo trae los titulos de TODAS las canciones compartidas, sin la
+  // huella. Es lo que permite ensenar con candado lo que no se puede usar.
+  const cat = await cloud.rest("songs_catalog?select=*");
+  const vistos = new Set(cat.map(c => c.id));
+  for (const c of cat) await DB.put(c, "catalog");
+  for (const viejo of await DB.all("catalog"))
+    if (!vistos.has(viejo.id)) await DB.del(viejo.id, "catalog");
+
+  // Y aparte, las que el servidor deja bajar: propias, gratis o con suscripcion
   const remoteSongs = await cloud.rest("songs?select=*");
   for (const r of remoteSongs) await DB.put(rowToSong(r), "songs");
 
   const remoteScores = await cloud.rest("scores?select=*");
   for (const r of remoteScores) await DB.put(rowToScore(r), "scores");
 
+  await cargarPerfil();
   await reload();
   return { songs: remoteSongs.length, scores: remoteScores.length };
 }
@@ -1829,7 +1948,13 @@ function renderAccount() {
   const on = !!cloud.session;
   $("acct-out").hidden = on;
   $("acct-in").hidden = !on;
-  if (on) $("ac-who").textContent = cloud.session.email || "";
+  if (on) {
+    $("ac-who").textContent = cloud.session.email || "";
+    const p = cloud.profile || {};
+    $("ac-sub").textContent = p.subscribed ? "✓ " + t("subActive") : t("subOff");
+    $("ac-sub").style.color = p.subscribed ? "var(--accent2)" : "var(--muted)";
+    $("ac-subbtn").textContent = t(p.subscribed ? "subCancel" : "subOn");
+  }
   else if (!$("ac-status").textContent) setAc(t("offlineNote"));
 }
 
@@ -1845,6 +1970,7 @@ async function doAuth(kind) {
     if (kind === "up") await cloud.signUp(email, pass);
     else await cloud.signIn(email, pass);
     $("ac-pass").value = "";
+    await cargarPerfil();
     renderAccount();
     setAc(t(kind === "up" ? "created" : "welcome"), "ok");
     await doSync();
@@ -1877,6 +2003,20 @@ async function doSync() {
 $("ac-in").addEventListener("click", () => doAuth("in"));
 $("ac-up").addEventListener("click", () => doAuth("up"));
 $("ac-sync").addEventListener("click", doSync);
+$("ac-subbtn").addEventListener("click", async () => {
+  if (!cloud.session) return;
+  $("ac-subbtn").disabled = true;
+  try {
+    await activarPrueba(!(cloud.profile && cloud.profile.subscribed));
+    renderAccount();
+    setAc(t("subTest"));
+    await doSync();          // relee lo que ahora si puede bajar
+  } catch (e) {
+    setAc(t("syncFail") + String(e.message || e), "err");
+  } finally {
+    $("ac-subbtn").disabled = false;
+  }
+});
 $("ac-out").addEventListener("click", () => {
   cloud.signOut();
   renderAccount();
