@@ -604,7 +604,8 @@ const STR = {
     synced: "Sincronizado: {0} canciones y {1} puntajes.",
     syncFail: "Falló la sincronización: ",
     offlineNote: "Sin cuenta, todo se guarda solo en este teléfono y el navegador puede borrarlo.",
-    loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono."
+    loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono.",
+    syncDenied: "El servidor rechazó parte de los datos. Volvé a intentar; si sigue, avisame."
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -674,7 +675,8 @@ const STR = {
     synced: "Synced: {0} songs and {1} scores.",
     syncFail: "Sync failed: ",
     offlineNote: "Without an account everything stays on this phone only, and the browser may erase it.",
-    loggedOut: "Signed out. Your data is still on this phone."
+    loggedOut: "Signed out. Your data is still on this phone.",
+    syncDenied: "The server refused some of the data. Try again; if it persists, tell me."
   }
 };
 
@@ -1749,7 +1751,7 @@ function fromB64(str, Type) {
 }
 
 const rowToSong = (r) => ({
-  id: r.id, title: r.title, artist: r.artist || "", teacher: r.teacher || "",
+  id: r.id, owner: r.owner, title: r.title, artist: r.artist || "", teacher: r.teacher || "",
   rhythm: r.rhythm, duration: r.duration || 0, fpv: r.fpv,
   createdAt: new Date(r.created_at).getTime(),
   downbeats: r.downbeats,
@@ -1771,7 +1773,7 @@ const scoreToRow = (p, uid) => ({
 });
 
 const rowToScore = (r) => ({
-  id: r.id, songId: r.song_id, songTitle: r.song_title, rhythm: r.rhythm,
+  id: r.id, owner: r.owner, songId: r.song_id, songTitle: r.song_title, rhythm: r.rhythm,
   when: new Date(r.played_at).getTime(), taps: r.taps, hits: r.hits,
   points: r.points, accuracy: r.accuracy, avgError: r.avg_error, best: r.best
 });
@@ -1782,19 +1784,28 @@ async function syncNow() {
   const uid = cloud.session.uid;
   const merge = { headers: { Prefer: "resolution=merge-duplicates" } };
 
-  const localSongs = (await DB.all("songs")).filter(usable);
-  if (localSongs.length) {
+  // Solo se sube lo propio. Las canciones que bajaste de otro profesor
+  // viven en tu telefono pero siguen siendo suyas: intentar subirlas seria
+  // pretender adueñarse de ellas, y el servidor lo rechaza con razon.
+  const mio = (x) => !x.owner || x.owner === uid;
+
+  const misSongs = (await DB.all("songs")).filter(usable).filter(mio);
+  if (misSongs.length) {
     await cloud.rest("songs", Object.assign({
       method: "POST",
-      body: JSON.stringify(localSongs.map(s => songToRow(s, uid)))
+      body: JSON.stringify(misSongs.map(s => songToRow(s, uid)))
     }, merge));
+    // Quedan marcadas como mias para no volver a dudar en la proxima subida
+    for (const s of misSongs) if (!s.owner) await DB.put({ ...s, owner: uid }, "songs");
   }
-  const localScores = await DB.all("scores");
-  if (localScores.length) {
+
+  const misScores = (await DB.all("scores")).filter(mio);
+  if (misScores.length) {
     await cloud.rest("scores", Object.assign({
       method: "POST",
-      body: JSON.stringify(localScores.map(p => scoreToRow(p, uid)))
+      body: JSON.stringify(misScores.map(p => scoreToRow(p, uid)))
     }, merge));
+    for (const p of misScores) if (!p.owner) await DB.put({ ...p, owner: uid }, "scores");
   }
 
   const remoteSongs = await cloud.rest("songs?select=*");
@@ -1855,7 +1866,9 @@ async function doSync() {
     const n = await syncNow();
     setAc(t("synced", n.songs, n.scores), "ok");
   } catch (e) {
-    setAc(t("syncFail") + String(e.message || e), "err");
+    const m = String(e.message || e);
+    // El error crudo del servidor es un volcado de JSON ilegible
+    setAc(/row-level security|42501/.test(m) ? t("syncDenied") : t("syncFail") + m, "err");
   } finally {
     $("ac-sync").disabled = false;
   }
