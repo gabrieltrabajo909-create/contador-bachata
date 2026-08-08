@@ -628,7 +628,9 @@ const STR = {
     deleteNeedsLogin: "Entrá con la cuenta que la creó para poder borrarla del servidor.",
     deleteFailed: "No se pudo borrar del servidor: ",
     fromOther: "de otro",
-    notYetLocked: "No la reconozco. Si es una canción bloqueada, no puedo identificarla hasta que la desbloquees."
+    notYetLocked: "No la reconozco. Si es una canción bloqueada, no puedo identificarla hasta que la desbloquees.",
+    notFound: "Esta canción no está en la biblioteca: nadie la grabó todavía. Podés grabarla vos desde la pestaña Profesor.",
+    notFoundLocked: "No la encuentro. O está bloqueada, o nadie la grabó todavía."
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -710,7 +712,9 @@ const STR = {
     deleteNeedsLogin: "Sign in with the account that created it to delete it from the server.",
     deleteFailed: "Couldn't delete from the server: ",
     fromOther: "not yours",
-    notYetLocked: "Can't place it. If the song is locked I can't identify it until you unlock it."
+    notYetLocked: "Can't place it. If the song is locked I can't identify it until you unlock it.",
+    notFound: "This song isn't in the library: nobody has recorded it yet. You can record it yourself from the Teacher tab.",
+    notFoundLocked: "Can't find it. Either it's locked, or nobody has recorded it yet."
   }
 };
 
@@ -1398,12 +1402,20 @@ function tryMatch(elapsed) {
   const res = matcher.match(qk, qt);
   student.matching = false;
   if (!res) {
-    // Si hay canciones bloqueadas, lo mas probable es que este sonando una de
-    // ellas: sin su huella no hay forma de identificarla, y decir "no se cual
-    // es" es mucho mejor que arriesgar y marcar el tiempo equivocado.
+    /* El mensaje cambia con el tiempo que lleva escuchando. Repetir "todavia
+       no" para siempre deja al usuario sin saber si esperar, acercar el
+       telefono, o si esa cancion sencillamente no existe. Un reconocimiento
+       normal engancha en menos de diez segundos; pasados veinte, la respuesta
+       honesta es que no esta. */
     if (!student.song) {
       const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
-      setA(hayBloqueadas ? t("notYetLocked") : t("notYet"));
+      if (elapsed < 8) {
+        setA(t("searching"));
+      } else if (elapsed < 20) {
+        setA(hayBloqueadas ? t("notYetLocked") : t("notYet"));
+      } else {
+        setA(hayBloqueadas ? t("notFoundLocked") : t("notFound"), "err");
+      }
     }
     return;
   }
