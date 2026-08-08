@@ -633,7 +633,9 @@ const STR = {
     notFoundLocked: "No la encuentro. O está bloqueada, o nadie la grabó todavía.",
     songChanged: "Cambió la canción → ",
     songLost: "Cambió la canción y esta no está grabada. Alguien tiene que grabarla desde Profesor.",
-    songLostLocked: "Cambió la canción y no la reconozco: o está bloqueada, o nadie la grabó."
+    songLostLocked: "Cambió la canción y no la reconozco: o está bloqueada, o nadie la grabó.",
+    thisIsLocked: "\u{1F512} «{0}» está bloqueada. Suscribite para ver la cuenta.",
+    lockedNoGame: "«{0}» está bloqueada: no se puede practicar hasta desbloquearla."
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
@@ -720,7 +722,9 @@ const STR = {
     notFoundLocked: "Can't find it. Either it's locked, or nobody has recorded it yet.",
     songChanged: "Song changed → ",
     songLost: "The song changed and this one isn't recorded. Someone needs to record it from the Teacher tab.",
-    songLostLocked: "The song changed and I can't place it: either it's locked, or nobody recorded it."
+    songLostLocked: "The song changed and I can't place it: either it's locked, or nobody recorded it.",
+    thisIsLocked: "\u{1F512} \u201c{0}\u201d is locked. Subscribe to see the count.",
+    lockedNoGame: "\u201c{0}\u201d is locked: you can't practise until you unlock it."
   }
 };
 
@@ -826,7 +830,7 @@ class Fingerprinter {
 
 /* ---- Índice en memoria para reconocer ---- */
 class Matcher {
-  constructor() { this.index = new Map(); this.songs = new Map(); }
+  constructor(minimo) { this.index = new Map(); this.songs = new Map(); this.minimo = minimo || 25; }
 
   add(song) {
     this.songs.set(song.id, song);
@@ -899,7 +903,7 @@ class Matcher {
     }
     if (!best) return null;
 
-    const MINIMO = 25;      // votos absolutos
+    const MINIMO = this.minimo;   // votos absolutos
     const DOMINIO = 2.5;    // cuanto debe destacar sobre el ruido
     if (best.score < MINIMO) return null;
     if (best.score < DOMINIO * Math.max(best.rival, segundaCancion, 1)) return null;
@@ -1071,6 +1075,11 @@ const judge = (err) => BANDS.find(b => Math.abs(err) <= b.max);
    ========================================================================= */
 const $ = (id) => document.getElementById(id);
 const matcher = new Matcher();
+/* Reconocedor aparte, con las huellas ralas del catalogo. Solo sirve para
+   saber QUE cancion suena; nunca para contar, porque no tiene los tiempos
+   del profesor. Umbral mas bajo: con una de cada seis marcas hay seis veces
+   menos votos, pero la exigencia de que destaque sigue igual. */
+const identificador = new Matcher(8);
 let songs = [], catalog = [];
 
 function fmt(s) {
@@ -1373,6 +1382,7 @@ $("a-stop").addEventListener("click", () => stopStudent());
 function stopStudent() {
   if (student.listener) { student.listener.stop(); student.listener = null; }
   student.song = null;
+  student.locked = null;
   student.forced = null;
   $("a-start").disabled = false;
   $("a-stop").disabled = true;
@@ -1414,6 +1424,25 @@ function tryMatch(elapsed) {
        telefono, o si esa cancion sencillamente no existe. Un reconocimiento
        normal engancha en menos de diez segundos; pasados veinte, la respuesta
        honesta es que no esta. */
+    /* Antes de rendirse: puede ser una bloqueada. Se identifica con la huella
+       rala para poder nombrarla, pero NO se cuenta: sin los tiempos del
+       profesor no hay compas que mostrar, y esa es la parte que se paga. */
+    const bloq = identificador.match(qk, qt);
+    if (bloq) {
+      const c = identificador.songs.get(bloq.songId);
+      if (!student.locked || student.locked.id !== c.id) {
+        student.locked = c;
+        if (student.song) perdioLaCancion(true);
+        $("a-big").textContent = "\u{1F512}";
+        $("a-big").className = "big";
+        $("a-sub").textContent = c.title + (c.artist ? " \u00b7 " + c.artist : "");
+        beatCells.forEach(x => x.classList.remove("on"));
+        setA(t("thisIsLocked", c.title), "err");
+      }
+      return;
+    }
+    student.locked = null;
+
     if (student.song) {
       /* Ya habia una cancion sonando y de pronto no coincide: lo mas probable
          es que hayan cambiado de tema. Se esperan dos fallos seguidos porque
@@ -1445,6 +1474,7 @@ function tryMatch(elapsed) {
   }
 
   student.misses = 0;
+  student.locked = null;
   const song = matcher.songs.get(res.songId);
   const cambio = student.song && student.song.id !== song.id;
   const first = student.song === null;
@@ -1463,7 +1493,7 @@ function tryMatch(elapsed) {
 }
 
 /* Se dejo de reconocer lo que suena: cortar la cuenta y decirlo. */
-function perdioLaCancion() {
+function perdioLaCancion(silencioso) {
   student.song = null;
   student.lastIdx = -1;
   student.misses = 0;
@@ -1472,6 +1502,7 @@ function perdioLaCancion() {
   $("a-sub").textContent = t("notListening");
   beatCells.forEach(c => c.classList.remove("on"));
 
+  if (silencioso) return;
   const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
   setA(hayBloqueadas ? t("songLostLocked") : t("songLost"), "err");
 }
@@ -1559,6 +1590,7 @@ function resetGame() {
 
 function gameTap() {
   if (!game.on) return;
+  if (student.locked) { setA(t("lockedNoGame", student.locked.title), "err"); return; }
   if (!student.song) { setA(t("notRecognised"), "err"); return; }
 
   const now = student.listener.time;
@@ -1844,6 +1876,18 @@ async function reload() {
   matcher.clear();
   // Solo se indexan las que esta versión sabe comparar
   songs.filter(usable).forEach(s => matcher.add(s));
+
+  // Y el identificador, con las bloqueadas que traen huella rala
+  identificador.clear();
+  const abiertas = new Set(songs.map(s => s.id));
+  catalog.forEach(c => {
+    if (abiertas.has(c.id) || !c.fpl_keys) return;
+    identificador.add({
+      id: c.id, title: c.title, artist: c.artist, teacher: c.teacher,
+      rhythm: c.rhythm, bloqueada: true,
+      fp: { keys: fromB64(c.fpl_keys, Uint32Array), times: fromB64(c.fpl_times, Uint16Array) }
+    });
+  });
   renderLists();
   await reloadScores();
 
@@ -1987,6 +2031,16 @@ function fromB64(str, Type) {
   return new Type(b.buffer);
 }
 
+/* Una de cada seis marcas: suficiente para identificar la cancion, inutil
+   para cualquier otra cosa. Es lo que viaja de las canciones bloqueadas. */
+const RALO = 6;
+function huellaRala(fp) {
+  const n = Math.ceil(fp.keys.length / RALO);
+  const k = new Uint32Array(n), t = new Uint16Array(n);
+  for (let i = 0, j = 0; i < fp.keys.length; i += RALO, j++) { k[j] = fp.keys[i]; t[j] = fp.times[i]; }
+  return { keys: k, times: t };
+}
+
 const rowToSong = (r) => ({
   id: r.id, owner: r.owner, title: r.title, artist: r.artist || "", teacher: r.teacher || "",
   rhythm: r.rhythm, duration: r.duration || 0, fpv: r.fpv,
@@ -1999,7 +2053,8 @@ const songToRow = (s, uid) => ({
   id: s.id, owner: uid, title: s.title, artist: s.artist || null,
   teacher: s.teacher || null, rhythm: s.rhythm, duration: s.duration || 0,
   fpv: fpVersionOf(s), downbeats: Array.from(s.downbeats),
-  fp_keys: toB64(s.fp.keys), fp_times: toB64(s.fp.times), shared: true
+  fp_keys: toB64(s.fp.keys), fp_times: toB64(s.fp.times), shared: true,
+  fpl_keys: toB64(huellaRala(s.fp).keys), fpl_times: toB64(huellaRala(s.fp).times)
 });
 
 const scoreToRow = (p, uid) => ({
