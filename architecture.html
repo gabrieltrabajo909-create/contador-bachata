@@ -1,612 +1,306 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How the Count App Works</title>
+<title>Cómo funciona el contador de bachata</title>
 <style>
-  :root {
-    --ground: #0d0c11;
-    --ink: #f3f1f7;
-    --muted: #918bA3;
-    --dim: #605a72;
-    --line: #24212e;
-    --card: #16141c;
-    --card2: #1e1b26;
-
-    --device: #4ea8ff;
-    --cloud: #ffb648;
-    --data: #3ecf8e;
-    --accent: #ff5a36;
+  :root{
+    --ground:#0c0b10; --ink:#f4f2f8; --muted:#948ea6; --dim:#615b74;
+    --line:#23202d; --card:#15131b; --card2:#1d1a25;
+    --fon:#4ea8ff;   /* telefono */
+    --nub:#ffb648;   /* nube */
+    --sec:#ff5a36;   /* lo que se protege */
+    --ok:#3ecf8e;
   }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);line-height:1.6;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  .wrap{max-width:62rem;margin:0 auto;padding:30px 18px 90px}
+  code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em}
 
-  * { box-sizing: border-box; }
+  .eyebrow{font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  h1{font-size:clamp(1.9rem,5.5vw,2.9rem);line-height:1.08;letter-spacing:-.03em;
+    margin:6px 0 12px;text-wrap:balance}
+  .lede{color:var(--muted);max-width:42rem;margin:0 0 30px}
+  h2{font-size:1.3rem;letter-spacing:-.02em;margin:52px 0 4px}
+  h2 .n{color:var(--dim);font-variant-numeric:tabular-nums;margin-right:9px;font-size:.9rem}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.9rem;max-width:44rem}
 
-  html { scroll-behavior: smooth; }
+  /* ---------- El recorrido del sonido ---------- */
+  .flow{display:grid;gap:0}
+  .step{display:grid;grid-template-columns:2.6rem 1fr;gap:16px;position:relative;padding-bottom:22px}
+  .step:not(:last-child)::before{content:"";position:absolute;left:1.28rem;top:2.6rem;bottom:0;
+    width:2px;background:linear-gradient(var(--line),transparent)}
+  .ball{width:2.6rem;height:2.6rem;border-radius:50%;display:grid;place-items:center;
+    font-size:1.1rem;background:var(--card2);border:2px solid var(--line);z-index:1}
+  .step h3{margin:.35rem 0 4px;font-size:1.02rem}
+  .step p{margin:0;color:var(--muted);font-size:.92rem}
+  .step .where{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--dim);margin-top:6px}
 
-  body {
-    margin: 0;
-    background: var(--ground);
-    color: var(--ink);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    line-height: 1.6;
-  }
+  /* ---------- Zonas ---------- */
+  .zones{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  @media(max-width:640px){.zones{grid-template-columns:1fr}}
+  .zone{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--card)}
+  .zone.fon{border-color:rgba(78,168,255,.3)}
+  .zone.nub{border-color:rgba(255,182,72,.3)}
+  .zone h3{margin:0 0 2px;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase}
+  .zone.fon h3{color:var(--fon)} .zone.nub h3{color:var(--nub)}
+  .zone .q{font-size:.85rem;color:var(--muted);margin:0 0 12px}
+  .zone ul{margin:0;padding-left:18px;font-size:.88rem;color:var(--muted)}
+  .zone li{margin-bottom:6px}
+  .zone li b{color:var(--ink);font-weight:600}
 
-  code, .mono {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 0.88em;
-  }
+  /* ---------- Candado ---------- */
+  .lockgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.lockgrid{grid-template-columns:1fr}}
+  .box{border:1px solid var(--line);border-radius:14px;padding:15px;background:var(--card)}
+  .box.viaja{border-left:3px solid var(--ok)}
+  .box.queda{border-left:3px solid var(--sec)}
+  .box h4{margin:0 0 4px;font-size:.95rem}
+  .box p{margin:0;font-size:.86rem;color:var(--muted)}
+  .box .tag{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+    padding:2px 7px;border-radius:999px;margin-left:6px}
+  .box.viaja .tag{background:rgba(62,207,142,.12);color:var(--ok)}
+  .box.queda .tag{background:rgba(255,90,54,.12);color:var(--sec)}
 
-  .wrap { max-width: 60rem; margin: 0 auto; padding: 32px 18px 80px; }
+  /* ---------- Tabla ---------- */
+  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+  table{border-collapse:collapse;width:100%;min-width:32rem;font-size:.88rem}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);
+    font-weight:600;background:var(--card)}
+  td{color:#ddd8e6} tr:last-child td{border-bottom:none}
+  td.si{color:var(--ok);font-weight:600} td.no{color:var(--sec);font-weight:600}
 
-  /* ---------- Header ---------- */
-  header { margin-bottom: 34px; }
+  .note{border-left:3px solid var(--line);padding-left:14px;color:var(--muted);
+    font-size:.9rem;margin:20px 0}
+  .note b{color:var(--ink)}
+  .warn{border-left-color:var(--sec)}
 
-  .eyebrow {
-    font-size: 0.7rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  h1 {
-    font-size: clamp(1.9rem, 5.5vw, 2.9rem);
-    line-height: 1.1;
-    letter-spacing: -0.03em;
-    margin: 6px 0 10px;
-    text-wrap: balance;
-  }
-
-  .lede { color: var(--muted); max-width: 42rem; margin: 0; }
-
-  /* ---------- Fact strip ---------- */
-  .facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    gap: 10px;
-    margin: 26px 0 40px;
-  }
-
-  .fact {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 13px 15px;
-  }
-
-  .fact dt {
-    font-size: 0.66rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin-bottom: 4px;
-  }
-
-  .fact dd { margin: 0; font-weight: 600; font-size: 0.94rem; word-break: break-word; }
-  .fact dd a { color: var(--device); }
-
-  /* ---------- Zones ---------- */
-  h2.zone-title {
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    margin: 0 0 4px;
-  }
-
-  .zone {
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 18px;
-    margin-bottom: 8px;
-    background: linear-gradient(180deg, var(--card) 0%, rgba(22,20,28,0.4) 100%);
-  }
-
-  .zone.cloud { border-color: rgba(255,182,72,0.28); }
-  .zone.cloud h2.zone-title { color: var(--cloud); }
-  .zone.device { border-color: rgba(78,168,255,0.28); }
-  .zone.device h2.zone-title { color: var(--device); }
-
-  .zone-note { color: var(--muted); font-size: 0.85rem; margin: 0 0 16px; }
-
-  .nodes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-    gap: 10px;
-  }
-
-  /* ---------- Node buttons ---------- */
-  .node {
-    text-align: left;
-    font: inherit;
-    color: var(--ink);
-    background: var(--card2);
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--dim);
-    border-radius: 12px;
-    padding: 13px 15px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    transition: border-color 0.14s ease, background 0.14s ease, transform 0.1s ease;
-  }
-
-  .node:hover { background: #26222f; transform: translateY(-1px); }
-  .node:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  .node[aria-expanded="true"] { background: #2a2534; }
-
-  .node .n-name { font-weight: 650; font-size: 0.98rem; }
-  .node .n-kind { font-size: 0.74rem; color: var(--muted); }
-
-  .node[data-tone="device"] { border-left-color: var(--device); }
-  .node[data-tone="cloud"]  { border-left-color: var(--cloud); }
-  .node[data-tone="data"]   { border-left-color: var(--data); }
-  .node[data-tone="core"]   { border-left-color: var(--accent); }
-
-  /* ---------- Arrow between zones ---------- */
-  .flowline {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--dim);
-    font-size: 0.8rem;
-    padding: 10px 4px 18px;
-  }
-
-  .flowline::before, .flowline::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--line), transparent);
-  }
-
-  /* ---------- Detail panel ---------- */
-  #detail {
-    position: sticky;
-    bottom: 0;
-    margin-top: 26px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 20px;
-  }
-
-  #detail[hidden] { display: none; }
-
-  #detail h3 { margin: 0 0 2px; font-size: 1.15rem; letter-spacing: -0.01em; }
-  #detail .d-kind { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
-
-  #detail dl { margin: 0; display: grid; gap: 14px; }
-  #detail dt {
-    font-size: 0.68rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin-bottom: 3px;
-  }
-  #detail dd { margin: 0; color: #ddd8e6; }
-  #detail dd code { color: var(--data); background: #10131a; padding: 1px 5px; border-radius: 4px; }
-
-  .close {
-    float: right;
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    border-radius: 8px;
-    font: inherit;
-    font-size: 0.8rem;
-    padding: 4px 10px;
-    cursor: pointer;
-  }
-
-  /* ---------- Walkthrough ---------- */
-  section.walk { margin-top: 52px; }
-
-  h2.section {
-    font-size: 1.3rem;
-    letter-spacing: -0.02em;
-    margin: 0 0 6px;
-  }
-
-  .section-note { color: var(--muted); margin: 0 0 18px; font-size: 0.9rem; }
-
-  .steps {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 20px;
-  }
-
-  .step-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-  .step-num {
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 0.85rem;
-    letter-spacing: 0.1em;
-  }
-  .step-title { font-weight: 650; font-size: 1.05rem; }
-  #step-body { color: #ddd8e6; min-height: 5.2em; margin: 0; }
-
-  .step-ctrl { display: flex; gap: 8px; margin-top: 16px; align-items: center; }
-  .step-ctrl button {
-    font: inherit;
-    font-weight: 600;
-    font-size: 0.88rem;
-    background: var(--card2);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    border-radius: 999px;
-    padding: 9px 18px;
-    cursor: pointer;
-  }
-  .step-ctrl button:disabled { opacity: 0.35; cursor: default; }
-  .step-dots { display: flex; gap: 5px; margin-left: auto; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
-  .dot.on { background: var(--accent); }
-
-  /* ---------- Absences ---------- */
-  .absent {
-    margin-top: 52px;
-    border: 1px dashed var(--line);
-    border-radius: 16px;
-    padding: 20px;
-  }
-
-  .absent ul { margin: 12px 0 0; padding-left: 20px; color: var(--muted); }
-  .absent li { margin-bottom: 9px; }
-  .absent strong { color: var(--ink); }
-
-  footer { margin-top: 46px; color: var(--dim); font-size: 0.82rem; }
-  footer a { color: var(--muted); }
-
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto; } }
+  footer{margin-top:56px;border-top:1px solid var(--line);padding-top:18px;
+    color:var(--dim);font-size:.82rem}
+  footer a{color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <header>
-    <div class="eyebrow">Architecture guide · Version 1.0</div>
-    <h1>How the dance count app is put together</h1>
-    <p class="lede">
-      A map of every moving part, written for someone who does not build software.
-      Tap any box to read what it is and what it does. Nothing here is jargon for its
-      own sake — if a word is unavoidable, it gets explained.
-    </p>
-  </header>
+  <div class="eyebrow">Cómo está construida · versión 2.1</div>
+  <h1>Qué hace la app por dentro</h1>
+  <p class="lede">
+    Escrito para leerlo sin saber programar. Empieza por el recorrido del
+    sonido, que es lo que explica todo lo demás.
+  </p>
 
-  <dl class="facts">
-    <div class="fact">
-      <dt>Version</dt>
-      <dd>v1.0 — first working release</dd>
-    </div>
-    <div class="fact">
-      <dt>Where the code lives</dt>
-      <dd><a href="https://github.com/gabrieltrabajo909-create/contador-bachata" target="_blank" rel="noopener">github.com/…/contador-bachata</a></dd>
-    </div>
-    <div class="fact">
-      <dt>Branch · Forks</dt>
-      <dd><span class="mono">main</span> · none</dd>
-    </div>
-    <div class="fact">
-      <dt>Server</dt>
-      <dd>None. Really.</dd>
-    </div>
-    <div class="fact">
-      <dt>Database</dt>
-      <dd>Inside your phone only</dd>
-    </div>
-    <div class="fact">
-      <dt>Size</dt>
-      <dd>One file, ~34 KB, no libraries</dd>
-    </div>
-  </dl>
+  <!-- ============ EL RECORRIDO ============ -->
+  <h2><span class="n">01</span>El viaje de un sonido, paso a paso</h2>
+  <p class="sub">
+    Desde que suena la música hasta que ves el número en pantalla. Todo esto
+    ocurre varias veces por segundo.
+  </p>
 
-  <!-- ================= DIAGRAM ================= -->
-
-  <div class="zone cloud">
-    <h2 class="zone-title">On the internet</h2>
-    <p class="zone-note">
-      Two things live here, and both are just storage. Neither of them ever runs
-      any part of the app or sees any of your songs.
-    </p>
-    <div class="nodes" id="zone-cloud"></div>
-  </div>
-
-  <div class="flowline">the browser downloads the file once, then works alone</div>
-
-  <div class="zone device">
-    <h2 class="zone-title">On your phone</h2>
-    <p class="zone-note">
-      Everything that actually does work happens right here, inside the browser tab.
-      Close the tab and nothing is running anywhere.
-    </p>
-    <div class="nodes" id="zone-device"></div>
-  </div>
-
-  <div id="detail" hidden aria-live="polite">
-    <button class="close" id="d-close">Close</button>
-    <h3 id="d-name"></h3>
-    <div class="d-kind" id="d-kind"></div>
-    <dl>
-      <div><dt>In plain words</dt><dd id="d-plain"></dd></div>
-      <div><dt>What it does here</dt><dd id="d-does"></dd></div>
-      <div><dt>Where it is in the code</dt><dd id="d-where"></dd></div>
-      <div><dt>Worth knowing</dt><dd id="d-note"></dd></div>
-    </dl>
-  </div>
-
-  <!-- ================= WALKTHROUGH ================= -->
-
-  <section class="walk">
-    <h2 class="section">Follow one moment through the system</h2>
-    <p class="section-note">
-      A student presses “Listen and recognise” while a song is playing. Here is
-      every step, in order.
-    </p>
-
-    <div class="steps">
-      <div class="step-head">
-        <span class="step-num" id="step-num">STEP 1 / 7</span>
-        <span class="step-title" id="step-title"></span>
-      </div>
-      <p id="step-body"></p>
-      <div class="step-ctrl">
-        <button id="step-prev">Back</button>
-        <button id="step-next">Next</button>
-        <div class="step-dots" id="step-dots"></div>
+  <div class="flow">
+    <div class="step">
+      <div class="ball">🎤</div>
+      <div>
+        <h3>El micrófono escucha</h3>
+        <p>Llega sonido continuo. No se graba nada y no se envía a ninguna parte.</p>
+        <div class="where">en tu teléfono</div>
       </div>
     </div>
-  </section>
 
-  <!-- ================= WHAT ISN'T THERE ================= -->
+    <div class="step">
+      <div class="ball">📊</div>
+      <div>
+        <h3>Se mide, no se guarda</h3>
+        <p>Veintidós veces por segundo se mide cuánta energía hay en cada tono,
+           como leer las barras de un ecualizador. Del sonido en sí no queda nada.</p>
+        <div class="where">en tu teléfono</div>
+      </div>
+    </div>
 
-  <section class="absent">
-    <h2 class="section">What this app deliberately does not have</h2>
-    <p class="section-note">
-      Knowing what is missing explains most of the app's limits.
-    </p>
-    <ul>
-      <li><strong>No server.</strong> A server is a computer that stays on somewhere
-        and answers requests. This app has none, so there is nothing to pay for,
-        nothing to maintain — and no way for two phones to talk to each other.</li>
-      <li><strong>No accounts.</strong> Nobody logs in, so nothing is tied to a person.</li>
-      <li><strong>No shared library.</strong> Songs a teacher records stay on the
-        teacher's phone. Getting them to a student means exporting a file and
-        importing it on the other device, by hand.</li>
-      <li><strong>No control over the music.</strong> The song plays on Spotify or a
-        speaker; the app only listens. That is why it cannot slow a track down or
-        loop a section.</li>
-      <li><strong>No audio is stored.</strong> Only a mathematical summary of the
-        sound is kept, which cannot be turned back into music.</li>
-    </ul>
-  </section>
+    <div class="step">
+      <div class="ball">🔑</div>
+      <div>
+        <h3>Se convierte en huella</h3>
+        <p>De cada medición se toman los tonos más fuertes y se emparejan con
+           otros que llegan un instante después. Cada pareja se vuelve un número.
+           Una canción de tres minutos da unos ochenta mil.</p>
+        <div class="where">en tu teléfono</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="ball">🔍</div>
+      <div>
+        <h3>Se busca en la biblioteca</h3>
+        <p>Esos números se comparan con los de cada canción guardada. Coincidencias
+           sueltas hay siempre, entre dos canciones cualesquiera. Lo que delata a
+           la buena es que <b>muchas coincidan con la misma separación en el tiempo</b>.</p>
+        <div class="where">en tu teléfono</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="ball">📍</div>
+      <div>
+        <h3>Aparecen dos respuestas de una vez</h3>
+        <p>Esa separación repetida dice <b>qué canción</b> es y además <b>en qué
+           segundo</b> va. Las dos salen del mismo cálculo, y por eso la cuenta
+           entra sincronizada en lugar de empezar de cero.</p>
+        <div class="where">en tu teléfono</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="ball">🔢</div>
+      <div>
+        <h3>Se muestra el número</h3>
+        <p>Sabiendo el segundo, se buscan las marcas que puso el profesor y se
+           muestra el tiempo que toca. Cada cinco segundos vuelve a comprobar,
+           por si la canción cambió o se fue desfasando.</p>
+        <div class="where">en tu teléfono</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Lo llamativo:</b> los seis pasos ocurren en tu teléfono. Con el avión
+    puesto, todo esto sigue funcionando.
+  </div>
+
+  <!-- ============ LAS DOS MITADES ============ -->
+  <h2><span class="n">02</span>Las dos mitades del sistema</h2>
+  <p class="sub">Quién hace qué, y por qué está repartido así.</p>
+
+  <div class="zones">
+    <div class="zone fon">
+      <h3>Tu teléfono</h3>
+      <p class="q">Hace el trabajo</p>
+      <ul>
+        <li><b>Escucha</b> y calcula las huellas</li>
+        <li><b>Reconoce</b> la canción y la posición</li>
+        <li><b>Cuenta</b> y lleva el juego</li>
+        <li><b>Guarda</b> una copia de lo tuyo para funcionar sin conexión</li>
+      </ul>
+    </div>
+
+    <div class="zone nub">
+      <h3>El servidor</h3>
+      <p class="q">Guarda y decide quién puede ver qué</p>
+      <ul>
+        <li><b>Cuentas</b> y suscripciones</li>
+        <li><b>Canciones</b> de todos los profesores</li>
+        <li><b>Puntajes</b>, privados de cada uno</li>
+        <li><b>El candado</b>: decide qué entrega y qué no</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    Hay una tercera pieza que no piensa: <b>GitHub</b>. Guarda el código y sirve
+    la página. Es un archivador con un camarero.
+  </div>
+
+  <!-- ============ EL CANDADO ============ -->
+  <h2><span class="n">03</span>Cómo funciona el candado</h2>
+  <p class="sub">
+    Esta es la parte que sostiene el negocio, así que conviene entenderla bien.
+  </p>
+
+  <p style="color:var(--muted);font-size:.92rem;max-width:44rem">
+    Una canción guardada tiene dos partes que hasta la versión 2.1 viajaban
+    juntas. Separarlas es lo que permite enseñar el candado sin regalar el
+    contenido:
+  </p>
+
+  <div class="lockgrid" style="margin-top:14px">
+    <div class="box viaja">
+      <h4>La huella <span class="tag">viaja</span></h4>
+      <p>Sirve para <b>reconocer</b> qué canción suena. De las bloqueadas se manda
+         una versión reducida, una de cada seis marcas: alcanza para nombrarlas y
+         para nada más. Cualquiera podría calcularla desde la canción, así que no
+         hay mucho que proteger ahí.</p>
+    </div>
+    <div class="box queda">
+      <h4>Tus marcas del uno <span class="tag">se quedan</span></h4>
+      <p>Son los instantes exactos donde el profesor tocó la pantalla. Sin ellos
+         <b>no hay cuenta que mostrar</b>. Esto es el trabajo que se vende, y no
+         sale del servidor si no te corresponde.</p>
+    </div>
+  </div>
+
+  <p style="color:var(--muted);font-size:.92rem;margin-top:20px">
+    Por eso, sin suscripción, al poner una canción bloqueada la app puede decirte
+    <i>«esto es Cobarde y está bloqueada»</i> y aun así ser incapaz de mostrar un
+    solo tiempo.
+  </p>
+
+  <h3 style="font-size:1rem;margin:26px 0 10px">Quién puede ver qué</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>La canción es…</th><th>Ves el título</th><th>Ves la cuenta</th><th>Podés practicar</th></tr></thead>
+      <tbody>
+        <tr><td>Tuya</td><td class="si">sí</td><td class="si">sí</td><td class="si">sí</td></tr>
+        <tr><td>Marcada gratis</td><td class="si">sí</td><td class="si">sí</td><td class="si">sí</td></tr>
+        <tr><td>De otro, y pagás</td><td class="si">sí</td><td class="si">sí</td><td class="si">sí</td></tr>
+        <tr><td>De otro, y no pagás</td><td class="si">sí</td><td class="no">no</td><td class="no">no</td></tr>
+        <tr><td>Sin cuenta</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <b>Lo importante:</b> esa tabla la aplica el <b>servidor</b>, no la app. Si el
+    candado viviera en la aplicación, cualquiera lo abriría en dos minutos con las
+    herramientas del navegador. La base de datos se niega a entregar lo que no
+    corresponde, aunque quien pregunte sea un programa hecho a medida.
+  </div>
+
+  <!-- ============ CUANDO NO RECONOCE ============ -->
+  <h2><span class="n">04</span>Qué pasa cuando no reconoce</h2>
+  <p class="sub">
+    Equivocarse aquí es peor que rendirse: marcar el tiempo equivocado le enseña
+    mal al alumno, y encima con seguridad.
+  </p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Situación</th><th>Qué hace la app</th></tr></thead>
+      <tbody>
+        <tr><td>Suena una canción guardada</td><td>La reconoce y cuenta</td></tr>
+        <tr><td>Suena una <b>bloqueada</b></td><td>Dice cuál es e invita a suscribirse. No cuenta</td></tr>
+        <tr><td>Suena una que <b>nadie grabó</b></td><td>Lo dice, y sugiere grabarla</td></tr>
+        <tr><td>Se parece un poco pero no es</td><td>No arriesga: dice que no la reconoce</td></tr>
+        <tr><td><b>Cambiás de canción</b> a otra guardada</td><td>Se pasa a ella sola y avisa</td></tr>
+        <tr><td>Cambiás a una desconocida</td><td>Corta la cuenta en vez de seguir en falso</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ LO QUE NO HAY ============ -->
+  <h2><span class="n">05</span>Lo que la app no hace</h2>
+  <p class="sub">Los límites explican casi todas las preguntas que puedan surgir.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>No hace</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td>Guardar audio</td><td>Solo guarda un resumen matemático, que no se puede volver a convertir en música</td></tr>
+        <tr><td>Controlar la música</td><td>Suena en Spotify o en un altavoz; la app solo escucha. Por eso no puede ralentizar ni repetir un trozo</td></tr>
+        <tr><td>Vibrar en iPhone</td><td>Safari no lo permite a las páginas web. Se resuelve al empaquetarla como app</td></tr>
+        <tr><td>Reconocer una bloqueada al detalle</td><td>Puede nombrarla, pero sin las marcas del profesor no hay compás que mostrar</td></tr>
+        <tr><td>Moderar lo que se sube</td><td>Cualquiera con cuenta puede publicar; todavía no hay revisión</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <footer>
-    This page is part of the same repository as the app and is updated alongside it.
-    Live app: <a href="./">the count app</a>.
+    Esta página vive en el mismo repositorio que la app y se actualiza con ella.
+    Ir a <a href="./">la aplicación</a>.
   </footer>
 </div>
-
-<script>
-(() => {
-"use strict";
-
-/* ------------------------------------------------------------------
-   Every box in the diagram. Written to be read by a non-programmer.
-   ------------------------------------------------------------------ */
-const NODES = [
-  {
-    id: "repo", zone: "cloud", tone: "cloud",
-    name: "GitHub repository",
-    kind: "Storage for the source code",
-    plain: "GitHub is a website where the written instructions that make up a program are kept. Think of it as a filing cabinet with a perfect memory: every change ever made is recorded and can be undone.",
-    does: "Holds the app's single source file and this page. Each saved change is a “commit”, and version 1.0 is a bookmark placed on one particular commit so it can always be found again.",
-    where: "The whole project is two files: <code>index.html</code> (the app) and <code>architecture.html</code> (this page), on the <code>main</code> branch.",
-    note: "The repository is public, so anyone can read the code. There are no forks — nobody has made their own copy."
-  },
-  {
-    id: "pages", zone: "cloud", tone: "cloud",
-    name: "GitHub Pages",
-    kind: "Web hosting",
-    plain: "A free service that takes files from the repository and puts them at a web address so a browser can download them. It hands out files and does nothing else — it cannot think or store anything for you.",
-    does: "Serves the app at its public link over a secure connection.",
-    where: "Turned on in the repository settings, publishing from <code>main</code>.",
-    note: "The secure connection is not optional decoration: browsers refuse to give microphone access to a page that is not served securely. This is exactly why an earlier attempt over a plain local network could not work."
-  },
-  {
-    id: "browser", zone: "device", tone: "device",
-    name: "The browser tab",
-    kind: "Where the app runs",
-    plain: "The app is not installed. It is a web page, and the browser is the machine that runs it — the same way a music player runs a song.",
-    does: "Downloads the one file, reads it, draws the screen, and runs all the logic below.",
-    where: "Everything is inside <code>index.html</code>: layout, styling and logic in one file, with no outside libraries.",
-    note: "Because it is only a web page, closing the tab stops everything instantly, and there is nothing running in the background."
-  },
-  {
-    id: "mic", zone: "device", tone: "device",
-    name: "Microphone capture",
-    kind: "Input",
-    plain: "The part that asks permission to use the microphone and receives a continuous stream of sound.",
-    does: "Chops the incoming sound into roughly 22 slices per second and measures, for each slice, how much energy sits at each pitch — like reading the bars of a graphic equaliser many times a second.",
-    where: "The <code>Listener</code> section, using the browser's built-in audio tools.",
-    note: "Echo cancellation and noise reduction are switched off on purpose. Those features are built for speech and would damage the music the app is trying to read."
-  },
-  {
-    id: "fingerprint", zone: "device", tone: "core",
-    name: "Fingerprint maker",
-    kind: "The clever part",
-    plain: "It turns a piece of music into a compact list of numbers that is unique to that music — the same idea as a human fingerprint, but for sound.",
-    does: "In each slice of sound it finds the few strongest pitches, then pairs a strong pitch with another one that arrives shortly after. Each pair, plus the gap between them, becomes a single number. A three-minute song produces roughly eighty thousand of these.",
-    where: "The <code>Fingerprinter</code> class.",
-    note: "This is why the app survives a noisy room. It never compares the sound itself — only these landmark pairs, which stay recognisable even when a lot of other noise is layered on top."
-  },
-  {
-    id: "matcher", zone: "device", tone: "core",
-    name: "Song recogniser",
-    kind: "The clever part",
-    plain: "Compares the fingerprint of what is playing right now against the fingerprints of every saved song, and works out which one it is.",
-    does: "For each matching number it notes how far apart the two occurrences are in time. If one song shows the same time gap over and over, that is the song — and that gap also reveals exactly which second of it is playing.",
-    where: "The <code>Matcher</code> class.",
-    note: "Identifying the song and finding the position in it fall out of the same calculation. That is what makes the counts line up rather than just starting from zero."
-  },
-  {
-    id: "counter", zone: "device", tone: "core",
-    name: "Count engine",
-    kind: "Timing",
-    plain: "Turns “we are 42 seconds into this song” into “right now is beat 3”.",
-    does: "The teacher's taps mark where each “1” falls. Between any two taps the app spreads eight evenly spaced counts. Past the last tap it keeps the same spacing going.",
-    where: "The <code>countAt</code> function.",
-    note: "Bachata labels beats 4 and 8 as the tap; salsa on 1 leaves them as pauses. That is the only difference between the two rhythms in the code."
-  },
-  {
-    id: "ui", zone: "device", tone: "device",
-    name: "Teacher and Student screens",
-    kind: "Interface",
-    plain: "The two tabs you switch between. The same machinery underneath, pointed in opposite directions: one writes the counts down, the other reads them back.",
-    does: "Teacher mode records a fingerprint and collects taps, then lets you remove a bad tap or shift everything by 50 milliseconds. Student mode listens, recognises, and shows the count with an optional buzz on the 1.",
-    where: "The <code>teacher</code> and <code>student</code> sections.",
-    note: "Tapping was chosen over speaking the numbers. Speech recognition collapses over loud music and does not exist at all on iPhone, so it would have failed in the exact situation the app is for."
-  },
-  {
-    id: "db", zone: "device", tone: "data",
-    name: "IndexedDB",
-    kind: "The database",
-    plain: "A storage cupboard that every browser provides, living on the phone itself. This is the app's entire database — there is no other one anywhere.",
-    does: "Keeps each saved song: its title, artist, teacher, rhythm, the tap times, and the fingerprint.",
-    where: "The <code>DB</code> section.",
-    note: "It belongs to this website on this device. Another phone starts empty, and clearing the browser's site data erases the songs. Exporting is the only backup."
-  },
-  {
-    id: "file", zone: "device", tone: "data",
-    name: "Export and import file",
-    kind: "Sharing",
-    plain: "A plain text file holding every saved song, which can be sent to someone by any normal means.",
-    does: "Export writes the file to the phone's downloads. Import reads one back in and adds those songs to the cupboard.",
-    where: "The export and import handlers.",
-    note: "This exists precisely because there is no server. It is a manual stand-in for the sharing a server would otherwise do for you."
-  }
-];
-
-const STEPS = [
-  {
-    title: "The page is already downloaded",
-    body: "The browser fetched the single file from GitHub Pages when the link was opened. From this instant on, the internet is not involved at all — the app would keep working with the connection switched off."
-  },
-  {
-    title: "The microphone is switched on",
-    body: "The browser asks for permission, and the student grants it. Sound starts arriving continuously. Nothing is being recorded and nothing is being sent anywhere."
-  },
-  {
-    title: "The sound is measured, not saved",
-    body: "About 22 times a second the app measures how much energy sits at each pitch. It is reading the shape of the sound, the way you might read the bars of an equaliser display, rather than keeping the sound itself."
-  },
-  {
-    title: "Landmarks become a fingerprint",
-    body: "In each measurement the app picks out the strongest pitches, and pairs each one with another arriving a fraction of a second later. Every pair turns into a single number. A few seconds of listening produces a couple of thousand of them."
-  },
-  {
-    title: "The saved songs are searched",
-    body: "Those numbers are looked up against every song the teacher saved. Random coincidences are expected, so a handful of matches means nothing. What counts is a pattern: many matches all separated by the same gap in time."
-  },
-  {
-    title: "Song and position fall out together",
-    body: "When one song shows that repeated gap, it is identified — and the size of the gap says exactly how far into the track the music has reached. Both answers come from the same calculation."
-  },
-  {
-    title: "The count appears, and stays honest",
-    body: "Knowing the position, the app looks up where the teacher's taps put the “1”, and displays the right number. It quietly re-checks every ten seconds, so a small drift corrects itself instead of accumulating."
-  }
-];
-
-/* ------------------------------------------------------------------ */
-const $ = (id) => document.getElementById(id);
-const byId = new Map(NODES.map(n => [n.id, n]));
-let openId = null;
-
-function buildNodes() {
-  for (const zone of ["cloud", "device"]) {
-    const host = $("zone-" + zone);
-    NODES.filter(n => n.zone === zone).forEach(n => {
-      const b = document.createElement("button");
-      b.className = "node";
-      b.dataset.tone = n.tone;
-      b.id = "node-" + n.id;
-      b.setAttribute("aria-expanded", "false");
-      b.setAttribute("aria-controls", "detail");
-
-      const name = document.createElement("span");
-      name.className = "n-name";
-      name.textContent = n.name;
-
-      const kind = document.createElement("span");
-      kind.className = "n-kind";
-      kind.textContent = n.kind;
-
-      b.appendChild(name);
-      b.appendChild(kind);
-      b.addEventListener("click", () => toggle(n.id));
-      host.appendChild(b);
-    });
-  }
-}
-
-function toggle(id) {
-  if (openId === id) { closeDetail(); return; }
-  const n = byId.get(id);
-  if (openId) $("node-" + openId).setAttribute("aria-expanded", "false");
-  openId = id;
-  $("node-" + id).setAttribute("aria-expanded", "true");
-
-  $("d-name").textContent = n.name;
-  $("d-kind").textContent = n.kind;
-  $("d-plain").textContent = n.plain;
-  $("d-does").textContent = n.does;
-  $("d-where").innerHTML = n.where;      // contiene <code>, contenido propio
-  $("d-note").textContent = n.note;
-  $("detail").hidden = false;
-  $("detail").scrollIntoView({ block: "nearest" });
-}
-
-function closeDetail() {
-  if (openId) $("node-" + openId).setAttribute("aria-expanded", "false");
-  openId = null;
-  $("detail").hidden = true;
-}
-
-$("d-close").addEventListener("click", closeDetail);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
-
-/* ---------- Walkthrough ---------- */
-let step = 0;
-
-function buildDots() {
-  const host = $("step-dots");
-  host.textContent = "";
-  STEPS.forEach((_, i) => {
-    const d = document.createElement("span");
-    d.className = "dot" + (i === step ? " on" : "");
-    host.appendChild(d);
-  });
-}
-
-function renderStep() {
-  $("step-num").textContent = "STEP " + (step + 1) + " / " + STEPS.length;
-  $("step-title").textContent = STEPS[step].title;
-  $("step-body").textContent = STEPS[step].body;
-  $("step-prev").disabled = step === 0;
-  $("step-next").disabled = step === STEPS.length - 1;
-  buildDots();
-}
-
-$("step-prev").addEventListener("click", () => { if (step > 0) { step--; renderStep(); } });
-$("step-next").addEventListener("click", () => { if (step < STEPS.length - 1) { step++; renderStep(); } });
-
-buildNodes();
-renderStep();
-
-})();
-</script>
 </body>
 </html>
