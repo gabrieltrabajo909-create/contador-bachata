@@ -458,6 +458,13 @@
       </div>
       <input type="file" id="p-file" accept="application/json" hidden>
     </div>
+
+    <!-- Solo aparece si hay algo dentro: una papelera vacia es ruido. -->
+    <div class="card" id="p-trash-card" hidden>
+      <h2 data-i18n="trash">Papelera</h2>
+      <p class="hint" data-i18n="trashHelp">Lo que borraste se guarda 30 días por si te arrepentís.</p>
+      <div id="p-trash"></div>
+    </div>
   </section>
 
   <!-- ============ ALUMNO ============ -->
@@ -618,12 +625,19 @@ const STR = {
     offlineNote: "Sin cuenta, todo se guarda solo en este teléfono y el navegador puede borrarlo.",
     loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono.",
     syncDenied: "El servidor rechazó parte de los datos. Volvé a intentar; si sigue, avisame.",
-    locked: "Bloqueada", unlock: "Desbloquear todo", subActive: "Suscripción activa",
+    locked: "Bloqueada", subActive: "Suscripción activa",
     subOff: "Sin suscripción", subOn: "Suscribirme (prueba)", subCancel: "Cancelar suscripción",
     subTest: "Suscripción de prueba: es gratis y sirve para probar el mecanismo.",
     lockedHint: "{0} canciones bloqueadas. Con suscripción se abren todas.",
     freeTag: "gratis",
-    confirmDelete: "¿Borrar «{0}»?\n\nSe va del servidor y de todos los teléfonos. No se puede deshacer.",
+    confirmDelete: "¿Borrar «{0}»?\n\nSe va de todos los teléfonos, pero queda 30 días en la papelera por si te arrepentís.",
+    confirmDeleteLocal: "¿Borrar «{0}»?\n\nEsta nunca se subió, así que no va a la papelera: se pierde y no se puede recuperar.",
+    trash: "Papelera", trashHelp: "Lo que borraste se guarda 30 días por si te arrepentís.",
+    restore: "Recuperar", restored: "Recuperada: {0}",
+    trashDays: "quedan {0} días", trashLastDay: "último día",
+    purgeNow: "Borrar del todo",
+    confirmPurge: "¿Borrar «{0}» para siempre?\n\nEsto sí es definitivo: no hay forma de recuperarla.",
+    purged: "Borrada para siempre: {0}",
     deleted: "Borrada: {0}",
     deleteNeedsLogin: "Entrá con la cuenta que la creó para poder borrarla del servidor.",
     deleteFailed: "No se pudo borrar del servidor: ",
@@ -707,12 +721,19 @@ const STR = {
     offlineNote: "Without an account everything stays on this phone only, and the browser may erase it.",
     loggedOut: "Signed out. Your data is still on this phone.",
     syncDenied: "The server refused some of the data. Try again; if it persists, tell me.",
-    locked: "Locked", unlock: "Unlock everything", subActive: "Subscription active",
+    locked: "Locked", subActive: "Subscription active",
     subOff: "No subscription", subOn: "Subscribe (test)", subCancel: "Cancel subscription",
     subTest: "Test subscription: it is free and exists to check the mechanism.",
     lockedHint: "{0} songs locked. A subscription opens all of them.",
     freeTag: "free",
-    confirmDelete: "Delete \u201c{0}\u201d?\n\nIt goes from the server and every phone. This cannot be undone.",
+    confirmDelete: "Delete \u201c{0}\u201d?\n\nIt goes from every phone, but stays 30 days in the bin in case you change your mind.",
+    confirmDeleteLocal: "Delete “{0}”?\n\nThis one was never uploaded, so it doesn't go to the bin: it is lost for good.",
+    trash: "Bin", trashHelp: "Anything you delete is kept for 30 days in case you change your mind.",
+    restore: "Restore", restored: "Restored: {0}",
+    trashDays: "{0} days left", trashLastDay: "last day",
+    purgeNow: "Delete for good",
+    confirmPurge: "Delete \u201c{0}\u201d for good?\n\nThis one is final: there is no way back.",
+    purged: "Deleted for good: {0}",
     deleted: "Deleted: {0}",
     deleteNeedsLogin: "Sign in with the account that created it to delete it from the server.",
     deleteFailed: "Couldn't delete from the server: ",
@@ -1820,18 +1841,26 @@ function renderLists() {
   }
 }
 
-/* Borrar de verdad: del servidor y del telefono. Antes solo se quitaba del
-   telefono, asi que la cancion reaparecia en la siguiente sincronizacion. */
+/* Borrar no borra: esconde.
+   Marcar el "uno" de una cancion entera cuesta un rato, y el accidente mas
+   probable con diferencia no es que se caiga el servidor: es que alguien
+   apriete este boton sin querer. La fila se queda en la base con la fecha
+   puesta, desaparece para todo el mundo, y su dueno la puede recuperar
+   durante 30 dias. Pasado el plazo se elimina de verdad. */
 async function borrarCancion(s) {
-  if (!confirm(t("confirmDelete", s.title))) return;
+  // Una que nunca se subio no tiene donde esconderse: esa si se pierde.
+  if (!confirm(t(s.owner ? "confirmDelete" : "confirmDeleteLocal", s.title))) return;
 
-  if (s.owner) {                                    // ya estaba subida
+  if (s.owner) {
     if (!cloud.session || cloud.session.uid !== s.owner) {
       setP(t("deleteNeedsLogin"), "err");
       return;
     }
     try {
-      await cloud.rest("songs?id=eq." + encodeURIComponent(s.id), { method: "DELETE" });
+      await cloud.rest("songs?id=eq." + encodeURIComponent(s.id), {
+        method: "PATCH",
+        body: JSON.stringify({ deleted_at: new Date().toISOString() })
+      });
     } catch (e) {
       setP(t("deleteFailed") + String(e.message || e), "err");
       return;
@@ -1840,8 +1869,94 @@ async function borrarCancion(s) {
 
   await DB.del(s.id, "songs");
   await DB.del(s.id, "catalog");
+  await cargarPapelera();
   await reload();
   setP(t("deleted", s.title), "ok");
+}
+
+/* Sacarla de la papelera es quitarle la fecha. Despues se sincroniza, porque
+   la huella se fue del telefono al borrarla y hay que volver a bajarla. */
+async function restaurarCancion(fila) {
+  try {
+    await cloud.rest("songs?id=eq." + encodeURIComponent(fila.id), {
+      method: "PATCH", body: JSON.stringify({ deleted_at: null })
+    });
+  } catch (e) {
+    setP(t("deleteFailed") + String(e.message || e), "err");
+    return;
+  }
+  await syncNow();
+  setP(t("restored", fila.title), "ok");
+}
+
+/* Vaciar a mano sin esperar los 30 dias. Esto si es definitivo. */
+async function purgarCancion(fila) {
+  if (!confirm(t("confirmPurge", fila.title))) return;
+  try {
+    await cloud.rest("songs?id=eq." + encodeURIComponent(fila.id), { method: "DELETE" });
+  } catch (e) {
+    setP(t("deleteFailed") + String(e.message || e), "err");
+    return;
+  }
+  await cargarPapelera();
+  setP(t("purged", fila.title), "ok");
+}
+
+/* La papelera no se guarda en el telefono: se le pregunta al servidor. Son
+   cuatro datos, y asi dos telefonos no pueden contradecirse sobre lo que
+   sigue borrado y lo que no. */
+let papelera = [];
+
+async function cargarPapelera() {
+  if (!cloud.session) { papelera = []; renderTrash(); return; }
+  try {
+    papelera = await cloud.rest(
+      "songs?select=id,title,artist,rhythm,deleted_at" +
+      "&owner=eq." + encodeURIComponent(cloud.session.uid) +
+      "&deleted_at=not.is.null&order=deleted_at.desc");
+  } catch (e) {
+    /* Si la base todavia no tiene la columna, la papelera no existe todavia.
+       No es motivo para romper el resto de la pantalla. */
+    papelera = [];
+  }
+  renderTrash();
+}
+
+function renderTrash() {
+  const card = $("p-trash-card"), box = $("p-trash");
+  if (!card || !box) return;
+  card.hidden = papelera.length === 0;   // una papelera vacia es ruido
+  box.textContent = "";
+
+  for (const fila of papelera) {
+    const dias = 30 - Math.floor((Date.now() - new Date(fila.deleted_at).getTime()) / 86400000);
+    const row = document.createElement("div");
+    row.className = "song";
+
+    const info = document.createElement("div");
+    info.className = "info";
+    const titleEl = document.createElement("div");
+    titleEl.className = "t";
+    titleEl.textContent = fila.title;
+    const m = document.createElement("div");
+    m.className = "m";
+    m.textContent = [fila.artist, rhythmName(fila.rhythm),
+                     dias > 1 ? t("trashDays", dias) : t("trashLastDay")]
+                    .filter(Boolean).join(" · ");
+    info.appendChild(titleEl); info.appendChild(m);
+
+    const undo = document.createElement("button");
+    undo.textContent = t("restore");
+    undo.addEventListener("click", () => restaurarCancion(fila));
+
+    const kill = document.createElement("button");
+    kill.className = "danger";
+    kill.textContent = t("purgeNow");
+    kill.addEventListener("click", () => purgarCancion(fila));
+
+    row.appendChild(info); row.appendChild(undo); row.appendChild(kill);
+    box.appendChild(row);
+  }
 }
 
 async function reloadScores() {
@@ -2136,19 +2251,35 @@ async function syncNow() {
   for (const viejo of await DB.all("catalog"))
     if (!vistos.has(viejo.id)) await DB.del(viejo.id, "catalog");
 
-  // Y aparte, las que el servidor deja bajar: propias, gratis o con suscripcion
-  const remoteSongs = await cloud.rest("songs?select=*");
+  /* Y aparte, las que el servidor deja bajar: propias, gratis o con
+     suscripcion. El filtro de borradas es imprescindible: el dueno SI ve lo
+     suyo aunque este en la papelera (si no, no podria recuperarlo), asi que
+     sin este filtro la cancion que acabas de borrar se volveria a bajar sola
+     en la siguiente sincronizacion. */
+  const remoteSongs = await cloud.rest("songs?select=*&deleted_at=is.null");
   const permitidas = new Set(remoteSongs.map(r => r.id));
   for (const r of remoteSongs) await DB.put(rowToSong(r), "songs");
 
+  // La papelera, que ademas dice cuales de las propias hay que quitar de aqui:
+  // si la borraste desde otro telefono, este todavia no se ha enterado.
+  await cargarPapelera();
+  const enPapelera = new Set(papelera.map(f => f.id));
+
   // Y se borran las de otros que el servidor ya NO autoriza. Sin esto, una vez
   // bajada una cancion se queda para siempre y quitarle el acceso a alguien no
-  // servia de nada. Las propias y las aun no subidas no se tocan.
+  // servia de nada. Las aun no subidas (sin dueno) no se tocan nunca.
   for (const s of await DB.all("songs")) {
-    if (s.owner && s.owner !== uid && !permitidas.has(s.id)) {
-      await DB.del(s.id, "songs");
-    }
+    if (!s.owner) continue;
+    const ajenaRevocada = s.owner !== uid && !permitidas.has(s.id);
+    const propiaBorrada = s.owner === uid && enPapelera.has(s.id);
+    if (ajenaRevocada || propiaBorrada) await DB.del(s.id, "songs");
   }
+
+  /* Se aprovecha el viaje para vaciar lo que ya paso los 30 dias. Va como
+     funcion del servidor y no como tarea programada para no depender de
+     extensiones del plan de pago. Si todavia no existe, no pasa nada. */
+  try { await cloud.rest("rpc/purge_deleted_songs", { method: "POST", body: "{}" }); }
+  catch (e) { /* la base aun no tiene la funcion */ }
 
   const remoteScores = await cloud.rest("scores?select=*");
   for (const r of remoteScores) await DB.put(rowToScore(r), "scores");
