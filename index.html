@@ -1304,13 +1304,49 @@ function setP(msg, kind) {
   el.className = "status" + (kind ? " " + kind : "");
 }
 
-/* ---------- Exportar / importar ---------- */
-$("p-export").addEventListener("click", () => {
-  const plain = songs.map(s => ({
+/* ---------- Exportar / importar ----------
+
+   Esta es la copia de seguridad de verdad: un archivo que se guarda donde uno
+   quiera y que no depende de que la cuenta, el telefono o el servidor sigan
+   existiendo. Por eso el guardar y el leer estan aqui sueltos y no metidos
+   dentro del boton: asi se pueden probar solos, que es lo minimo para algo de
+   lo que depende no perder el trabajo. */
+
+function exportarCanciones(lista) {
+  /* Las huellas son arrays de numeros de tamano fijo, y eso no existe en un
+     archivo de texto: hay que pasarlas a listas normales o se guardan vacias. */
+  const planas = lista.map(s => ({
     ...s,
     fp: { keys: Array.from(s.fp.keys), times: Array.from(s.fp.times) }
   }));
-  const blob = new Blob([JSON.stringify({ v: 1, songs: plain })], { type: "application/json" });
+  return JSON.stringify({ v: 1, songs: planas });
+}
+
+function importarCanciones(texto) {
+  const datos = JSON.parse(texto);
+  if (!datos || !Array.isArray(datos.songs)) {
+    throw new Error("el archivo no tiene canciones dentro");
+  }
+  return datos.songs.map(s => {
+    if (!s || !s.id || !s.fp || !Array.isArray(s.fp.keys) || !Array.isArray(s.fp.times)) {
+      throw new Error("hay una cancion incompleta en el archivo");
+    }
+    if (s.fp.keys.length !== s.fp.times.length) {
+      throw new Error("una huella llego a medias");
+    }
+    return {
+      ...s,
+      downbeats: Array.from(s.downbeats || []),
+      fp: {
+        keys: Uint32Array.from(s.fp.keys),
+        times: Uint16Array.from(s.fp.times)
+      }
+    };
+  });
+}
+
+$("p-export").addEventListener("click", () => {
+  const blob = new Blob([exportarCanciones(songs)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "cuentas.json";
@@ -1323,13 +1359,10 @@ $("p-file").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   try {
-    const data = JSON.parse(await file.text());
-    for (const s of data.songs) {
-      s.fp = { keys: Uint32Array.from(s.fp.keys), times: Uint16Array.from(s.fp.times) };
-      await DB.put(s);
-    }
+    const recuperadas = importarCanciones(await file.text());
+    for (const s of recuperadas) await DB.put(s, "songs");
     await reload();
-    setP(t("imported", data.songs.length), "ok");
+    setP(t("imported", recuperadas.length), "ok");
   } catch (err) {
     setP(t("badFile"), "err");
   }
@@ -1434,6 +1467,27 @@ function onStudentFrame(spec, frame, elapsed) {
   if (student.song) paintStudent();
 }
 
+/* Que decirle a alguien que lleva un rato esperando sin que pase nada.
+
+   El mensaje sube de tono con el tiempo, porque repetir "todavia no" para
+   siempre deja a la persona sin saber si esperar, acercar el telefono o
+   rendirse. Un reconocimiento normal engancha en menos de diez segundos.
+
+   `buscando` es el tiempo desde que empezo ESTA busqueda, no desde que se
+   encendio el microfono. Confundir los dos fue justamente el fallo: al perder
+   una cancion en el minuto uno, el mensaje saltaba de golpe al mas duro.
+
+   `yaEncontroAlgo` frena ese salto por otro lado: si en esta sesion ya se
+   reconocio una cancion, decir "nadie la ha grabado" es mentira. La
+   biblioteca funciona; lo que falla es la escucha. */
+function mensajeDeBusqueda(buscando, yaEncontroAlgo, hayBloqueadas) {
+  if (buscando < 8) return { clave: "searching", tono: undefined };
+  if (buscando < 20 || yaEncontroAlgo) {
+    return { clave: hayBloqueadas ? "notYetLocked" : "notYet", tono: undefined };
+  }
+  return { clave: hayBloqueadas ? "notFoundLocked" : "notFound", tono: "err" };
+}
+
 function tryMatch(elapsed) {
   student.matching = true;
   const { keys, times } = student.fp.result();
@@ -1482,17 +1536,9 @@ function tryMatch(elapsed) {
     } else {
       const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
       /* Cuanto lleva buscando ESTO, no cuanto lleva encendido el microfono. */
-      const buscando = elapsed - student.searchFrom;
-      if (buscando < 8) {
-        setA(t("searching"));
-      } else if (buscando < 20 || student.everFound) {
-        /* Si ya reconocio algo en esta sesion, decir "nadie la grabo" seria
-           mentira: la biblioteca funciona, lo que falla es la escucha. Se queda
-           en el mensaje suave y sigue intentando. */
-        setA(hayBloqueadas ? t("notYetLocked") : t("notYet"));
-      } else {
-        setA(hayBloqueadas ? t("notFoundLocked") : t("notFound"), "err");
-      }
+      const aviso = mensajeDeBusqueda(
+        elapsed - student.searchFrom, student.everFound, hayBloqueadas);
+      setA(t(aviso.clave), aviso.tono);
     }
     return;
   }
@@ -1624,6 +1670,34 @@ function resetGame() {
   $("g-taphint").textContent = t("gameTapHint");
 }
 
+/* Las cuentas del final de una partida, aparte de la pantalla para poder
+   comprobarlas. Aqui sale la nota que se guarda para siempre, asi que un
+   error no se nota hoy pero envenena el historial entero. */
+function resumenDelJuego(taps, puntos) {
+  const n = taps.length;
+  if (!n) return null;
+
+  const errorMedio = taps.reduce((s, x) => s + Math.abs(x.err), 0) / n;
+  // Sobre el maximo posible: 100 puntos por cada golpe clavado
+  const acierto = Math.round(puntos / (n * 100) * 100);
+
+  /* La tendencia se mide CON signo, al reves que el error medio: alguien que
+     se adelanta la mitad de las veces y se atrasa la otra mitad no tiene un
+     problema de tendencia y no hay que decirle que se adelanta. */
+  const tendencia = taps.reduce((s, x) => s + x.err, 0) / n;
+
+  const nota =
+    acierto >= 85 ? "gFlawless" :
+    acierto >= 70 ? "gVeryGood" :
+    acierto >= 50 ? "gOk" :
+    acierto >= 30 ? "gPractise" : "gRough";
+
+  const consejo =
+    Math.abs(tendencia) < 0.04 ? "tipEven" : tendencia < 0 ? "tipEarly" : "tipLate";
+
+  return { n, errorMedio, acierto, tendencia, nota, consejo };
+}
+
 function gameTap() {
   if (!game.on) return;
   if (student.locked) { setA(t("lockedNoGame", student.locked.title), "err"); return; }
@@ -1673,29 +1747,19 @@ $("g-again").addEventListener("click", () => resetGame());
 $("g-finish").addEventListener("click", async () => {
   if (game.taps.length < 4) return;
 
-  const n = game.taps.length;
-  const avgErr = game.taps.reduce((s, t) => s + Math.abs(t.err), 0) / n;
-  const maxPts = n * 100;
-  const accuracy = Math.round(game.points / maxPts * 100);
+  const r = resumenDelJuego(game.taps, game.points);
+  const { n, acierto: accuracy, errorMedio: avgErr } = r;
 
-  const grade =
-    accuracy >= 85 ? t("gFlawless") :
-    accuracy >= 70 ? t("gVeryGood") :
-    accuracy >= 50 ? t("gOk") :
-    accuracy >= 30 ? t("gPractise") : t("gRough");
-
-  $("g-grade").textContent = grade;
+  $("g-grade").textContent = t(r.nota);
   $("r-points").textContent = game.points;
   $("r-acc").textContent = accuracy + "%";
   $("r-err").textContent = Math.round(avgErr * 1000) + " ms";
   $("r-streak").textContent = game.best;
 
   // Consejo según la tendencia: adelantarse y atrasarse se corrigen distinto
-  const bias = game.taps.reduce((s, t) => s + t.err, 0) / n;
-  $("r-tip").textContent =
-    Math.abs(bias) < 0.04 ? t("tipEven")
-    : bias < 0 ? t("tipEarly", Math.round(Math.abs(bias) * 1000))
-    : t("tipLate", Math.round(bias * 1000));
+  $("r-tip").textContent = r.consejo === "tipEven"
+    ? t("tipEven")
+    : t(r.consejo, Math.round(Math.abs(r.tendencia) * 1000));
 
   $("g-result").hidden = false;
 
