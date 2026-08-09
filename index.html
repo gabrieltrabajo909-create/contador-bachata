@@ -1320,7 +1320,12 @@ $("p-file").addEventListener("change", async (e) => {
    ========================================================================= */
 const student = {
   listener: null, fp: null, song: null, offset: 0, syncAt: 0,
-  voice: false, vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null
+  voice: false, vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null,
+  /* searchFrom: momento en que empezo la busqueda ACTUAL. No es lo mismo que el
+     tiempo total escuchando: al perder una cancion la busqueda vuelve a empezar,
+     y los mensajes tienen que volver a empezar con ella.
+     everFound: si ya se reconocio algo, "nadie grabo esta cancion" es falso. */
+  searchFrom: 0, everFound: false
 };
 
 $("a-voice").addEventListener("click", (e) => {
@@ -1361,6 +1366,8 @@ $("a-start").addEventListener("click", async () => {
   student.lastIdx = -1;
   student.lastMatchTry = 0;
   student.misses = 0;
+  student.searchFrom = 0;
+  student.everFound = false;
   student.listener = new Listener();
 
   try {
@@ -1450,12 +1457,17 @@ function tryMatch(elapsed) {
          principio de la otra. Mientras tanto NO se sigue contando: marcar el
          compas de la cancion anterior es peor que no marcar nada. */
       student.misses = (student.misses || 0) + 1;
-      if (student.misses >= 2) perdioLaCancion();
+      if (student.misses >= 3) perdioLaCancion();
     } else {
       const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
-      if (elapsed < 8) {
+      /* Cuanto lleva buscando ESTO, no cuanto lleva encendido el microfono. */
+      const buscando = elapsed - student.searchFrom;
+      if (buscando < 8) {
         setA(t("searching"));
-      } else if (elapsed < 20) {
+      } else if (buscando < 20 || student.everFound) {
+        /* Si ya reconocio algo en esta sesion, decir "nadie la grabo" seria
+           mentira: la biblioteca funciona, lo que falla es la escucha. Se queda
+           en el mensaje suave y sigue intentando. */
         setA(hayBloqueadas ? t("notYetLocked") : t("notYet"));
       } else {
         setA(hayBloqueadas ? t("notFoundLocked") : t("notFound"), "err");
@@ -1475,6 +1487,7 @@ function tryMatch(elapsed) {
 
   student.misses = 0;
   student.locked = null;
+  student.everFound = true;
   const song = matcher.songs.get(res.songId);
   const cambio = student.song && student.song.id !== song.id;
   const first = student.song === null;
@@ -1497,6 +1510,8 @@ function perdioLaCancion(silencioso) {
   student.song = null;
   student.lastIdx = -1;
   student.misses = 0;
+  /* Empieza una busqueda nueva: los mensajes se cuentan desde aqui. */
+  student.searchFrom = student.lastMatchTry;
   $("a-big").textContent = "·";
   $("a-big").className = "big";
   $("a-sub").textContent = t("notListening");
