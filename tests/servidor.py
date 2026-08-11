@@ -358,6 +358,47 @@ def _():
     rest(f"scores?id=eq.{MARCA}-p", "DELETE", token=tokenB)
 
 # --------------------------------------------------------------------------
+seccion("Recuperar la contrasena")
+
+@prueba("pedir el correo de recuperacion no revela quien tiene cuenta")
+def _():
+    """Si contestara distinto para un correo que existe y uno que no,
+    cualquiera podria averiguar quien esta registrado probando direcciones."""
+    a = pedir("/auth/v1/recover", "POST",
+              {"email": "no.existe.seguro.zzz@example.com"})
+    assert a.codigo in (200, 429), f"delata las cuentas que no existen: {a.codigo}"
+
+@prueba("cambiar la contrasena funciona y la nueva sirve para entrar")
+def _():
+    correo, vieja = CUENTAS["B"]
+    nueva = vieja + "-cambiada"
+    r = pedir("/auth/v1/user", "PUT", {"password": nueva}, token=tokenB)
+    assert r.codigo == 200, f"no pudo cambiarla: {r.codigo} {r.texto[:150]}"
+
+    con_nueva = pedir("/auth/v1/token?grant_type=password", "POST",
+                      {"email": correo, "password": nueva})
+    assert con_nueva.codigo == 200, "la contrasena nueva no sirve para entrar"
+
+    con_vieja = pedir("/auth/v1/token?grant_type=password", "POST",
+                      {"email": correo, "password": vieja})
+    assert con_vieja.codigo != 200, "la contrasena vieja SIGUE sirviendo"
+
+    # y se deja como estaba, para que las pruebas se puedan repetir
+    volver = pedir("/auth/v1/user", "PUT", {"password": vieja},
+                   token=con_nueva.datos["access_token"])
+    assert volver.codigo == 200, "no pude dejar la clave como estaba"
+
+@prueba("sin sesion nadie puede cambiar una contrasena")
+def _():
+    r = pedir("/auth/v1/user", "PUT", {"password": "loquesea123"})
+    assert r.codigo >= 400, f"se pudo cambiar sin estar dentro ({r.codigo})"
+
+@prueba("una contrasena demasiado corta se rechaza")
+def _():
+    r = pedir("/auth/v1/user", "PUT", {"password": "123"}, token=tokenB)
+    assert r.codigo >= 400, "acepto una contrasena de tres caracteres"
+
+# --------------------------------------------------------------------------
 limpiar()
 
 @prueba("las pruebas no dejaron basura")

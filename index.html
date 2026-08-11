@@ -147,6 +147,17 @@
 
   button.primary { background: var(--accent); color: #fff; }
   button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+
+  /* Un boton que se lee como un enlace: para acciones de salida, las que
+     casi nadie necesita pero quien las necesita las necesita de verdad. */
+  button.link {
+    background: none; border: none; padding: 6px 2px; margin-top: 4px;
+    color: var(--muted); font-size: .86rem; text-decoration: underline;
+    cursor: pointer; width: auto;
+  }
+  button.link:hover { color: var(--ink); }
+
+  .hint { color: var(--muted); font-size: .86rem; margin: 0 0 10px; }
   button.danger { background: transparent; border: 1px solid #6b2a22; color: #ff8a70; }
   button:disabled { opacity: 0.35; cursor: default; }
   button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -382,6 +393,14 @@
         <button class="primary" id="ac-in" data-i18n="signIn">Entrar</button>
         <button class="ghost" id="ac-up" data-i18n="signUp">Crear cuenta</button>
       </div>
+      <button class="link" id="ac-forgot" data-i18n="forgot">¿Olvidaste tu contraseña?</button>
+    </div>
+
+    <!-- Solo aparece al volver desde el enlace del correo -->
+    <div id="acct-new" hidden>
+      <p class="hint" data-i18n="newPassHelp">Elegí una contraseña nueva. Vas a quedar dentro de tu cuenta.</p>
+      <input type="password" id="ac-newpass" placeholder="Contraseña nueva" data-i18n-ph="phNewPass" autocomplete="new-password">
+      <button class="primary" id="ac-savepass" data-i18n="savePass">Guardar contraseña</button>
     </div>
 
     <div id="acct-in" hidden>
@@ -632,6 +651,17 @@ const STR = {
     freeTag: "gratis",
     confirmDelete: "¿Borrar «{0}»?\n\nSe va de todos los teléfonos, pero queda 30 días en la papelera por si te arrepentís.",
     confirmDeleteLocal: "¿Borrar «{0}»?\n\nEsta nunca se subió, así que no va a la papelera: se pierde y no se puede recuperar.",
+    forgot: "¿Olvidaste tu contraseña?",
+    forgotNeedEmail: "Escribí tu correo arriba y volvé a tocar acá.",
+    forgotSent: "Te mandamos un correo a {0}. Si no aparece, mirá en spam.",
+    forgotFailed: "No se pudo mandar el correo: ",
+    newPassHelp: "Elegí una contraseña nueva. Vas a quedar dentro de tu cuenta.",
+    phNewPass: "Contraseña nueva",
+    savePass: "Guardar contraseña",
+    passTooShort: "La contraseña tiene que tener al menos 6 caracteres.",
+    passChanged: "Contraseña cambiada. Ya estás dentro.",
+    passFailed: "No se pudo cambiar la contraseña: ",
+    linkExpired: "Ese enlace ya venció. Pedí uno nuevo desde «¿Olvidaste tu contraseña?».",
     trash: "Papelera", trashHelp: "Lo que borraste se guarda 30 días por si te arrepentís.",
     restore: "Recuperar", restored: "Recuperada: {0}",
     trashDays: "quedan {0} días", trashLastDay: "último día",
@@ -728,6 +758,17 @@ const STR = {
     freeTag: "free",
     confirmDelete: "Delete \u201c{0}\u201d?\n\nIt goes from every phone, but stays 30 days in the bin in case you change your mind.",
     confirmDeleteLocal: "Delete “{0}”?\n\nThis one was never uploaded, so it doesn't go to the bin: it is lost for good.",
+    forgot: "Forgot your password?",
+    forgotNeedEmail: "Type your email above, then tap here again.",
+    forgotSent: "We sent an email to {0}. If you can't see it, check your spam folder.",
+    forgotFailed: "Couldn't send the email: ",
+    newPassHelp: "Choose a new password. You'll be signed in straight after.",
+    phNewPass: "New password",
+    savePass: "Save password",
+    passTooShort: "The password needs at least 6 characters.",
+    passChanged: "Password changed. You're in.",
+    passFailed: "Couldn't change the password: ",
+    linkExpired: "That link has expired. Ask for a new one from \u201cForgot your password?\u201d.",
     trash: "Bin", trashHelp: "Anything you delete is kept for 30 days in case you change your mind.",
     restore: "Restore", restored: "Restored: {0}",
     trashDays: "{0} days left", trashLastDay: "last day",
@@ -2138,6 +2179,46 @@ const cloud = {
     this.keep(d);
     return d;
   },
+
+  /* Pide el correo de recuperacion. Se le dice al servidor a donde tiene que
+     devolver a la persona, porque si no usa una direccion por defecto que
+     puede no ser esta. */
+  async recover(email) {
+    return this.auth("recover", {
+      email,
+      gotrue_meta_security: {},
+      redirect_to: location.href.split("#")[0]
+    });
+  },
+
+  /* Quien soy. El enlace del correo trae la llave pero no dice de quien es,
+     y la sincronizacion necesita saberlo para no confundir de quien es cada
+     cancion. */
+  async me() {
+    const r = await fetch(SB_URL + "/auth/v1/user", {
+      headers: { apikey: SB_KEY, Authorization: "Bearer " + this.session.access_token }
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  },
+
+  /* Cambia la contrasena de quien ya tiene sesion abierta. Al volver desde el
+     correo la sesion existe aunque no se haya escrito ninguna clave: ese es
+     justamente el punto del enlace. */
+  async setPassword(password) {
+    const r = await fetch(SB_URL + "/auth/v1/user", {
+      method: "PUT",
+      headers: {
+        apikey: SB_KEY,
+        Authorization: "Bearer " + this.session.access_token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ password })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.msg || d.error_description || d.error || ("HTTP " + r.status));
+    return d;
+  },
   keep(d) {
     this.save({
       access_token: d.access_token,
@@ -2416,6 +2497,96 @@ async function doSync() {
   }
 }
 
+/* ---------- Recuperar la contrasena ----------
+
+   Sin esto, quien olvida su clave pierde todas sus canciones: viven en el
+   servidor bajo esa cuenta y no habia ninguna forma de volver a entrar. */
+
+$("ac-forgot").addEventListener("click", async () => {
+  const email = $("ac-email").value.trim();
+  if (!email) { setAc(t("forgotNeedEmail"), "err"); $("ac-email").focus(); return; }
+
+  $("ac-forgot").disabled = true;
+  try {
+    await cloud.recover(email);
+    /* El servidor contesta que si aunque el correo no exista, a proposito:
+       si dijera "esa cuenta no existe", cualquiera podria averiguar quien
+       tiene cuenta y quien no. Por eso el mensaje habla del correo enviado
+       y no de la cuenta. */
+    setAc(t("forgotSent", email), "ok");
+  } catch (e) {
+    setAc(t("forgotFailed") + String(e.message || e), "err");
+  } finally {
+    $("ac-forgot").disabled = false;
+  }
+});
+
+$("ac-savepass").addEventListener("click", async () => {
+  const pass = $("ac-newpass").value;
+  if (pass.length < 6) { setAc(t("passTooShort"), "err"); return; }
+
+  $("ac-savepass").disabled = true;
+  try {
+    await cloud.setPassword(pass);
+    $("ac-newpass").value = "";
+    $("acct-new").hidden = true;
+    await cargarPerfil();
+    renderAccount();
+    setAc(t("passChanged"), "ok");
+    await doSync();
+  } catch (e) {
+    setAc(t("passFailed") + String(e.message || e), "err");
+  } finally {
+    $("ac-savepass").disabled = false;
+  }
+});
+
+/* Al volver desde el enlace del correo, la sesion llega en la propia
+   direccion, despues del #. Se recoge, se guarda y se limpia la barra: esa
+   direccion da acceso a la cuenta y no tiene por que quedar en el historial
+   ni viajar a ningun sitio. */
+async function recogerEnlaceDelCorreo() {
+  const cadena = location.hash.slice(1);
+  if (!cadena) return false;
+  const p = new URLSearchParams(cadena);
+
+  const error = p.get("error_description") || p.get("error");
+  if (error) {
+    history.replaceState(null, "", location.pathname + location.search);
+    setAc(/expired|invalid/i.test(error) ? t("linkExpired") : error, "err");
+    return true;
+  }
+
+  if (p.get("type") !== "recovery" || !p.get("access_token")) return false;
+
+  cloud.save({
+    access_token: p.get("access_token"),
+    refresh_token: p.get("refresh_token"),
+    expires_at: Date.now() + (Number(p.get("expires_in")) || 3600) * 1000,
+    email: null,
+    uid: null
+  });
+  history.replaceState(null, "", location.pathname + location.search);
+
+  // Y se averigua de quien es la llave
+  try {
+    const u = await cloud.me();
+    cloud.save({ ...cloud.session, email: u.email, uid: u.id });
+  } catch (e) {
+    setAc(t("linkExpired"), "err");
+    cloud.save(null);
+    return true;
+  }
+
+  /* Se pide la clave nueva antes que nada: se entro con un enlace de un
+     correo, no con una contrasena que la persona recuerde. */
+  $("acct-out").hidden = true;
+  $("acct-in").hidden = true;
+  $("acct-new").hidden = false;
+  $("ac-newpass").focus();
+  return true;
+}
+
 $("ac-in").addEventListener("click", () => doAuth("in"));
 $("ac-up").addEventListener("click", () => doAuth("up"));
 $("ac-sync").addEventListener("click", doSync);
@@ -2492,7 +2663,10 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
   initVibe();
   cloud.load();
   applyLang();
-  renderAccount();
+  /* Antes de dibujar nada: si se llega desde el enlace de un correo, la
+     pantalla que toca es la de elegir contrasena nueva, no la de entrar. */
+  const desdeCorreo = await recogerEnlaceDelCorreo();
+  if (!desdeCorreo) renderAccount();
   try {
     await DB.open();
     await reload();
