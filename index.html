@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Cuentas · Bachata y Salsa</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0e0d12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cuentas">
+<link rel="apple-touch-icon" href="icono-192.png">
+<link rel="icon" href="icono-192.png">
 <style>
   :root {
     --ground: #0e0d12;
@@ -199,6 +207,34 @@
   button.link:hover { color: var(--ink); }
 
   .hint { color: var(--muted); font-size: .86rem; margin: 0 0 10px; line-height: 1.55; }
+
+  /* Aviso con una acción al lado */
+  .aviso {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 12px; padding: 11px 13px; margin: 12px 0;
+    font-size: .87rem;
+  }
+  .aviso > span { flex: 1 1 12rem; }
+
+  /* Una tarjeta dentro de otra: se distingue sin gritar */
+  .card.dentro { background: var(--card2); margin: 14px 0 0; }
+
+  /* Estrellas de votación */
+  .estrellas { display: flex; align-items: center; gap: 1px; margin-top: 5px; }
+  .estrella {
+    width: auto; padding: 3px; background: none; border: none;
+    color: var(--dim); cursor: pointer; line-height: 0;
+  }
+  .estrella .ic { margin: 0; width: 1.05rem; height: 1.05rem; }
+  .estrella.puesta { color: #f5b83d; }
+  .estrella.puesta .ic { fill: currentColor; }
+  .estrellas .votos { margin-left: 7px; font-size: .76rem; color: var(--dim); }
+  .aviso button { width: auto; padding: 8px 14px; font-size: .85rem; }
+
+  /* Una marca que se salió del compás */
+  .taplist .fuera { color: var(--accent); font-weight: 600; }
 
   /* Guía plegable: quien ya sabe no la abre, quien no sabe la tiene a mano */
   .guia {
@@ -506,6 +542,8 @@
     <g id="g-lock"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></g>
     <g id="g-target"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/></g>
     <g id="g-trash"><path d="M4.5 7h15M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7"/><path d="M6.5 7l.9 12a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12"/></g>
+    <g id="g-pencil"><path d="M4 20l4.5-1.2L20 7.3a2 2 0 0 0 0-2.8l-.5-.5a2 2 0 0 0-2.8 0L5.2 15.5z"/><path d="M15.5 6l2.5 2.5"/></g>
+    <g id="g-star"><path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.7l5.4-.8z"/></g>
     <g id="g-undo"><path d="M4 9h9a6 6 0 0 1 0 12h-3"/><path d="M7.5 5.5L4 9l3.5 3.5"/></g>
   </defs>
 </svg>
@@ -636,6 +674,12 @@
         <button class="ghost" id="p-nudge-f">+50 ms</button>
       </div>
       <label style="margin-top:6px" data-i18n="tapsMarked">Golpes marcados</label>
+      <!-- Solo aparece si de verdad hay marcas fuera de tiempo -->
+      <div class="aviso" id="p-outliers" hidden>
+        <span id="p-outliers-txt"></span>
+        <button class="ghost" id="p-fixout" data-i18n="outliersFix">Acomodarlas</button>
+      </div>
+
       <div class="taplist" id="p-taplist"></div>
       <button class="primary" id="p-save" style="margin-top:12px" data-i18n="save">Guardar canción</button>
       <button class="danger" id="p-discard" data-i18n="discard">Descartar</button>
@@ -648,6 +692,27 @@
         <button class="ghost" id="p-export"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-down"/></svg><span data-i18n="exportBtn">Exportar</span></button>
         <button class="ghost" id="p-import"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-up"/></svg><span data-i18n="importBtn">Importar</span></button>
       </div>
+      <!-- Editor: aparece al tocar el lápiz de una canción propia -->
+      <div class="card dentro" id="p-editor" hidden>
+        <h2 data-i18n="editSong">Editar canción</h2>
+        <label for="e-title" data-i18n="song">Canción</label>
+        <input type="text" id="e-title">
+        <label for="e-artist" data-i18n="artist">Artista</label>
+        <input type="text" id="e-artist">
+        <label for="e-teacher" data-i18n="teacher">Profesor</label>
+        <input type="text" id="e-teacher">
+        <label data-i18n="rhythm">Ritmo</label>
+        <div class="seg" id="e-rhythm">
+          <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
+          <button data-r="salsa1" aria-pressed="false" data-i18n="salsa1">Salsa en 1</button>
+        </div>
+        <div class="row">
+          <button class="primary" id="e-save" data-i18n="saveChanges">Guardar cambios</button>
+          <button class="ghost" id="e-cancel" data-i18n="cancel">Cancelar</button>
+        </div>
+        <p class="status" id="e-status"></p>
+      </div>
+
       <input type="file" id="p-file" accept="application/json" hidden>
     </div>
 
@@ -957,6 +1022,18 @@ const STR = {
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
     helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    isFree: "gratis ✓", makeFree: "hacer gratis",
+    nowFree: "«{0}» ahora es gratis para todos.",
+    nowPaid: "«{0}» ahora requiere suscripción.",
+    voteN: "{0} estrellas", noVotes: "sin votos",
+    voted: "Votaste {0} estrellas.", voteFailed: "No se pudo votar: ",
+    voteNeedsAccount: "Entrá con tu cuenta para poder votar.",
+    edit: "editar", editSong: "Editar canción", saveChanges: "Guardar cambios",
+    cancel: "Cancelar", needTitle: "Ponele un nombre a la canción.",
+    edited: "Guardada: {0}", editFailed: "No se pudo guardar el cambio: ",
+    outliersFound: "{0} marcas quedaron fuera de tiempo respecto de las demás.",
+    outliersFix: "Acomodarlas",
+    outliersFixed: "Acomodadas {0} marcas.",
     guideRecTitle: "Cómo grabar bien",
     guideRec1t: "Buscá silencio",
     guideRec1b: "Una habitación sin gente hablando, sin tele, sin otra música. Es lo que más influye.",
@@ -1122,6 +1199,18 @@ const STR = {
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
     helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    isFree: "free ✓", makeFree: "make free",
+    nowFree: "\u201c{0}\u201d is now free for everyone.",
+    nowPaid: "\u201c{0}\u201d now needs a subscription.",
+    voteN: "{0} stars", noVotes: "no votes yet",
+    voted: "You gave it {0} stars.", voteFailed: "Couldn't save your vote: ",
+    voteNeedsAccount: "Sign in to vote.",
+    edit: "edit", editSong: "Edit song", saveChanges: "Save changes",
+    cancel: "Cancel", needTitle: "Give the song a name.",
+    edited: "Saved: {0}", editFailed: "Couldn't save the change: ",
+    outliersFound: "{0} taps are off the beat compared with the rest.",
+    outliersFix: "Line them up",
+    outliersFixed: "{0} taps lined up.",
     guideRecTitle: "How to record well",
     guideRec1t: "Find a quiet room",
     guideRec1b: "Nobody talking, no TV, no other music. This matters more than anything else.",
@@ -1439,7 +1528,7 @@ class Listener {
 
   stop() {
     this.running = false;
-    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+    if (this.stream) this.stream.getTracks().forEach(pista => pista.stop());
     if (this.ctx) this.ctx.close();
     this.ctx = null; this.stream = null;
   }
@@ -1582,6 +1671,12 @@ const matcher = new Matcher();
    menos votos, pero la exigencia de que destaque sigue igual. */
 const identificador = new Matcher(8);
 let songs = [], catalog = [];
+/* Si esta cuenta puede decidir que canciones son gratis. Lo contesta el
+   servidor: preguntarselo a la app seria confiar en el telefono. */
+let soyAdmin = false;
+/* Promedio de estrellas por cancion, y lo que voto uno mismo. */
+let votos = new Map();      // songId -> {promedio, votos}
+let miVoto = new Map();     // songId -> estrellas
 
 function fmt(s) {
   const m = Math.floor(s / 60), r = Math.floor(s % 60);
@@ -1727,20 +1822,99 @@ $("p-stop").addEventListener("click", () => {
   renderReview();
 });
 
+/* Dónde DEBERÍA caer cada "uno".
+
+   Una canción grabada no cambia de velocidad, así que los unos van
+   igualmente espaciados. Eso permite calcular la rejilla y ver cuáles se
+   salieron: el dedo llega tarde, uno se marca de más, se saltea un compás.
+
+   El cálculo se hace en dos pasos porque el profesor a veces se saltea un
+   compás entero, y entonces "el compás siguiente" no es el siguiente golpe.
+   Primero se estima cuánto dura un compás mirando el hueco MÁS REPETIDO
+   —no el promedio, que un solo error desplaza—, y con eso se averigua a qué
+   compás corresponde cada marca. Recién después se ajusta la rejilla fina. */
+function rejillaDeCompases(marcas) {
+  const n = marcas.length;
+  if (n < 3) return null;
+
+  // Duración de un compás: la mediana de los huecos aguanta los errores
+  const huecos = [];
+  for (let i = 1; i < n; i++) huecos.push(marcas[i] - marcas[i - 1]);
+  const ordenados = [...huecos].sort((a, b) => a - b);
+  let compas = ordenados[Math.floor(ordenados.length / 2)];
+  if (!(compas > 0.2)) return null;
+
+  /* A qué compás pertenece cada marca. Si el profesor se saltó uno, el hueco
+     sale del doble y el número de compás salta de dos en dos: hay que
+     contarlo así o toda la rejilla queda corrida a partir de ahí. */
+  const indices = [0];
+  for (let i = 1; i < n; i++) {
+    const saltos = Math.max(1, Math.round(huecos[i - 1] / compas));
+    indices.push(indices[i - 1] + saltos);
+  }
+
+  // Recta que mejor pasa por todas: tiempo = inicio + compas * indice
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += indices[i]; sy += marcas[i];
+    sxx += indices[i] * indices[i]; sxy += indices[i] * marcas[i];
+  }
+  const den = n * sxx - sx * sx;
+  if (!den) return null;
+  const paso = (n * sxy - sx * sy) / den;
+  const inicio = (sy - paso * sx) / n;
+  if (!(paso > 0.2) || paso > 8) return null;
+
+  const donde = indices.map(k => inicio + paso * k);
+  const desvios = marcas.map((m, i) => m - donde[i]);
+  return { compas: paso, indices, donde, desvios };
+}
+
+/* Cuánto se puede desviar una marca antes de considerarla fuera de tiempo.
+   Un octavo de compás: en bachata a 130 son unos 230 ms, que ya se nota
+   bailando. Más estricto marcaría como error el pulso humano normal. */
+const TOLERANCIA = 1 / 8;
+
+function marcasFueraDeTiempo() {
+  const r = rejillaDeCompases(teacher.downbeats);
+  if (!r) return [];
+  const limite = r.compas * TOLERANCIA;
+  const fuera = [];
+  r.desvios.forEach((e, i) => { if (Math.abs(e) > limite) fuera.push(i); });
+  return fuera;
+}
+
 function renderReview() {
   const d = teacher.downbeats;
   const per = (d[d.length - 1] - d[0]) / (d.length - 1);
   $("p-revinfo").textContent = t("revInfo", d.length, Math.round(60 / (per / 8)),
     fmt(teacher.duration), rhythmName(teacher.meta.rhythm));
 
+  const rejilla = rejillaDeCompases(d);
+  const fuera = new Set(marcasFueraDeTiempo());
+
+  const aviso = $("p-outliers");
+  aviso.hidden = fuera.size === 0;
+  if (fuera.size) $("p-outliers-txt").textContent = t("outliersFound", fuera.size);
+
   const list = $("p-taplist");
   list.textContent = "";
-  d.forEach((t, i) => {
+  /* OJO con el nombre de esta variable: llamarla `t` tapa la función de
+     traducir y revienta la pantalla entera. Ya pasó una vez, y como el fallo
+     solo aparece cuando hay al menos una marca, no se ve al probar en vacío. */
+  d.forEach((momento, i) => {
     const row = document.createElement("div");
+    if (fuera.has(i)) row.className = "fuera";
+
     const span = document.createElement("span");
-    span.textContent = "#" + (i + 1) + "  " + t.toFixed(2) + " s";
+    span.textContent = "#" + (i + 1) + "  " + momento.toFixed(2) + " s";
+    if (rejilla && fuera.has(i)) {
+      const ms = Math.round(rejilla.desvios[i] * 1000);
+      span.textContent += "   " + (ms > 0 ? "+" : "") + ms + " ms";
+    }
+
     const del = document.createElement("button");
-    del.textContent = t("remove");
+    del.append(icono("trash"), document.createTextNode(t("remove")));
     del.addEventListener("click", () => {
       if (teacher.downbeats.length <= 2) return;
       teacher.downbeats.splice(i, 1);
@@ -1751,11 +1925,26 @@ function renderReview() {
   });
 }
 
+/* Mueve a su sitio solo las marcas que se salieron. Las que están bien no se
+   tocan: si la canción tuviera algún cambio real de tiempo, aplastarlo todo
+   contra una recta lo estropearía. */
+function arreglarFueraDeTiempo() {
+  const r = rejillaDeCompases(teacher.downbeats);
+  if (!r) return;
+  const fuera = marcasFueraDeTiempo();
+  if (!fuera.length) return;
+  for (const i of fuera) teacher.downbeats[i] = r.donde[i];
+  teacher.downbeats.sort((a, b) => a - b);
+  renderReview();
+  setP(t("outliersFixed", fuera.length), "ok");
+}
+
 function nudge(ms) {
-  teacher.downbeats = teacher.downbeats.map(t => Math.max(0, t + ms / 1000));
+  teacher.downbeats = teacher.downbeats.map(x => Math.max(0, x + ms / 1000));
   renderReview();
   setP(t("nudged") + (ms > 0 ? "+" : "") + ms + " ms.", "ok");
 }
+$("p-fixout").addEventListener("click", arreglarFueraDeTiempo);
 $("p-nudge-b").addEventListener("click", () => nudge(-50));
 $("p-nudge-f").addEventListener("click", () => nudge(50));
 
@@ -1800,6 +1989,153 @@ function setP(msg, kind) {
   el.textContent = msg;
   el.className = "status" + (kind ? " " + kind : "");
 }
+
+/* ---------- Marcar una canción como gratis (solo administrador) ----------
+
+   Es la palanca del negocio: las gratis son el escaparate y el resto empuja
+   a la suscripción. Se cambia en el servidor y desde ahí llega a todos los
+   teléfonos en la siguiente sincronización. */
+async function cambiarGratis(s, gratis) {
+  try {
+    await cloud.rest("songs?id=eq." + encodeURIComponent(s.id), {
+      method: "PATCH", body: JSON.stringify({ free: gratis })
+    });
+    await DB.put({ ...s, free: gratis }, "songs");
+    const enCatalogo = await DB.all("catalog");
+    const c = enCatalogo.find(x => x.id === s.id);
+    if (c) await DB.put({ ...c, free: gratis }, "catalog");
+    await reload();
+    setP(t(gratis ? "nowFree" : "nowPaid", s.title), "ok");
+  } catch (e) {
+    setP(t("editFailed") + String(e.message || e), "err");
+  }
+}
+
+/* ---------- Votar una canción ----------
+
+   Un voto por persona y canción, y se puede cambiar. El promedio lo calcula
+   el servidor y no dice quién votó qué: saber que un alumno le puso dos
+   estrellas a su profesor no le hace bien a nadie. */
+async function votar(songId, estrellas) {
+  if (!cloud.session) { setA(t("voteNeedsAccount"), "err"); return; }
+  try {
+    await cloud.rest("ratings", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify([{ song_id: songId, owner: cloud.session.uid, stars: estrellas }])
+    });
+    miVoto.set(songId, estrellas);
+    // Y se vuelve a pedir el promedio, que acaba de cambiar
+    try {
+      const resumen = await cloud.rest("song_ratings?select=*&song_id=eq." + encodeURIComponent(songId));
+      if (resumen[0]) votos.set(songId, { promedio: Number(resumen[0].promedio), votos: resumen[0].votos });
+    } catch (e) {}
+    renderLists();
+    setA(t("voted", estrellas), "ok");
+  } catch (e) {
+    setA(t("voteFailed") + String(e.message || e), "err");
+  }
+}
+
+/* Las cinco estrellas. Las llenas son las votadas por uno; si uno no voto,
+   se muestran huecas y el promedio va al lado. */
+function estrellas(songId) {
+  const caja = document.createElement("div");
+  caja.className = "estrellas";
+  const mio = miVoto.get(songId) || 0;
+
+  for (let n = 1; n <= 5; n++) {
+    const b = document.createElement("button");
+    b.className = "estrella" + (n <= mio ? " puesta" : "");
+    b.appendChild(icono("star"));
+    b.title = t("voteN", n);
+    b.setAttribute("aria-label", t("voteN", n));
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); votar(songId, n); });
+    caja.appendChild(b);
+  }
+
+  const r = votos.get(songId);
+  const nota = document.createElement("span");
+  nota.className = "votos";
+  nota.textContent = r ? r.promedio.toFixed(1) + " (" + r.votos + ")" : t("noVotes");
+  caja.appendChild(nota);
+  return caja;
+}
+
+/* ---------- Editar una canción guardada ----------
+
+   Se puede cambiar el nombre, el artista, quién la grabó y el ritmo. Lo que
+   NO se toca es la huella ni las marcas del uno: eso es la grabación en sí,
+   y para rehacerla hay que volver a grabar.
+
+   El ritmo importa más de lo que parece: cambia la rejilla de la pantalla
+   (bachata tiene golpe en 4 y 8, la salsa no), así que equivocarse al grabar
+   dejaba la canción inservible y había que borrarla y hacerla de nuevo. */
+
+let editando = null;
+
+function abrirEditor(s) {
+  editando = s;
+  $("e-title").value = s.title || "";
+  $("e-artist").value = s.artist || "";
+  $("e-teacher").value = s.teacher || "";
+  for (const b of $("e-rhythm").children) {
+    b.setAttribute("aria-pressed", String(b.dataset.r === s.rhythm));
+  }
+  $("e-status").textContent = "";
+  $("p-editor").hidden = false;
+  $("p-editor").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  $("e-title").focus();
+}
+
+function cerrarEditor() {
+  editando = null;
+  $("p-editor").hidden = true;
+}
+
+$("e-cancel").addEventListener("click", cerrarEditor);
+
+$("e-rhythm").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-r]");
+  if (!b) return;
+  for (const x of $("e-rhythm").children) x.setAttribute("aria-pressed", String(x === b));
+});
+
+$("e-save").addEventListener("click", async () => {
+  if (!editando) return;
+  const titulo = $("e-title").value.trim();
+  if (!titulo) { $("e-status").textContent = t("needTitle"); return; }
+
+  const ritmo = [...$("e-rhythm").children]
+    .find(b => b.getAttribute("aria-pressed") === "true").dataset.r;
+
+  const cambios = {
+    title: titulo,
+    artist: $("e-artist").value.trim(),
+    teacher: $("e-teacher").value.trim(),
+    rhythm: ritmo
+  };
+
+  $("e-save").disabled = true;
+  try {
+    /* Si ya está en la nube se cambia allí primero. Si eso falla, no se toca
+       el teléfono: es preferible no haber cambiado nada a que cada aparato
+       diga una cosa distinta. */
+    if (editando.owner && cloud.session) {
+      await cloud.rest("songs?id=eq." + encodeURIComponent(editando.id), {
+        method: "PATCH", body: JSON.stringify(cambios)
+      });
+    }
+    await DB.put({ ...editando, ...cambios }, "songs");
+    cerrarEditor();
+    await reload();
+    setP(t("edited", titulo), "ok");
+  } catch (e) {
+    $("e-status").textContent = t("editFailed") + String(e.message || e);
+  } finally {
+    $("e-save").disabled = false;
+  }
+});
 
 /* ---------- Exportar / importar ----------
 
@@ -2351,7 +2687,7 @@ function renderLists() {
     const row = document.createElement("div");
     row.className = "song";
 
-    const info = document.createElement("div");
+    let info = document.createElement("div");
     info.className = "info";
     const titleEl = document.createElement("div");
     titleEl.className = "t";
@@ -2382,8 +2718,29 @@ function renderLists() {
     } else {
       // Solo se ofrece borrar lo propio: mostrar el boton en canciones ajenas
       // hace creer que se pueden borrar, y no es cierto.
+      /* Mando de administrador: decidir que canciones son gratis. Aparece en
+         cualquier cancion, no solo en las propias, porque de eso se trata.
+         Quien no es administrador ni ve el boton, y aunque lo forzara el
+         servidor lo rechazaria: la decision no vive en el telefono. */
+      if (soyAdmin) {
+        const g = document.createElement("button");
+        g.className = "ghost" + (s.free ? " on" : "");
+        g.textContent = t(s.free ? "isFree" : "makeFree");
+        g.addEventListener("click", () => cambiarGratis(s, !s.free));
+        row.appendChild(info); row.appendChild(g);
+        info = null;
+      }
+
       const propia = !s.owner || (cloud.session && cloud.session.uid === s.owner);
       if (propia) {
+        // Editar va antes que borrar: es lo que más se usa y lo reversible
+        const edit = document.createElement("button");
+        edit.className = "ghost";
+        edit.append(icono("pencil"), document.createTextNode(t("edit")));
+        edit.addEventListener("click", () => abrirEditor(s));
+        if (info) { row.appendChild(info); info = null; }
+        row.appendChild(edit);
+
         btn.append(icono("trash"), document.createTextNode(t("del")));
         btn.addEventListener("click", () => borrarCancion(s));
       } else {
@@ -2392,7 +2749,8 @@ function renderLists() {
       }
     }
 
-    row.appendChild(info); row.appendChild(btn);
+    if (info) row.appendChild(info);
+    row.appendChild(btn);
     return row;
   };
 
@@ -2421,6 +2779,9 @@ function renderLists() {
       m.textContent = [c.artist, rhythmName(c.rhythm), c.teacher, fmt(c.duration || 0)]
         .filter(Boolean).join(" · ");
       info.appendChild(titleEl); info.appendChild(m);
+      // Solo se vota lo que se puede escuchar: puntuar algo bloqueado no
+      // significaria nada.
+      if (abierta && cloud.session) info.appendChild(estrellas(c.id));
 
       const btn = document.createElement("button");
       if (abierta) {
@@ -2948,6 +3309,20 @@ async function syncNow() {
   try { await cloud.rest("rpc/purge_deleted_songs", { method: "POST", body: "{}" }); }
   catch (e) { /* la base aun no tiene la funcion */ }
 
+  /* Si esta cuenta manda o no. Si la base todavia no tiene la funcion, se
+     asume que no: nunca al reves. */
+  try {
+    soyAdmin = await cloud.rest("rpc/soy_admin", { method: "POST", body: "{}" }) === true;
+  } catch (e) { soyAdmin = false; }
+
+  // Estrellas: el promedio de todos, y el voto propio
+  try {
+    const resumen = await cloud.rest("song_ratings?select=*");
+    votos = new Map(resumen.map(r => [r.song_id, { promedio: Number(r.promedio), votos: r.votos }]));
+    const mios = await cloud.rest("ratings?select=song_id,stars");
+    miVoto = new Map(mios.map(r => [r.song_id, r.stars]));
+  } catch (e) { /* la base aun no tiene las votaciones */ }
+
   const remoteScores = await cloud.rest("scores?select=*");
   for (const r of remoteScores) await DB.put(rowToScore(r), "scores");
 
@@ -3185,6 +3560,14 @@ $("langsw").addEventListener("click", (e) => {
   localStorage.setItem("lang", lang);
   applyLang();
 });
+
+/* Registrar el trabajador que permite abrirla sin internet. Si falla, la app
+   funciona igual: solo pierde el arranque sin conexión. */
+if ("serviceWorker" in navigator) {
+  addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
 
 /* Expuesto para poder probar el algoritmo desde la consola sin micrófono. */
 window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, packHash };

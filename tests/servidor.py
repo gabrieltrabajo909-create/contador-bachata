@@ -340,6 +340,95 @@ else:
         assert not v.datos, "el borrado definitivo no borro"
 
 # --------------------------------------------------------------------------
+seccion("Administrador")
+
+hay_admin = pedir("/rest/v1/rpc/soy_admin", "POST", {}, token=tokenA).codigo == 200
+
+if not hay_admin:
+    print(f"  {GRIS}· la base todavia no tiene el administrador: sin probar{FIN}")
+else:
+    @prueba("una cuenta cualquiera NO es administradora")
+    def _():
+        r = pedir("/rest/v1/rpc/soy_admin", "POST", {}, token=tokenB)
+        assert r.datos is False, f"una cuenta de prueba se cree administradora: {r.texto[:120]}"
+
+    @prueba("quien no es administrador no puede regalar canciones ajenas")
+    def _():
+        """Marcar gratis una cancion de otro es la palanca del negocio: si
+        cualquiera pudiera, la suscripcion no vale nada."""
+        rest("songs", "POST", [cancion(ID_PAGA, "Prueba de pago", uidA, gratis=False)],
+             token=tokenA, cabeceras={"Prefer": "resolution=merge-duplicates"})
+        rest(f"songs?id=eq.{ID_PAGA}", "PATCH", {"free": True}, token=tokenB)
+        v = rest(f"songs?select=free&id=eq.{ID_PAGA}", token=tokenA)
+        assert v.datos and v.datos[0]["free"] is False, \
+            "una cuenta cualquiera marco como gratis una cancion ajena"
+
+    @prueba("la lista de administradores no se puede leer desde la app")
+    def _():
+        r = rest("app_admins?select=*", token=tokenB)
+        assert r.codigo >= 400 or not r.datos, \
+            f"se puede leer quien es administrador ({r.codigo})"
+
+    @prueba("nadie se puede nombrar administrador a si mismo")
+    def _():
+        r = rest("app_admins", "POST", [{"uid": uidB}], token=tokenB)
+        assert r.codigo >= 400, f"una cuenta se dio permisos de administrador ({r.codigo})"
+
+# --------------------------------------------------------------------------
+seccion("Votaciones")
+
+hay_votos = rest("song_ratings?select=song_id&limit=1", token=tokenA).codigo == 200
+
+if not hay_votos:
+    print(f"  {GRIS}· la base todavia no tiene las votaciones: sin probar{FIN}")
+else:
+    @prueba("se puede votar una cancion")
+    def _():
+        rest("songs", "POST", [cancion(ID_LIBRE, "Prueba libre", uidA, gratis=True)],
+             token=tokenA, cabeceras={"Prefer": "resolution=merge-duplicates"})
+        r = rest("ratings", "POST", [{"song_id": ID_LIBRE, "owner": uidB, "stars": 4}],
+                 token=tokenB, cabeceras={"Prefer": "resolution=merge-duplicates"})
+        assert r.codigo < 400, f"no pudo votar: {r.codigo} {r.texto[:150]}"
+
+    @prueba("votar de nuevo cambia el voto, no suma otro")
+    def _():
+        rest("ratings", "POST", [{"song_id": ID_LIBRE, "owner": uidB, "stars": 2}],
+             token=tokenB, cabeceras={"Prefer": "resolution=merge-duplicates"})
+        r = rest(f"song_ratings?select=*&song_id=eq.{ID_LIBRE}", token=tokenB)
+        assert r.datos, "el resumen no encuentra la cancion"
+        assert r.datos[0]["votos"] == 1, \
+            f"votar dos veces conto como {r.datos[0]['votos']} votos"
+        assert float(r.datos[0]["promedio"]) == 2.0, "no se quedo con el ultimo voto"
+
+    @prueba("no se aceptan notas fuera de una a cinco")
+    def _():
+        for mala in (0, 6, -3, 99):
+            r = rest("ratings", "POST", [{"song_id": ID_LIBRE, "owner": uidB, "stars": mala}],
+                     token=tokenB, cabeceras={"Prefer": "resolution=merge-duplicates"})
+            assert r.codigo >= 400, f"acepto una nota de {mala} estrellas"
+
+    @prueba("nadie puede votar haciendose pasar por otro")
+    def _():
+        r = rest("ratings", "POST", [{"song_id": ID_LIBRE, "owner": uidA, "stars": 5}],
+                 token=tokenB, cabeceras={"Prefer": "resolution=merge-duplicates"})
+        assert r.codigo >= 400, "se pudo votar en nombre de otra persona"
+
+    @prueba("el promedio se ve, pero quien voto que NO")
+    def _():
+        """Un profesor no tiene por que saber que alumno le puso dos estrellas."""
+        resumen = rest(f"song_ratings?select=*&song_id=eq.{ID_LIBRE}", token=tokenA)
+        assert resumen.datos, "el autor no puede ver el promedio de su cancion"
+        detalle = rest(f"ratings?select=*&song_id=eq.{ID_LIBRE}", token=tokenA)
+        ajenos = [x for x in (detalle.datos or []) if x["owner"] != uidA]
+        assert not ajenos, "se pueden leer los votos de otras personas uno por uno"
+
+    @prueba("al borrar la cancion se van sus votos")
+    def _():
+        rest(f"songs?id=eq.{ID_LIBRE}", "DELETE", token=tokenA)
+        r = rest(f"ratings?select=*&song_id=eq.{ID_LIBRE}", token=tokenB)
+        assert not r.datos, "quedaron votos huerfanos de una cancion borrada"
+
+# --------------------------------------------------------------------------
 seccion("Los puntajes son de cada uno")
 
 @prueba("cada cual solo ve los suyos")
