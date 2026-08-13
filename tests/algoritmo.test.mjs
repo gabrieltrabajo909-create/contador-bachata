@@ -323,3 +323,50 @@ await prueba("una cancion recuperada de la nube se reconoce igual", () => {
   afirmar(r && r.songId === "A", "tras el viaje ya no se reconoce");
   cerca(r.offsetFrames, 900, 1, "tras el viaje el desfase se descuadro");
 });
+
+/* ------------------------------------------------------------------------ */
+seccion("Buscar una canción concreta");
+
+await prueba("dirigir la búsqueda encuentra la misma y no otra", () => {
+  const m = biblioteca(["A", CANCION_A], ["B", CANCION_B]);
+  const q = huellar(tramo(CANCION_B, 800, 150));
+  const r = m.match(q.keys, q.times, "B");
+  afirmar(r, "no encontró la canción que se le pidió");
+  igual(r.songId, "B");
+  cerca(r.offsetFrames, 800, 2, "el desfase salió mal");
+});
+
+await prueba("pedir una canción que no suena devuelve nada", () => {
+  const m = biblioteca(["A", CANCION_A], ["B", CANCION_B]);
+  const q = huellar(tramo(CANCION_B, 800, 150));
+  igual(m.match(q.keys, q.times, "A"), null,
+    "dijo que sonaba A cuando en realidad sonaba B");
+});
+
+await prueba("DIRIGIR NO ES CONFORMARSE CON MENOS", () => {
+  /* Se probó relajar el criterio cuando la persona ya eligió la canción, con
+     el argumento de que no hay con quién confundirla. Medido, contestaba que
+     sí en nueve de cada diez veces con música que no era esa.
+
+     El motivo: con una sola canción quedan pocos votos, y la comparación
+     estadística miente con números chicos. Un pico de ocho votos sobre un
+     promedio de uno parece enorme y no significa nada.
+
+     Esta prueba existe para que nadie lo intente otra vez sin medirlo. */
+  const m = biblioteca(["A", CANCION_A], ["B", CANCION_B]);
+  let falsosPositivos = 0, intentos = 0;
+  for (const inicio of [100, 500, 900, 1300, 1700]) {
+    intentos++;
+    const q = huellar(tramo(CANCION_C, inicio, 200));
+    if (m.match(q.keys, q.times, "A")) falsosPositivos++;
+  }
+  igual(falsosPositivos, 0,
+    `dijo que sonaba A en ${falsosPositivos} de ${intentos} intentos con otra música`);
+});
+
+await prueba("el silencio tampoco cuela con la búsqueda dirigida", () => {
+  const m = biblioteca(["A", CANCION_A]);
+  const mudo = Array.from({ length: 200 }, () => new Float32Array(FPMAX).fill(-120));
+  const q = huellar(mudo);
+  igual(m.match(q.keys, q.times, "A"), null, "reconoció algo en el silencio");
+});

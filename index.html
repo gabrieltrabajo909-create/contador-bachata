@@ -200,6 +200,27 @@
 
   .hint { color: var(--muted); font-size: .86rem; margin: 0 0 10px; line-height: 1.55; }
 
+  /* Guía plegable: quien ya sabe no la abre, quien no sabe la tiene a mano */
+  .guia {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; margin-bottom: 14px; overflow: hidden;
+  }
+  .guia > summary {
+    display: flex; align-items: center; gap: 8px;
+    padding: 13px 15px; cursor: pointer; list-style: none;
+    font-size: .9rem; font-weight: 600; color: var(--ink);
+  }
+  .guia > summary::-webkit-details-marker { display: none; }
+  .guia > summary::after {
+    content: "+"; margin-left: auto; color: var(--muted);
+    font-size: 1.25rem; font-weight: 400; line-height: 1;
+  }
+  .guia[open] > summary::after { content: "\2212"; }
+  .guia[open] > summary { border-bottom: 1px solid var(--line); }
+  .guia > *:not(summary) { padding-left: 15px; padding-right: 15px; }
+  .guia > ol { padding-top: 14px; }
+  .guia > .hint { padding-bottom: 14px; margin-bottom: 0; }
+
   /* ---------- Ayuda ---------- */
   #panel-ayuda h2 { display: flex; align-items: center; gap: 8px; }
   #panel-ayuda .ic { margin: 0; }
@@ -557,6 +578,25 @@
   <!-- ============ PROFESOR ============ -->
   <section class="panel" id="panel-prof" role="tabpanel">
 
+    <!-- Plegada: quien ya sabe grabar no la vuelve a abrir, y quien no sabe
+         la tiene justo encima del botón, que es donde hace falta. -->
+    <details class="guia">
+      <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-help"/></svg><span data-i18n="guideRecTitle">Cómo grabar bien</span></summary>
+      <ol class="steps">
+        <li><b data-i18n="guideRec1t">Buscá silencio</b>
+            <span data-i18n="guideRec1b">Una habitación sin gente hablando, sin tele, sin otra música. Es lo que más influye.</span></li>
+        <li><b data-i18n="guideRec2t">Poné el nombre y tocá «Empezar a grabar»</b>
+            <span data-i18n="guideRec2b">Primero la app, después la música. Al revés se pierde el principio de la canción.</span></li>
+        <li><b data-i18n="guideRec3t">Recién ahí, dale play en Spotify</b>
+            <span data-i18n="guideRec3b">Desde este mismo teléfono, con el volumen normal. No hace falta gritar ni pegar el micrófono.</span></li>
+        <li><b data-i18n="guideRec4t">Marcá los UNO lo mejor que puedas</b>
+            <span data-i18n="guideRec4b">Con el primer minuto alcanza. Si te comés uno, seguí: después se arregla.</span></li>
+        <li><b data-i18n="guideRec5t">Terminar y guardar</b>
+            <span data-i18n="guideRec5b">Antes de guardar podés borrar el último golpe o correr toda la cuenta si te quedó adelantada.</span></li>
+      </ol>
+      <p class="hint" data-i18n="guideRecWhy">La grabación se hace una sola vez y la usan todos. Diez minutos en silencio ahora ahorran que no enganche nunca.</p>
+    </details>
+
     <div class="card" id="p-setup">
       <h2 data-i18n="newSong">Nueva canción</h2>
       <label for="f-title" data-i18n="song">Canción</label>
@@ -621,6 +661,19 @@
 
   <!-- ============ ALUMNO ============ -->
   <section class="panel" id="panel-alum" role="tabpanel" hidden>
+
+    <details class="guia">
+      <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-help"/></svg><span data-i18n="guideListenTitle">Cómo hacer que enganche</span></summary>
+      <ol class="steps">
+        <li><b data-i18n="guideLis1t">Cuanto menos ruido, mejor</b>
+            <span data-i18n="guideLis1b">Con gente hablando al lado tarda más y a veces no llega.</span></li>
+        <li><b data-i18n="guideLis2t">Tocá «Escuchar» primero</b>
+            <span data-i18n="guideLis2b">Y después dale play a la canción en Spotify, desde este mismo teléfono.</span></li>
+        <li><b data-i18n="guideLis3t">No hace falta elegir la canción</b>
+            <span data-i18n="guideLis3b">La encuentra sola en unos segundos. Elegirla a mano es solo por si se resiste.</span></li>
+      </ol>
+      <p class="hint" data-i18n="guideLisWhy">Funciona igual con un parlante o en clase; así es cuando mejor anda.</p>
+    </details>
 
     <div class="seg" id="a-mode">
       <button data-m="guia" aria-pressed="true" data-i18n="seeCount">Ver la cuenta</button>
@@ -904,6 +957,26 @@ const STR = {
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
     helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    guideRecTitle: "Cómo grabar bien",
+    guideRec1t: "Buscá silencio",
+    guideRec1b: "Una habitación sin gente hablando, sin tele, sin otra música. Es lo que más influye.",
+    guideRec2t: "Poné el nombre y tocá «Empezar a grabar»",
+    guideRec2b: "Primero la app, después la música. Al revés se pierde el principio de la canción.",
+    guideRec3t: "Recién ahí, dale play en Spotify",
+    guideRec3b: "Desde este mismo teléfono, con el volumen normal. No hace falta gritar ni pegar el micrófono.",
+    guideRec4t: "Marcá los UNO lo mejor que puedas",
+    guideRec4b: "Con el primer minuto alcanza. Si te comés uno, seguí: después se arregla.",
+    guideRec5t: "Terminar y guardar",
+    guideRec5b: "Antes de guardar podés borrar el último golpe o correr toda la cuenta si te quedó adelantada.",
+    guideRecWhy: "La grabación se hace una sola vez y la usan todos. Diez minutos en silencio ahora ahorran que no enganche nunca.",
+    guideListenTitle: "Cómo hacer que enganche",
+    guideLis1t: "Cuanto menos ruido, mejor",
+    guideLis1b: "Con gente hablando al lado tarda más y a veces no llega.",
+    guideLis2t: "Tocá «Escuchar» primero",
+    guideLis2b: "Y después dale play a la canción en Spotify, desde este mismo teléfono.",
+    guideLis3t: "No hace falta elegir la canción",
+    guideLis3b: "La encuentra sola en unos segundos. Elegirla a mano es solo por si se resiste.",
+    guideLisWhy: "Funciona igual con un parlante o en clase; así es cuando mejor anda.",
     gameSongChanged: "Cambió la canción: ahora suena «{0}». La cuenta se ajustó sola.",
     forgot: "¿Olvidaste tu contraseña?",
     forgotNeedEmail: "Escribí tu correo arriba y volvé a tocar acá.",
@@ -1049,6 +1122,26 @@ const STR = {
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
     helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    guideRecTitle: "How to record well",
+    guideRec1t: "Find a quiet room",
+    guideRec1b: "Nobody talking, no TV, no other music. This matters more than anything else.",
+    guideRec2t: "Fill in the name and tap \u201cStart recording\u201d",
+    guideRec2b: "App first, music second. The other way round you lose the start of the song.",
+    guideRec3t: "Only then, hit play on Spotify",
+    guideRec3b: "From this same phone, at normal volume. No need to shout or hold the mic against the speaker.",
+    guideRec4t: "Mark the ONEs as well as you can",
+    guideRec4b: "The first minute is enough. If you miss one, carry on: it can be fixed afterwards.",
+    guideRec5t: "Finish and save",
+    guideRec5b: "Before saving you can delete the last tap, or shift the whole count if it came out early.",
+    guideRecWhy: "A song is recorded once and everyone uses it. Ten quiet minutes now save it never catching on.",
+    guideListenTitle: "How to make it catch on",
+    guideLis1t: "The quieter, the better",
+    guideLis1b: "With people talking next to you it takes longer, and sometimes it never gets there.",
+    guideLis2t: "Tap \u201cListen\u201d first",
+    guideLis2b: "Then hit play on Spotify, from this same phone.",
+    guideLis3t: "You don't need to pick the song",
+    guideLis3b: "It finds it on its own in a few seconds. Picking it by hand is only for when it resists.",
+    guideLisWhy: "It works the same with a speaker or in class; this is just when it works best.",
     gameSongChanged: "The song changed: \u201c{0}\u201d is playing now. The count re-synced by itself.",
     forgot: "Forgot your password?",
     forgotNeedEmail: "Type your email above, then tap here again.",
@@ -1212,13 +1305,28 @@ class Matcher {
   /* Devuelve {songId, offsetFrames, score} o null.
      offsetFrames = frame de la canción guardada que corresponde
      al frame 0 de la consulta. */
-  match(keys, times) {
+  /* `soloId` limita la busqueda a una unica cancion. Se usa cuando la persona
+     ya dijo cual es: el problema deja de ser "cual de todas" y pasa a ser solo
+     "en que segundo va".
+
+     La exigencia para aceptar NO se baja, aunque la tentacion es evidente: si
+     ya sabemos cual es, para que pedir tanto. Se probo, y el resultado fue que
+     al sonar cualquier otra cosa contestaba que si en el 90% de los casos. Con
+     una sola cancion en juego quedan pocos votos, y con pocos numeros la
+     comparacion estadistica se vuelve mentirosa: un pico de ocho votos sobre
+     un promedio de uno parece enorme y no significa nada.
+
+     Asi que dirigir la busqueda sirve para mirar donde hay que mirar, no para
+     conformarse con menos. Aun asi ayuda: en clase normal sube del 94% al 98%
+     sin una sola equivocacion. */
+  match(keys, times, soloId) {
     const votes = new Map();   // songId -> Map(delta -> count)
     for (let i = 0; i < keys.length; i++) {
       const list = this.index.get(keys[i]);
       if (!list) continue;
       for (let j = 0; j < list.length; j += 2) {
         const id = list[j], delta = list[j + 1] - times[i];
+        if (soloId && id !== soloId) continue;
         let m = votes.get(id);
         if (!m) { m = new Map(); votes.set(id, m); }
         m.set(delta, (m.get(delta) || 0) + 1);
@@ -1241,26 +1349,48 @@ class Matcher {
         const sc = puntuar(m, delta);
         if (sc > bScore) { bScore = sc; bBin = delta; }
       }
-      // El mejor desfase que NO sea el ganador ni sus vecinos
-      let rival = 0;
+
+      /* Cuanto sobresale el ganador del monton.
+
+         Antes se comparaba contra el mejor rival, y esa cuenta enganaba: el
+         mejor de muchos numeros al azar es alto por pura casualidad, asi que
+         una coincidencia buena en una sala ruidosa se descartaba por culpa de
+         un rival que solo habia tenido suerte.
+
+         Ahora se compara contra TODO el monton a la vez, con su promedio y su
+         dispersion. Un acierto de verdad queda a muchisimas desviaciones por
+         encima; el ruido, a dos o tres. Es la misma idea de "tiene que
+         destacar", pero medida sobre cien numeros en vez de sobre uno. */
+      let suma = 0, suma2 = 0, cuantos = 0, rival = 0;
       for (const delta of m.keys()) {
-        if (Math.abs(delta - bBin) <= 3) continue;
         const sc = puntuar(m, delta);
-        if (sc > rival) rival = sc;
+        suma += sc; suma2 += sc * sc; cuantos++;
+        if (Math.abs(delta - bBin) > 3 && sc > rival) rival = sc;
       }
+      const media = cuantos ? suma / cuantos : 0;
+      const varianza = cuantos ? Math.max(0, suma2 / cuantos - media * media) : 0;
+      const desvio = Math.sqrt(varianza);
+      const sobresale = (bScore - media) / (desvio || 1);
+
       if (!best || bScore > best.score) {
         if (best) segundaCancion = Math.max(segundaCancion, best.score);
-        best = { songId: id, offsetFrames: bBin, score: bScore, rival };
+        best = { songId: id, offsetFrames: bBin, score: bScore, rival, sobresale };
       } else {
         segundaCancion = Math.max(segundaCancion, bScore);
       }
     }
     if (!best) return null;
 
-    const MINIMO = this.minimo;   // votos absolutos
-    const DOMINIO = 2.5;    // cuanto debe destacar sobre el ruido
+    const MINIMO = this.minimo;   // votos absolutos: sin esto no hay evidencia
+    const SOBRESALE = 7;          // desviaciones por encima del monton
+    const ENTRE_CANCIONES = 1.6;  // margen sobre la segunda candidata
+
     if (best.score < MINIMO) return null;
-    if (best.score < DOMINIO * Math.max(best.rival, segundaCancion, 1)) return null;
+    if (best.sobresale < SOBRESALE) return null;
+    /* Y entre canciones distintas se sigue exigiendo margen: dos temas del
+       mismo artista comparten mucho, y confundirlos marca el tiempo de otra
+       cancion, que es el error que no se puede cometer. */
+    if (best.score < ENTRE_CANCIONES * Math.max(segundaCancion, 1)) return null;
     return best;
   }
 }
@@ -1882,14 +2012,19 @@ function mensajeDeBusqueda(buscando, yaEncontroAlgo, hayBloqueadas) {
 function tryMatch(elapsed) {
   student.matching = true;
   const { keys, times } = student.fp.result();
-  // usar solo los últimos ~6 s de consulta
-  const minFrame = Math.max(0, Math.floor((elapsed - 6) / FP.HOP));
+  /* Cuanto audio se mira. Normalmente los ultimos 6 s, que es de sobra y
+     mantiene la busqueda barata. Pero si lleva un rato sin encontrar nada, se
+     agranda la ventana hasta 12 s: mas audio es mas evidencia, y no aumenta el
+     riesgo de equivocarse porque el criterio para aceptar no se toca. */
+  const buscandoDesde = elapsed - student.searchFrom;
+  const ventana = buscandoDesde > 14 ? 12 : buscandoDesde > 7 ? 9 : 6;
+  const minFrame = Math.max(0, Math.floor((elapsed - ventana) / FP.HOP));
   const qk = [], qt = [];
   for (let i = 0; i < keys.length; i++) {
     if (times[i] >= minFrame) { qk.push(keys[i]); qt.push(times[i]); }
   }
 
-  const res = matcher.match(qk, qt);
+  const res = matcher.match(qk, qt, student.forced || undefined);
   student.matching = false;
   if (!res) {
     /* El mensaje cambia con el tiempo que lleva escuchando. Repetir "todavia
@@ -1936,14 +2071,6 @@ function tryMatch(elapsed) {
   }
 
   // Si el alumno fijo una cancion concreta, cualquier otra cosa es un fallo
-  if (student.forced && res.songId !== student.forced) {
-    if (student.song) {
-      student.misses = (student.misses || 0) + 1;
-      if (student.misses >= 2) perdioLaCancion();
-    }
-    return;
-  }
-
   student.misses = 0;
   student.locked = null;
   student.everFound = true;
