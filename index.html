@@ -904,6 +904,7 @@ const STR = {
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
     helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    gameSongChanged: "Cambió la canción: ahora suena «{0}». La cuenta se ajustó sola.",
     forgot: "¿Olvidaste tu contraseña?",
     forgotNeedEmail: "Escribí tu correo arriba y volvé a tocar acá.",
     forgotSent: "Te mandamos un correo a {0}. Si no aparece, mirá en spam.",
@@ -1048,6 +1049,7 @@ const STR = {
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
     helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    gameSongChanged: "The song changed: \u201c{0}\u201d is playing now. The count re-synced by itself.",
     forgot: "Forgot your password?",
     forgotNeedEmail: "Type your email above, then tap here again.",
     forgotSent: "We sent an email to {0}. If you can't see it, check your spam folder.",
@@ -1952,6 +1954,17 @@ function tryMatch(elapsed) {
   // tiempo de la canción = tiempo de escucha + desfase
   student.offset = res.offsetFrames * FP.HOP;
 
+  /* El ancla del juego se refresca con cada reconocimiento bueno, que es como
+     se corrige la deriva. Si lo que suena pasa a ser OTRA cancion, el ancla
+     vieja ya no vale para nada: se cambia y se avisa. */
+  if (game.on) {
+    if (game.song && game.song.id !== song.id) {
+      setA(t("gameSongChanged", song.title), "err");
+    }
+    game.song = song;
+    game.offset = student.offset;
+  }
+
   if (first || cambio) {
     buildBeats(song.rhythm);
     student.lastIdx = -1;
@@ -1975,6 +1988,10 @@ function perdioLaCancion(silencioso) {
   beatCells.forEach(c => c.classList.remove("on"));
 
   if (silencioso) return;
+  /* Durante una partida no se avisa: el juego sigue puntuando con su propia
+     ancla, así que decir "perdí la canción" sería alarmar por algo que a quien
+     está jugando no le afecta. */
+  if (game.on && game.song) return;
   const hayBloqueadas = catalog.some(c => !songs.some(s => s.id === c.id));
   setA(hayBloqueadas ? t("songLostLocked") : t("songLost"), "err");
 }
@@ -2022,7 +2039,20 @@ function setA(msg, kind) {
    MODO JUEGO: marcar el uno a ciegas
    ========================================================================= */
 const game = {
-  on: false, taps: [], points: 0, hits: 0, streak: 0, best: 0, lastTap: 0
+  on: false, taps: [], points: 0, hits: 0, streak: 0, best: 0, lastTap: 0,
+  /* El ancla: qué canción suena y con cuánto desfase, guardado aparte de lo
+     que el reconocedor sepa en este instante.
+
+     Hace falta porque el reconocedor suelta la canción cada tanto —un ruido,
+     el teléfono tapado, un pasaje flojo—. Sin ancla, cada golpe de esos
+     segundos se descartaba: el juego se congelaba y la persona seguía tocando
+     sin enterarse, porque en modo juego la cuenta está escondida a propósito.
+
+     Y no hace falta seguir reconociendo para contar: la canción sigue sonando
+     a la misma velocidad y el reloj es el mismo, así que el desfase de hace
+     veinte segundos sigue valiendo. Volver a reconocer sirve para corregir la
+     deriva, no para poder puntuar. */
+  song: null, offset: 0
 };
 
 $("a-mode").addEventListener("click", (e) => {
@@ -2038,9 +2068,7 @@ function setGameMode(on) {
   $("a-game").hidden = !on;
   if (on) {
     resetGame();
-    setA(student.song
-      ? t("gameReady")
-      : t("gameWait"));
+    setA(game.song ? t("gameReady") : t("gameWait"));
   } else {
     student.lastIdx = -1;
   }
@@ -2048,6 +2076,10 @@ function setGameMode(on) {
 
 function resetGame() {
   game.taps = []; game.points = 0; game.hits = 0; game.streak = 0; game.best = 0; game.lastTap = 0;
+  // Se arranca con lo que el reconocedor sepa ahora; si aún no sabe nada,
+  // el ancla se pone sola en cuanto enganche la canción.
+  game.song = student.song;
+  game.offset = student.offset;
   $("g-points").textContent = "0";
   $("g-hits").textContent = "0";
   $("g-streak").textContent = "0";
@@ -2088,17 +2120,31 @@ function resumenDelJuego(taps, puntos) {
   return { n, errorMedio, acierto, tendencia, nota, consejo };
 }
 
+/* Por qué NO se puede puntuar un golpe, o null si sí se puede.
+
+   Vive aparte para poder comprobarlo: es la regla que se rompió una vez y
+   dejó el juego congelado sin que se notara. Fíjate en lo que NO mira: si el
+   reconocedor tiene la canción en este preciso instante. Eso va y viene, y el
+   juego no depende de ello mientras tenga su ancla. */
+function motivoParaNoContar(juego, bloqueada) {
+  if (!juego.on) return "apagado";
+  if (bloqueada) return "bloqueada";
+  if (!juego.song) return "sinCancion";
+  return null;
+}
+
 function gameTap() {
-  if (!game.on) return;
-  if (student.locked) { setA(t("lockedNoGame", student.locked.title), "err"); return; }
-  if (!student.song) { setA(t("notRecognised"), "err"); return; }
+  const motivo = motivoParaNoContar(game, student.locked);
+  if (motivo === "apagado") return;
+  if (motivo === "bloqueada") { setA(t("lockedNoGame", student.locked.title), "err"); return; }
+  if (motivo === "sinCancion") { setA(t("notRecognised"), "err"); return; }
 
   const now = student.listener.time;
   if (now - game.lastTap < 0.25) return;          // rebote
   game.lastTap = now;
 
-  const songTime = now + student.offset;
-  const res = nearestOne(student.song.downbeats, songTime);
+  const songTime = now + game.offset;
+  const res = nearestOne(game.song.downbeats, songTime);
   if (!res) return;
 
   const band = judge(res.err);
@@ -2155,9 +2201,9 @@ $("g-finish").addEventListener("click", async () => {
 
   const score = {
     id: "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-    songId: student.song.id,
-    songTitle: student.song.title,
-    rhythm: student.song.rhythm,
+    songId: game.song.id,
+    songTitle: game.song.title,
+    rhythm: game.song.rhythm,
     when: Date.now(),
     taps: n, hits: game.hits, points: game.points,
     accuracy, avgError: Math.round(avgErr * 1000), best: game.best

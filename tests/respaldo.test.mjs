@@ -5,7 +5,7 @@
    otra mitad: cuando la app no reconoce nada, lo unico que queda es lo que
    dice, y decir lo que no es hace perder mas tiempo que no decir nada. */
 
-import { cargar } from "./extraer.mjs";
+import { cargar, FUENTE } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual } from "./marco.mjs";
 
 const M = await cargar([
@@ -265,4 +265,58 @@ await prueba("todas las notas y consejos existen en los dos idiomas", () => {
     afirmar(M.STR.es[k], "falta " + k + " en espanol");
     afirmar(M.STR.en[k], "falta " + k + " en ingles");
   }
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("El juego no se traba al perder la señal");
+
+/* Reproduce lo que pasaba: jugando, el reconocedor suelta la canción unos
+   segundos y a partir de ahí el contador se queda clavado mientras la persona
+   sigue tocando la pantalla, sin ninguna señal de que algo va mal —en modo
+   juego la cuenta está escondida a propósito.
+
+   Se prueba la función de verdad, sacada del código, no una copia de la regla:
+   una copia seguiría en verde con la app rota. */
+
+const J = await cargar(["motivoParaNoContar"]);
+const motivo = (juego, bloqueada) => J.motivoParaNoContar(juego, bloqueada);
+
+await prueba("con la señal perdida a mitad, los golpes siguen contando", () => {
+  /* Esto es lo que importa: el reconocedor ya no sabe qué suena, pero el
+     juego tiene su ancla y tiene que seguir puntuando. */
+  igual(motivo({ on: true, song: { id: "a" }, offset: 1.2 }, null), null,
+    "al perder la señal dejó de contar: el juego se congela");
+});
+
+await prueba("si nunca se supo qué suena, sí se rechaza", () => {
+  igual(motivo({ on: true, song: null }, null), "sinCancion",
+    "puntuaba sin saber contra qué canción");
+});
+
+await prueba("una canción bloqueada sigue sin poder jugarse", () => {
+  igual(motivo({ on: true, song: { id: "a" } }, { id: "x" }), "bloqueada",
+    "dejó jugar con una canción bloqueada");
+});
+
+await prueba("con el juego apagado no pasa nada", () => {
+  igual(motivo({ on: false, song: { id: "a" } }, null), "apagado");
+});
+
+await prueba("la regla no mira lo que el reconocedor sepa ahora mismo", () => {
+  /* El ancla manda. Da igual lo que haya pasado con la escucha entre medias:
+     mientras se sepa contra qué canción se juega, se puntúa. */
+  const conAncla = { on: true, song: { id: "a" }, offset: 3.4 };
+  for (let i = 0; i < 50; i++) {
+    igual(motivo(conAncla, null), null, "se cayó en el intento " + i);
+  }
+});
+
+await prueba("gameTap usa el ancla, no lo que el reconocedor tenga ahora", () => {
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("function gameTap"),
+                              FUENTE.indexOf("$(\"g-tap\").addEventListener"));
+  afirmar(/motivoParaNoContar/.test(cuerpo), "gameTap ya no usa la regla comprobada");
+  afirmar(/game\.offset/.test(cuerpo), "gameTap dejó de usar el desfase del ancla");
+  afirmar(/game\.song\.downbeats/.test(cuerpo), "gameTap dejó de usar la canción del ancla");
+  afirmar(!/student\.offset/.test(cuerpo),
+    "gameTap volvió a puntuar con el desfase de fuera del juego");
 });
