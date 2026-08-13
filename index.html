@@ -29,34 +29,75 @@
     user-select: none;
   }
 
-  .wrap { max-width: 32rem; margin: 0 auto; padding: 14px 14px 40px; }
+  /* El hueco de abajo deja sitio a la barra de pestañas, que va fija. */
+  .wrap { max-width: 32rem; margin: 0 auto; padding: 10px 14px 96px; }
 
-  /* ---------- Pestañas ---------- */
+  /* ---------- Cabecera ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-size: .98rem; }
+  .brand-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: .82rem;
+  }
+  .topacts { display: flex; align-items: center; gap: 8px; }
+
+  .iconbtn {
+    position: relative;
+    width: 40px; height: 40px; padding: 0;
+    border-radius: 50%;
+    background: var(--card); border: 1px solid var(--line);
+    color: var(--ink); font-size: 1.15rem; line-height: 1;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .iconbtn[aria-expanded="true"] { border-color: var(--accent); }
+  /* Punto verde: hay sesión abierta. Se ve de un vistazo, sin abrir nada. */
+  .pip {
+    position: absolute; right: 2px; bottom: 2px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent2); border: 2px solid var(--ground);
+  }
+
+  /* ---------- Pestañas, fijas abajo ---------- */
   .tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 5px;
-    margin-bottom: 18px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    background: color-mix(in srgb, var(--ground) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
   }
 
   .tabs button {
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font: inherit;
-    font-weight: 600;
-    padding: 11px;
-    border-radius: 999px;
-    cursor: pointer;
+    border: none; background: transparent; color: var(--muted);
+    font: inherit; font-size: .72rem; font-weight: 600;
+    padding: 7px 4px; border-radius: 14px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
   }
+  .tabs button[aria-selected="true"] { color: var(--accent); background: var(--card); }
 
-  .tabs button[aria-selected="true"] {
-    background: var(--accent);
-    color: #fff;
+  /* Los iconos son trazos, no rellenos: heredan el color del texto que los
+     rodea y quedan nítidos a cualquier tamaño. */
+  .ic {
+    width: 1.15em; height: 1.15em;
+    flex: none; vertical-align: -.22em;
+    fill: none; stroke: currentColor;
+    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  }
+  button .ic { margin-right: 7px; }
+  .tabs button .ic { margin-right: 0; width: 1.5rem; height: 1.5rem; }
+  .iconbtn .ic { margin: 0; width: 1.25rem; height: 1.25rem; }
+
+  /* Interruptor encendido: se ve sin leer. */
+  button.ghost.on {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: color-mix(in srgb, var(--accent2) 12%, transparent);
   }
 
   /* ---------- Selector de idioma ---------- */
@@ -157,7 +198,53 @@
   }
   button.link:hover { color: var(--ink); }
 
-  .hint { color: var(--muted); font-size: .86rem; margin: 0 0 10px; }
+  .hint { color: var(--muted); font-size: .86rem; margin: 0 0 10px; line-height: 1.55; }
+
+  /* ---------- Ayuda ---------- */
+  #panel-ayuda h2 { display: flex; align-items: center; gap: 8px; }
+  #panel-ayuda .ic { margin: 0; }
+
+  .steps { margin: 0; padding-left: 0; list-style: none; counter-reset: paso; }
+  .steps li {
+    counter-increment: paso;
+    display: grid; grid-template-columns: 26px 1fr; gap: 10px;
+    align-items: start; margin-bottom: 14px;
+  }
+  .steps li::before {
+    content: counter(paso);
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--card2); color: var(--accent);
+    display: grid; place-items: center;
+    font-size: .78rem; font-weight: 800;
+  }
+  /* El número ocupa la primera columna; el título y el texto van los dos en
+     la segunda. Sin esto el texto cae en la columna del número, que mide 26
+     píxeles, y sale una palabra por renglón. */
+  .steps li > b, .steps li > span { grid-column: 2; }
+  .steps li b { margin-bottom: 2px; font-size: .93rem; }
+  .steps li span { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+
+  .iconlist { margin: 0; padding: 0; list-style: none; }
+  .iconlist li {
+    display: grid; grid-template-columns: 30px 1fr; gap: 10px;
+    align-items: start; padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted); font-size: .87rem; line-height: 1.5;
+  }
+  .iconlist li:last-child { border-bottom: none; }
+  .iconlist .ic { font-size: 1.15rem; margin: 0; }
+
+  .qa { margin: 0; }
+  .qa dt {
+    font-weight: 700; font-size: .9rem; margin-top: 14px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .qa dt::before { content: "›"; color: var(--accent); font-weight: 800; }
+  .qa dt:first-child { margin-top: 0; }
+  .qa dd {
+    margin: 4px 0 0 14px; color: var(--muted);
+    font-size: .86rem; line-height: 1.55;
+  }
   button.danger { background: transparent; border: 1px solid #6b2a22; color: #ff8a70; }
   button:disabled { opacity: 0.35; cursor: default; }
   button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -351,7 +438,7 @@
   .scorerow .p { color: var(--accent2); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   .song.locked .t, .song.locked .m { opacity: .5 }
-  .lock { font-size: .95rem; opacity: .75; margin-right: 2px }
+  .lock { opacity: .75; margin-right: 5px; width: .95em; height: .95em; }
   .tag-free {
     font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
     color: var(--accent2); border: 1px solid rgba(62,207,142,.4);
@@ -374,16 +461,54 @@
 </style>
 </head>
 <body>
+
+<!-- Los iconos, dibujados aquí una vez y usados por toda la app.
+     Se probó con emoji y no sirve: hay navegadores y teléfonos donde salen
+     como un cuadradito vacío, y estos iconos están justamente para que se
+     entienda sin leer. Dibujados así se ven igual en todas partes y toman el
+     color del texto que los rodea. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="g-mic"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></g>
+    <g id="g-head"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H5a1 1 0 0 1-1-1zM20 14h-3v6h2a1 1 0 0 0 1-1z"/></g>
+    <g id="g-help"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a3 3 0 0 1 5.6 1.2c0 2-2.8 2.3-2.8 4"/><path d="M12 17.4v.01"/></g>
+    <g id="g-user"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></g>
+    <g id="g-sync"><path d="M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6"/><path d="M17.5 3v3.5H14M6.5 21v-3.5H10"/></g>
+    <g id="g-exit"><path d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 8l-4 4 4 4M6 12h9"/></g>
+    <g id="g-down"><path d="M12 4v11M7.5 11l4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></g>
+    <g id="g-up"><path d="M12 20V9M7.5 13L12 8.5 16.5 13"/><path d="M5 4h14"/></g>
+    <g id="g-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></g>
+    <g id="g-sound"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6M18.3 6.6a8 8 0 0 1 0 10.8"/></g>
+    <g id="g-mute"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.5l4.5 5M20.5 9.5l-4.5 5"/></g>
+    <g id="g-vibe"><rect x="8.5" y="3.5" width="7" height="17" rx="2"/><path d="M4.5 9v6M2 10.5v3M19.5 9v6M22 10.5v3"/></g>
+    <g id="g-novibe"><rect x="8.5" y="3.5" width="7" height="17" rx="2"/><path d="M3.5 3.5l17 17"/></g>
+    <g id="g-lock"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></g>
+    <g id="g-target"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/></g>
+    <g id="g-trash"><path d="M4.5 7h15M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7"/><path d="M6.5 7l.9 12a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12"/></g>
+    <g id="g-undo"><path d="M4 9h9a6 6 0 0 1 0 12h-3"/><path d="M7.5 5.5L4 9l3.5 3.5"/></g>
+  </defs>
+</svg>
+
 <div class="wrap">
 
-  <div class="topbar">
-    <div class="langsw" id="langsw">
-      <button data-lang="es" aria-pressed="true">ES</button>
-      <button data-lang="en" aria-pressed="false">EN</button>
+  <!-- La cuenta se consulta de vez en cuando; contar el uno es a cada rato.
+       Por eso arriba solo queda un boton, y lo demas se abre al tocarlo. -->
+  <header class="topbar">
+    <div class="brand"><span class="brand-dot">1</span><b>Cuentas</b></div>
+    <div class="topacts">
+      <div class="langsw" id="langsw">
+        <button data-lang="es" aria-pressed="true">ES</button>
+        <button data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button class="iconbtn" id="acct-toggle" aria-expanded="false"
+              aria-controls="acct" data-i18n-title="account" title="Cuenta">
+        <svg class="ic" id="acct-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-user"/></svg>
+        <span class="pip" id="acct-pip" hidden></span>
+      </button>
     </div>
-  </div>
+  </header>
 
-  <div class="card" id="acct">
+  <div class="card" id="acct" hidden>
     <h2 data-i18n="account">Cuenta</h2>
 
     <div id="acct-out">
@@ -408,18 +533,26 @@
       <div class="subline"><span id="ac-sub">—</span></div>
       <button class="ghost" id="ac-subbtn" data-i18n="subOn">Suscribirme (prueba)</button>
       <div class="row">
-        <button class="primary" id="ac-sync" data-i18n="sync">Sincronizar</button>
-        <button class="ghost" id="ac-out" data-i18n="signOut">Salir</button>
+        <button class="primary" id="ac-sync"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sync"/></svg><span data-i18n="sync">Sincronizar</span></button>
+        <button class="ghost" id="ac-out"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-exit"/></svg><span data-i18n="signOut">Salir</span></button>
       </div>
     </div>
 
     <p class="status" id="ac-status"></p>
   </div>
 
-  <div class="tabs" role="tablist">
-    <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof" data-i18n="tabProf">Profesor</button>
-    <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum" data-i18n="tabAlum">Alumno</button>
-  </div>
+  <!-- Abajo y fijas: se llega con el pulgar sin dejar de bailar. -->
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-mic"/></svg><span data-i18n="tabProf">Profesor</span>
+    </button>
+    <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="tabAlum">Alumno</span>
+    </button>
+    <button role="tab" id="tab-ayuda" aria-selected="false" aria-controls="panel-ayuda">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-help"/></svg><span data-i18n="tabHelp">Ayuda</span>
+    </button>
+  </nav>
 
   <!-- ============ PROFESOR ============ -->
   <section class="panel" id="panel-prof" role="tabpanel">
@@ -437,7 +570,7 @@
         <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
         <button data-r="salsa1" aria-pressed="false" data-i18n="salsa1">Salsa en 1</button>
       </div>
-      <button class="primary" id="p-start" data-i18n="startRec">Empezar a grabar</button>
+      <button class="primary" id="p-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-mic"/></svg><span data-i18n="startRec">Empezar a grabar</span></button>
     </div>
 
     <div class="card" id="p-rec" hidden>
@@ -472,8 +605,8 @@
       <h2 data-i18n="savedSongs">Canciones guardadas</h2>
       <div id="p-list"></div>
       <div class="row" style="margin-top:10px">
-        <button class="ghost" id="p-export" data-i18n="exportBtn">Exportar</button>
-        <button class="ghost" id="p-import" data-i18n="importBtn">Importar</button>
+        <button class="ghost" id="p-export"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-down"/></svg><span data-i18n="exportBtn">Exportar</span></button>
+        <button class="ghost" id="p-import"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-up"/></svg><span data-i18n="importBtn">Importar</span></button>
       </div>
       <input type="file" id="p-file" accept="application/json" hidden>
     </div>
@@ -540,8 +673,8 @@
 
     <div class="card">
       <div class="meter"><i id="a-level"></i></div>
-      <button class="primary" id="a-start" data-i18n="listen">Escuchar y reconocer</button>
-      <button class="ghost" id="a-stop" disabled data-i18n="stop">Parar</button>
+      <button class="primary" id="a-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="listen">Escuchar y reconocer</span></button>
+      <button class="ghost" id="a-stop" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-stop"/></svg><span data-i18n="stop">Parar</span></button>
       <div class="row">
         <button class="ghost" id="a-voice">Voz: no</button>
         <button class="ghost" id="a-vibe">Vibrar: sí</button>
@@ -558,6 +691,89 @@
       <h2 data-i18n="yourScores">Tus puntajes</h2>
       <div id="a-scores"></div>
     </div>
+  </section>
+
+  <!-- ============ AYUDA ============
+       Los mismos iconos que usa la app, para que se reconozcan sin leer. -->
+  <section class="panel" id="panel-ayuda" role="tabpanel" hidden>
+
+    <div class="card">
+      <h2 data-i18n="helpWhatTitle">¿Qué hace esta app?</h2>
+      <p class="hint" data-i18n="helpWhatBody">
+        Escucha la música por el micrófono, reconoce la canción y te muestra en
+        qué tiempo va. Para que veas el UNO mientras bailás.
+      </p>
+      <p class="hint" data-i18n="helpWhatPriv">
+        No graba audio ni lo manda a ningún lado.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="helpFirstTitle">Primera vez</h2>
+      <ol class="steps">
+        <li><b data-i18n="helpStep1t">Poné la música</b>
+            <span data-i18n="helpStep1b">En Spotify, YouTube o un parlante. La app solo escucha.</span></li>
+        <li><b data-i18n="helpStep2t">Entrá en Alumno</b>
+            <span data-i18n="helpStep2b">Tocá «Escuchar» y dejá el teléfono cerca de la música.</span></li>
+        <li><b data-i18n="helpStep3t">Mirá el número</b>
+            <span data-i18n="helpStep3b">Si alguien ya grabó esa canción, aparece la cuenta sincronizada.</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-mic"/></svg><span data-i18n="helpTeachTitle">Profesor: grabar una canción</span></h2>
+      <p class="hint" data-i18n="helpTeachBody">
+        Grabar es marcar dónde cae el UNO. Poné la canción, tocá «Empezar a
+        grabar» y tocá la pantalla en cada UNO. Con marcar el primer minuto
+        alcanza: la app sigue sola hasta el final.
+      </p>
+      <p class="hint" data-i18n="helpTeachTip">
+        Antes de guardar podés borrar el último golpe o correr toda la cuenta
+        unos milisegundos si te quedó adelantada o atrasada.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="helpStudTitle">Alumno: ver y practicar</span></h2>
+      <p class="hint" data-i18n="helpStudBody">
+        «Ver la cuenta» te muestra el número. «Practicar» lo esconde: tocás
+        donde creés que va el UNO y te dice qué tan cerca estuviste.
+      </p>
+      <p class="hint" data-i18n="helpStudTip">
+        Practicar es lo que enseña de verdad. Ver el número es la muleta.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="helpIconsTitle">Los botones</h2>
+      <ul class="iconlist">
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="helpIcListen">Escuchar: enciende el micrófono y busca la canción.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-stop"/></svg><span data-i18n="helpIcStop">Parar: suelta el micrófono.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sound"/></svg><span data-i18n="helpIcSound">Sonido: dice el número en voz alta.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-vibe"/></svg><span data-i18n="helpIcVibe">Vibrar: un golpecito en cada UNO. En iPhone todavía no funciona.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-lock"/></svg><span data-i18n="helpIcLock">Candado: esa canción existe pero necesitás suscripción.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-target"/></svg><span data-i18n="helpIcOnly">Solo esta: le decís cuál es, por si no la reconoce.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-trash"/></svg><span data-i18n="helpIcDel">Borrar: va a la papelera y se puede recuperar 30 días.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-user"/></svg><span data-i18n="helpIcAcct">Arriba a la derecha: tu cuenta.</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="helpTroubleTitle">Si algo no anda</h2>
+      <dl class="qa">
+        <dt data-i18n="helpQ1">No reconoce la canción</dt>
+        <dd data-i18n="helpA1">Acercá el teléfono, subí un poco el volumen y esperá diez segundos. Si dice que nadie la grabó, hay que grabarla desde Profesor.</dd>
+        <dt data-i18n="helpQ2">Dice que está bloqueada</dt>
+        <dd data-i18n="helpA2">La canción existe, pero la grabó otro profesor y hace falta suscripción. Sí podés grabar tu propia versión.</dd>
+        <dt data-i18n="helpQ3">Pierde la cuenta a mitad</dt>
+        <dd data-i18n="helpA3">Suele ser ruido o distancia. La app prefiere callarse antes que marcarte un tiempo equivocado.</dd>
+        <dt data-i18n="helpQ4">No me pide el micrófono</dt>
+        <dd data-i18n="helpA4">El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.</dd>
+        <dt data-i18n="helpQ5">¿Pierdo mis canciones?</dt>
+        <dd data-i18n="helpA5">Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.</dd>
+      </dl>
+    </div>
+
   </section>
 
 </div>
@@ -597,7 +813,7 @@ const STR = {
     noSongsYet: "Todavía no hay canciones. Grábalas desde Profesor.",
     noneSaved: "Ninguna guardada.",
     onlyThis: "solo esta", del: "borrar",
-    voice: "Voz", vibrate: "Vibrar", yes: "sí", no: "no",
+    voice: "Voz", vibrate: "Vibrar",
     vibeNA: "Vibrar: no disponible",
     vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
     startHint: "Pon la canción y dale a escuchar.",
@@ -651,6 +867,43 @@ const STR = {
     freeTag: "gratis",
     confirmDelete: "¿Borrar «{0}»?\n\nSe va de todos los teléfonos, pero queda 30 días en la papelera por si te arrepentís.",
     confirmDeleteLocal: "¿Borrar «{0}»?\n\nEsta nunca se subió, así que no va a la papelera: se pierde y no se puede recuperar.",
+    tabHelp: "Ayuda",
+    helpWhatTitle: "¿Qué hace esta app?",
+    helpWhatBody: "Escucha la música por el micrófono, reconoce la canción y te muestra en qué tiempo va. Para que veas el UNO mientras bailás.",
+    helpWhatPriv: "No graba audio ni lo manda a ningún lado.",
+    helpFirstTitle: "Primera vez",
+    helpStep1t: "Poné la música",
+    helpStep1b: "En Spotify, YouTube o un parlante. La app solo escucha.",
+    helpStep2t: "Entrá en Alumno",
+    helpStep2b: "Tocá «Escuchar» y dejá el teléfono cerca de la música.",
+    helpStep3t: "Mirá el número",
+    helpStep3b: "Si alguien ya grabó esa canción, aparece la cuenta sincronizada.",
+    helpTeachTitle: "Profesor: grabar una canción",
+    helpTeachBody: "Grabar es marcar dónde cae el UNO. Poné la canción, tocá «Empezar a grabar» y tocá la pantalla en cada UNO. Con marcar el primer minuto alcanza: la app sigue sola hasta el final.",
+    helpTeachTip: "Antes de guardar podés borrar el último golpe o correr toda la cuenta unos milisegundos si te quedó adelantada o atrasada.",
+    helpStudTitle: "Alumno: ver y practicar",
+    helpStudBody: "«Ver la cuenta» te muestra el número. «Practicar» lo esconde: tocás donde creés que va el UNO y te dice qué tan cerca estuviste.",
+    helpStudTip: "Practicar es lo que enseña de verdad. Ver el número es la muleta.",
+    helpIconsTitle: "Los botones",
+    helpIcListen: "Escuchar: enciende el micrófono y busca la canción.",
+    helpIcStop: "Parar: suelta el micrófono.",
+    helpIcSound: "Sonido: dice el número en voz alta.",
+    helpIcVibe: "Vibrar: un golpecito en cada UNO. En iPhone todavía no funciona.",
+    helpIcLock: "Candado: esa canción existe pero necesitás suscripción.",
+    helpIcOnly: "Solo esta: le decís cuál es, por si no la reconoce.",
+    helpIcDel: "Borrar: va a la papelera y se puede recuperar 30 días.",
+    helpIcAcct: "Arriba a la derecha: tu cuenta.",
+    helpTroubleTitle: "Si algo no anda",
+    helpQ1: "No reconoce la canción",
+    helpA1: "Acercá el teléfono, subí un poco el volumen y esperá diez segundos. Si dice que nadie la grabó, hay que grabarla desde Profesor.",
+    helpQ2: "Dice que está bloqueada",
+    helpA2: "La canción existe, pero la grabó otro profesor y hace falta suscripción. Sí podés grabar tu propia versión.",
+    helpQ3: "Pierde la cuenta a mitad",
+    helpA3: "Suele ser ruido o distancia. La app prefiere callarse antes que marcarte un tiempo equivocado.",
+    helpQ4: "No me pide el micrófono",
+    helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
+    helpQ5: "¿Pierdo mis canciones?",
+    helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
     forgot: "¿Olvidaste tu contraseña?",
     forgotNeedEmail: "Escribí tu correo arriba y volvé a tocar acá.",
     forgotSent: "Te mandamos un correo a {0}. Si no aparece, mirá en spam.",
@@ -678,7 +931,7 @@ const STR = {
     songChanged: "Cambió la canción → ",
     songLost: "Cambió la canción y esta no está grabada. Alguien tiene que grabarla desde Profesor.",
     songLostLocked: "Cambió la canción y no la reconozco: o está bloqueada, o nadie la grabó.",
-    thisIsLocked: "\u{1F512} «{0}» está bloqueada. Suscribite para ver la cuenta.",
+    thisIsLocked: "«{0}» está bloqueada. Suscribite para ver la cuenta.",
     lockedNoGame: "«{0}» está bloqueada: no se puede practicar hasta desbloquearla."
   },
   en: {
@@ -704,7 +957,7 @@ const STR = {
     noSongsYet: "No songs yet. Record them from the Teacher tab.",
     noneSaved: "None saved.",
     onlyThis: "this one", del: "delete",
-    voice: "Sound", vibrate: "Vibrate", yes: "on", no: "off",
+    voice: "Sound", vibrate: "Vibrate",
     vibeNA: "Vibrate: unavailable",
     vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
     startHint: "Put the song on and press listen.",
@@ -758,6 +1011,43 @@ const STR = {
     freeTag: "free",
     confirmDelete: "Delete \u201c{0}\u201d?\n\nIt goes from every phone, but stays 30 days in the bin in case you change your mind.",
     confirmDeleteLocal: "Delete “{0}”?\n\nThis one was never uploaded, so it doesn't go to the bin: it is lost for good.",
+    tabHelp: "Help",
+    helpWhatTitle: "What does this app do?",
+    helpWhatBody: "It listens through the microphone, recognises the song and shows you which beat you are on. So you can see the ONE while you dance.",
+    helpWhatPriv: "It never records audio, and never sends any.",
+    helpFirstTitle: "First time",
+    helpStep1t: "Put the music on",
+    helpStep1b: "Spotify, YouTube or a speaker. The app only listens.",
+    helpStep2t: "Go to Student",
+    helpStep2b: "Tap \u201cListen\u201d and keep the phone near the music.",
+    helpStep3t: "Watch the number",
+    helpStep3b: "If somebody already recorded that song, the count appears in sync.",
+    helpTeachTitle: "Teacher: recording a song",
+    helpTeachBody: "Recording means marking where the ONE falls. Put the song on, tap \u201cStart recording\u201d and tap the screen on every ONE. The first minute is enough: the app carries on by itself.",
+    helpTeachTip: "Before saving you can delete the last tap, or shift the whole count by a few milliseconds if it came out early or late.",
+    helpStudTitle: "Student: watch and practise",
+    helpStudBody: "\u201cShow the count\u201d displays the number. \u201cPractise\u201d hides it: you tap where you think the ONE is and it tells you how close you were.",
+    helpStudTip: "Practising is what actually teaches. Watching the number is the crutch.",
+    helpIconsTitle: "The buttons",
+    helpIcListen: "Listen: turns on the microphone and looks for the song.",
+    helpIcStop: "Stop: releases the microphone.",
+    helpIcSound: "Sound: says the number out loud.",
+    helpIcVibe: "Vibrate: a tap on every ONE. Not available on iPhone yet.",
+    helpIcLock: "Padlock: that song exists but needs a subscription.",
+    helpIcOnly: "Only this one: you tell it which song, in case it can't tell.",
+    helpIcDel: "Delete: goes to the bin and can be restored for 30 days.",
+    helpIcAcct: "Top right: your account.",
+    helpTroubleTitle: "If something doesn't work",
+    helpQ1: "It doesn't recognise the song",
+    helpA1: "Move the phone closer, turn the volume up a little and wait ten seconds. If it says nobody recorded it, it has to be recorded from Teacher.",
+    helpQ2: "It says the song is locked",
+    helpA2: "The song exists, but another teacher recorded it and it needs a subscription. You can still record your own version.",
+    helpQ3: "It loses the count halfway",
+    helpA3: "Usually noise or distance. The app would rather say nothing than show you the wrong beat.",
+    helpQ4: "It never asks for the microphone",
+    helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
+    helpQ5: "Can I lose my songs?",
+    helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
     forgot: "Forgot your password?",
     forgotNeedEmail: "Type your email above, then tap here again.",
     forgotSent: "We sent an email to {0}. If you can't see it, check your spam folder.",
@@ -785,7 +1075,7 @@ const STR = {
     songChanged: "Song changed → ",
     songLost: "The song changed and this one isn't recorded. Someone needs to record it from the Teacher tab.",
     songLostLocked: "The song changed and I can't place it: either it's locked, or nobody recorded it.",
-    thisIsLocked: "\u{1F512} \u201c{0}\u201d is locked. Subscribe to see the count.",
+    thisIsLocked: "\u201c{0}\u201d is locked. Subscribe to see the count.",
     lockedNoGame: "\u201c{0}\u201d is locked: you can't practise until you unlock it."
   }
 };
@@ -1136,6 +1426,23 @@ const judge = (err) => BANDS.find(b => Math.abs(err) <= b.max);
    UI
    ========================================================================= */
 const $ = (id) => document.getElementById(id);
+
+/* Un icono de los dibujados al principio del archivo, para el código que
+   construye botones sobre la marcha. Hay que crearlos con createElementNS:
+   los SVG no son HTML, y con createElement salen elementos muertos que
+   ocupan sitio y no dibujan nada. */
+const SVGNS = "http://www.w3.org/2000/svg";
+function icono(nombre) {
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("class", "ic");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS(SVGNS, "use");
+  use.setAttribute("href", "#g-" + nombre);
+  svg.appendChild(use);
+  return svg;
+}
+
 const matcher = new Matcher();
 /* Reconocedor aparte, con las huellas ralas del catalogo. Solo sirve para
    saber QUE cancion suena; nunca para contar, porque no tiene los tiempos
@@ -1150,16 +1457,33 @@ function fmt(s) {
 }
 
 /* ---------- Pestañas ---------- */
+const PESTANAS = { prof: "panel-prof", alum: "panel-alum", ayuda: "panel-ayuda" };
+
 function selectTab(which) {
-  const prof = which === "prof";
-  $("tab-prof").setAttribute("aria-selected", prof);
-  $("tab-alum").setAttribute("aria-selected", !prof);
-  $("panel-prof").hidden = !prof;
-  $("panel-alum").hidden = prof;
-  if (prof) stopStudent(); else stopTeacher(true);
+  for (const [nombre, panel] of Object.entries(PESTANAS)) {
+    const activa = nombre === which;
+    $("tab-" + nombre).setAttribute("aria-selected", activa);
+    $(panel).hidden = !activa;
+  }
+  /* Al cambiar de pantalla se suelta el microfono. Dejarlo abierto gasta
+     bateria y, peor, deja a alguien grabando sin darse cuenta. */
+  if (which !== "alum") stopStudent();
+  if (which !== "prof") stopTeacher(true);
+  scrollTo({ top: 0, behavior: "instant" });
 }
-$("tab-prof").addEventListener("click", () => selectTab("prof"));
-$("tab-alum").addEventListener("click", () => selectTab("alum"));
+for (const nombre of Object.keys(PESTANAS)) {
+  $("tab-" + nombre).addEventListener("click", () => selectTab(nombre));
+}
+
+/* ---------- La cuenta, plegada ---------- */
+function toggleCuenta(abrir) {
+  const card = $("acct");
+  const quiero = abrir === undefined ? card.hidden : abrir;
+  card.hidden = !quiero;
+  $("acct-toggle").setAttribute("aria-expanded", String(quiero));
+  if (quiero) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+$("acct-toggle").addEventListener("click", () => toggleCuenta());
 
 /* ---------- Rejilla de cuentas del alumno ---------- */
 const beatCells = [];
@@ -1423,32 +1747,56 @@ const student = {
   searchFrom: 0, everFound: false
 };
 
-$("a-voice").addEventListener("click", (e) => {
-  student.voice = !student.voice;
-  e.target.textContent = "Voz: " + (student.voice ? "sí" : "no");
-});
 /* iOS no expone vibración a las páginas web: no es un permiso que se pueda
    pedir, la API directamente no existe. En vez de dejar un botón que no hace
    nada, lo desactivamos y explicamos por qué. */
 const CAN_VIBRATE = typeof navigator.vibrate === "function";
 
-function initVibe() {
-  const b = $("a-vibe");
+/* Los dos interruptores se dibujan en un solo sitio.
+   Antes cada uno se escribía en tres lugares distintos, y dos de ellos tenían
+   el texto en español a mano: al tocarlos con la app en inglés volvían al
+   castellano. Además decían "Sonido: no", que no deja claro si está apagado o
+   si al tocarlo lo apagás. Ahora el icono muestra el estado y el botón se
+   enciende cuando está activo. */
+function pintarInterruptores() {
+  const poner = (id, activo, iconOn, iconOff, etiqueta) => {
+    const b = $(id);
+    b.textContent = "";
+    const ic = icono(activo ? iconOn : iconOff);
+    const tx = document.createElement("span");
+    tx.textContent = etiqueta;
+    b.append(ic, tx);
+    b.setAttribute("aria-pressed", String(activo));
+    b.classList.toggle("on", activo);
+  };
+
+  poner("a-voice", student.voice, "sound", "mute", t("voice"));
+
   if (CAN_VIBRATE) {
-    student.vibe = true;
-    b.textContent = t("vibrate") + ": " + t("yes");
-    return;
+    poner("a-vibe", student.vibe, "vibe", "novibe", t("vibrate"));
+  } else {
+    const b = $("a-vibe");
+    b.textContent = t("vibeNA");
+    b.disabled = true;
+    b.title = t("vibeNAHint");
+    b.classList.remove("on");
   }
-  student.vibe = false;
-  b.textContent = t("vibeNA");
-  b.disabled = true;
-  b.title = t("vibeNAHint");
 }
 
-$("a-vibe").addEventListener("click", (e) => {
+function initVibe() {
+  student.vibe = CAN_VIBRATE;
+  pintarInterruptores();
+}
+
+$("a-voice").addEventListener("click", () => {
+  student.voice = !student.voice;
+  pintarInterruptores();
+});
+
+$("a-vibe").addEventListener("click", () => {
   if (!CAN_VIBRATE) return;
   student.vibe = !student.vibe;
-  e.target.textContent = "Vibrar: " + (student.vibe ? "sí" : "no");
+  pintarInterruptores();
 });
 
 const buzz = (ms) => { if (student.vibe && CAN_VIBRATE) navigator.vibrate(ms); };
@@ -1556,7 +1904,8 @@ function tryMatch(elapsed) {
       if (!student.locked || student.locked.id !== c.id) {
         student.locked = c;
         if (student.song) perdioLaCancion(true);
-        $("a-big").textContent = "\u{1F512}";
+        $("a-big").textContent = "";
+        $("a-big").appendChild(icono("lock"));
         $("a-big").className = "big";
         $("a-sub").textContent = c.title + (c.artist ? " \u00b7 " + c.artist : "");
         beatCells.forEach(x => x.classList.remove("on"));
@@ -1850,7 +2199,7 @@ function renderLists() {
 
     const btn = document.createElement("button");
     if (forStudent) {
-      btn.textContent = t("onlyThis");
+      btn.append(icono("target"), document.createTextNode(t("onlyThis")));
       btn.addEventListener("click", () => {
         student.forced = student.forced === s.id ? null : s.id;
         renderLists();
@@ -1862,7 +2211,7 @@ function renderLists() {
       // hace creer que se pueden borrar, y no es cierto.
       const propia = !s.owner || (cloud.session && cloud.session.uid === s.owner);
       if (propia) {
-        btn.textContent = t("del");
+        btn.append(icono("trash"), document.createTextNode(t("del")));
         btn.addEventListener("click", () => borrarCancion(s));
       } else {
         btn.textContent = t("fromOther");
@@ -1890,7 +2239,7 @@ function renderLists() {
       info.className = "info";
       const titleEl = document.createElement("div");
       titleEl.className = "t";
-      if (!abierta) { const l = document.createElement("span"); l.className = "lock"; l.textContent = "🔒"; titleEl.appendChild(l); }
+      if (!abierta) { const l = icono("lock"); l.classList.add("lock"); titleEl.prepend(l); }
       titleEl.appendChild(document.createTextNode(c.title));
       if (c.free) { const f = document.createElement("span"); f.className = "tag-free"; f.textContent = t("freeTag"); titleEl.appendChild(f); }
 
@@ -1902,7 +2251,7 @@ function renderLists() {
 
       const btn = document.createElement("button");
       if (abierta) {
-        btn.textContent = t("onlyThis");
+        btn.append(icono("target"), document.createTextNode(t("onlyThis")));
         btn.addEventListener("click", () => {
           student.forced = student.forced === c.id ? null : c.id;
           renderLists();
@@ -1910,7 +2259,7 @@ function renderLists() {
         });
         if (student.forced === c.id) btn.style.borderColor = "var(--accent)";
       } else {
-        btn.textContent = t("locked");
+        btn.append(icono("lock"), document.createTextNode(t("locked")));
         btn.disabled = true;
       }
       row.appendChild(info); row.appendChild(btn);
@@ -2051,12 +2400,12 @@ function renderTrash() {
     info.appendChild(titleEl); info.appendChild(m);
 
     const undo = document.createElement("button");
-    undo.textContent = t("restore");
+    undo.append(icono("undo"), document.createTextNode(t("restore")));
     undo.addEventListener("click", () => restaurarCancion(fila));
 
     const kill = document.createElement("button");
     kill.className = "danger";
-    kill.textContent = t("purgeNow");
+    kill.append(icono("trash"), document.createTextNode(t("purgeNow")));
     kill.addEventListener("click", () => purgarCancion(fila));
 
     row.appendChild(info); row.appendChild(undo); row.appendChild(kill);
@@ -2445,6 +2794,11 @@ function renderAccount() {
   const on = !!cloud.session;
   $("acct-out").hidden = on;
   $("acct-in").hidden = !on;
+  /* El punto verde sobre el icono dice si hay sesion sin tener que abrir
+     nada. Sin el, la cuenta plegada esconderia tambien si estas dentro. */
+  $("acct-pip").hidden = !on;
+  /* El icono es siempre una persona: si cambiara de dibujo al entrar, se
+     confundiria con los de las pestañas. Lo que informa es el punto verde. */
   if (on) {
     $("ac-who").textContent = cloud.session.email || "";
     const p = cloud.profile || {};
@@ -2579,7 +2933,10 @@ async function recogerEnlaceDelCorreo() {
   }
 
   /* Se pide la clave nueva antes que nada: se entro con un enlace de un
-     correo, no con una contrasena que la persona recuerde. */
+     correo, no con una contrasena que la persona recuerde. Y se despliega la
+     cuenta, que normalmente esta plegada: si no, el formulario quedaria
+     escondido detras de un boton y nadie lo encontraria. */
+  toggleCuenta(true);
   $("acct-out").hidden = true;
   $("acct-in").hidden = true;
   $("acct-new").hidden = false;
@@ -2625,15 +2982,18 @@ function applyLang() {
     const v = STR[lang][el.dataset.i18nPh];
     if (v !== undefined) el.placeholder = v;
   });
+  // Los botones que son solo un icono necesitan decir en palabras que hacen
+  document.querySelectorAll("[data-i18n-title]").forEach(el => {
+    const v = STR[lang][el.dataset.i18nTitle];
+    if (v !== undefined) { el.title = v; el.setAttribute("aria-label", v); }
+  });
 
   for (const b of $("langsw").children) {
     b.setAttribute("aria-pressed", b.dataset.lang === lang);
   }
 
   // Botones cuyo texto lleva un estado dentro
-  $("a-voice").textContent = t("voice") + ": " + t(student.voice ? "yes" : "no");
-  if (CAN_VIBRATE) $("a-vibe").textContent = t("vibrate") + ": " + t(student.vibe ? "yes" : "no");
-  else { $("a-vibe").textContent = t("vibeNA"); $("a-vibe").title = t("vibeNAHint"); }
+  pintarInterruptores();
 
   // Listas y textos generados
   if (typeof cloud !== "undefined") renderAccount();
