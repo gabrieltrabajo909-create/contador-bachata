@@ -9,11 +9,12 @@
  * candado que ya se abrió.
  */
 
-const CACHE = "cuentas-v1";
+const CACHE = "cuentas-v2";
 const COPIA = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
+  "./icono-64.png",
   "./icono-192.png",
   "./icono-512.png"
 ];

@@ -320,3 +320,32 @@ await prueba("gameTap usa el ancla, no lo que el reconocedor tenga ahora", () =>
   afirmar(!/student\.offset/.test(cuerpo),
     "gameTap volvió a puntuar con el desfase de fuera del juego");
 });
+
+/* ------------------------------------------------------------------------ */
+seccion("Una canción rota no se lleva a las demás por delante");
+
+await prueba("la sincronización salta la fila mala y sigue", () => {
+  /* Apareció probando: una canción con la huella estropeada hacía fallar la
+     sincronización entera, y la persona se quedaba sin NINGUNA canción sin
+     saber por qué. Se comprueba que el código la salta en los tres sitios
+     donde se descifra una huella. */
+  /* Se corta por longitud y no buscando la siguiente llamada: varios de esos
+     nombres aparecen antes en el archivo y el corte salia vacio. */
+  const iniBajada = FUENTE.indexOf("const remoteSongs = await cloud.rest");
+  const bajada = FUENTE.slice(iniBajada, iniBajada + 900);
+  afirmar(/try\s*\{[\s\S]*rowToSong[\s\S]*catch/.test(bajada),
+    "al bajar canciones, una huella rota vuelve a tumbar la sincronización");
+
+  const iniCat = FUENTE.indexOf("identificador.clear()");
+  const cat = FUENTE.slice(iniCat, iniCat + 900);
+  afirmar(/try\s*\{[\s\S]*identificador\.add[\s\S]*catch/.test(cat),
+    "una huella rota en el catálogo vuelve a tumbar la pantalla");
+
+  const iniSub = FUENTE.indexOf("const misSongs =");
+  const subida = FUENTE.slice(iniSub, iniSub + 400);
+  afirmar(/catch/.test(subida), "se vuelve a intentar subir una huella rota");
+});
+
+await prueba("y avisa de cuántas no pudo leer", () => {
+  afirmar(/someBroken/.test(FUENTE), "se saltan en silencio, sin decirlo");
+});

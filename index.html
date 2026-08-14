@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cuentas">
 <link rel="apple-touch-icon" href="icono-192.png">
-<link rel="icon" href="icono-192.png">
+<link rel="icon" href="icono-64.png">
 <style>
   :root {
     --ground: #0e0d12;
@@ -46,12 +46,7 @@
     gap: 10px; margin-bottom: 14px;
   }
   .brand { display: flex; align-items: center; gap: 8px; font-size: .98rem; }
-  .brand-dot {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: var(--accent); color: #fff;
-    display: grid; place-items: center;
-    font-weight: 800; font-size: .82rem;
-  }
+  .brand-ic { width: 28px; height: 28px; border-radius: 8px; display: block; }
   .topacts { display: flex; align-items: center; gap: 8px; }
 
   .iconbtn {
@@ -553,7 +548,7 @@
   <!-- La cuenta se consulta de vez en cuando; contar el uno es a cada rato.
        Por eso arriba solo queda un boton, y lo demas se abre al tocarlo. -->
   <header class="topbar">
-    <div class="brand"><span class="brand-dot">1</span><b>Cuentas</b></div>
+    <div class="brand"><img class="brand-ic" src="icono-64.png" alt=""><b>Cuentas</b></div>
     <div class="topacts">
       <div class="langsw" id="langsw">
         <button data-lang="es" aria-pressed="true">ES</button>
@@ -1022,6 +1017,7 @@ const STR = {
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
     helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    someBroken: "({0} no se pudieron leer)",
     isFree: "gratis ✓", makeFree: "hacer gratis",
     nowFree: "«{0}» ahora es gratis para todos.",
     nowPaid: "«{0}» ahora requiere suscripción.",
@@ -1199,6 +1195,7 @@ const STR = {
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
     helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    someBroken: "({0} couldn\u2019t be read)",
     isFree: "free ✓", makeFree: "make free",
     nowFree: "\u201c{0}\u201d is now free for everyone.",
     nowPaid: "\u201c{0}\u201d now needs a subscription.",
@@ -3000,11 +2997,17 @@ async function reload() {
   const abiertas = new Set(songs.map(s => s.id));
   catalog.forEach(c => {
     if (abiertas.has(c.id) || !c.fpl_keys) return;
-    identificador.add({
-      id: c.id, title: c.title, artist: c.artist, teacher: c.teacher,
-      rhythm: c.rhythm, bloqueada: true,
-      fp: { keys: fromB64(c.fpl_keys, Uint32Array), times: fromB64(c.fpl_times, Uint16Array) }
-    });
+    /* Una huella estropeada aqui no puede tumbar la pantalla entera: sin este
+       resguardo, una sola fila mala dejaba la app sin ninguna cancion y sin
+       decir por que. Lo peor que pasa saltandola es que esa no se pueda
+       nombrar cuando suene. */
+    try {
+      identificador.add({
+        id: c.id, title: c.title, artist: c.artist, teacher: c.teacher,
+        rhythm: c.rhythm, bloqueada: true,
+        fp: { keys: fromB64(c.fpl_keys, Uint32Array), times: fromB64(c.fpl_times, Uint16Array) }
+      });
+    } catch (e) { /* esa cancion no se podra identificar; las demas si */ }
   });
   renderLists();
   await reloadScores();
@@ -3239,7 +3242,9 @@ async function syncNow() {
   // pretender adueñarse de ellas, y el servidor lo rechaza con razon.
   const mio = (x) => !x.owner || x.owner === uid;
 
-  const misSongs = (await DB.all("songs")).filter(usable).filter(mio);
+  const misSongs = (await DB.all("songs")).filter(usable).filter(mio)
+    // Si la huella local esta rota, subirla propagaria el problema
+    .filter(s => { try { toB64(s.fp.keys); return true; } catch (e) { return false; } });
   if (misSongs.length) {
     /* La huella rala vive en columnas nuevas. Si la base todavia no las tiene
        se reintenta sin ellas: es preferible sincronizar sin poder identificar
@@ -3286,7 +3291,20 @@ async function syncNow() {
      en la siguiente sincronizacion. */
   const remoteSongs = await cloud.rest("songs?select=*&deleted_at=is.null");
   const permitidas = new Set(remoteSongs.map(r => r.id));
-  for (const r of remoteSongs) await DB.put(rowToSong(r), "songs");
+
+  /* Una cancion con la huella estropeada no puede llevarse por delante a
+     todas las demas. Antes, una sola fila mala hacia fallar la sincronizacion
+     entera y la persona se quedaba sin NINGUNA cancion, sin saber por que.
+     Ahora se salta la rota y se sigue con el resto. */
+  let rotas = 0;
+  for (const r of remoteSongs) {
+    try {
+      await DB.put(rowToSong(r), "songs");
+    } catch (e) {
+      rotas++;
+      permitidas.delete(r.id);
+    }
+  }
 
   // La papelera, que ademas dice cuales de las propias hay que quitar de aqui:
   // si la borraste desde otro telefono, este todavia no se ha enterado.
@@ -3328,7 +3346,7 @@ async function syncNow() {
 
   await cargarPerfil();
   await reload();
-  return { songs: remoteSongs.length, scores: remoteScores.length };
+  return { songs: remoteSongs.length - rotas, scores: remoteScores.length, rotas };
 }
 
 /* ---------- Interfaz de la cuenta ---------- */
@@ -3389,7 +3407,7 @@ async function doSync() {
   $("ac-sync").disabled = true;
   try {
     const n = await syncNow();
-    setAc(t("synced", n.songs, n.scores), "ok");
+    setAc(t("synced", n.songs, n.scores) + (n.rotas ? " " + t("someBroken", n.rotas) : ""), "ok");
   } catch (e) {
     const m = String(e.message || e);
     // El error crudo del servidor es un volcado de JSON ilegible

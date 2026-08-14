@@ -9,10 +9,28 @@
   "background_color": "#0e0d12",
   "theme_color": "#0e0d12",
   "lang": "es",
-  "categories": ["music", "education"],
+  "categories": [
+    "music",
+    "education"
+  ],
   "icons": [
-    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icono-512-recortable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icono-512-recortable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
