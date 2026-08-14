@@ -13,6 +13,7 @@ vez, para no ir dejando usuarios sueltos en la base.
 
 import json
 import re
+import secrets
 import sys
 import time
 import urllib.error
@@ -32,10 +33,27 @@ def _sacar(patron):
 URL = _sacar(r'const SB_URL = "([^"]+)"')
 CLAVE = _sacar(r'const SB_KEY = "([^"]+)"')
 
-CUENTAS = {
-    "A": ("prueba.autor.contador@example.com", "PruebaContador-A-2026"),
-    "B": ("prueba.alumno.contador@example.com", "PruebaContador-B-2026"),
+# Las contrasenas NO van aqui. Estuvieron escritas en este archivo y este
+# repositorio es publico: cualquiera podia entrar con esas cuentas, activarse
+# la suscripcion de prueba y bajarse todas las huellas. Ahora viven en un
+# archivo local que git ignora, y se generan solas la primera vez.
+CLAVES = Path(__file__).resolve().parent / ".claves.json"
+
+CORREOS = {
+    "A": "prueba.autor.contador@example.com",
+    "B": "prueba.alumno.contador@example.com",
 }
+
+def _claves():
+    if CLAVES.exists():
+        return json.loads(CLAVES.read_text())
+    hechas = {k: "p" + secrets.token_urlsafe(24) for k in CORREOS}
+    CLAVES.write_text(json.dumps(hechas, indent=2))
+    CLAVES.chmod(0o600)
+    print(f"{GRIS}(claves de prueba nuevas en tests/.claves.json){FIN}")
+    return hechas
+
+CUENTAS = None   # se rellena mas abajo, cuando ya se pueden imprimir avisos
 
 # ---------------------------------------------------------------- utilidades
 
@@ -69,7 +87,12 @@ def rest(ruta, metodo="GET", cuerpo=None, **kw):
     return pedir("/rest/v1/" + ruta, metodo, cuerpo, **kw)
 
 def entrar(cual):
-    """Entra con una cuenta de prueba; la crea la primera vez."""
+    """Entra con una cuenta de prueba; la crea la primera vez.
+
+    Si la cuenta ya existe con OTRA contrasena -por ejemplo, porque venia de
+    cuando estaban escritas en el repositorio- no hay forma de entrar desde
+    aqui: hay que cambiarla desde el panel o borrar la cuenta. Se avisa en vez
+    de fallar con un error suelto."""
     correo, clave = CUENTAS[cual]
     r = pedir("/auth/v1/token?grant_type=password",
               "POST", {"email": correo, "password": clave})
@@ -79,6 +102,9 @@ def entrar(cual):
             sys.exit(f"no pude crear la cuenta de prueba {cual}: {r.codigo} {r.texto[:200]}")
         if not r.datos.get("access_token"):
             sys.exit("la base pide confirmar el correo: no puedo crear cuentas de prueba")
+    elif r.codigo != 200:
+        sys.exit(f"la cuenta {correo} existe con otra clave. Borra tests/.claves.json "
+                 f"y esa cuenta desde el panel, o cambiale la contrasena.")
     return r.datos["access_token"], r.datos["user"]["id"]
 
 # ------------------------------------------------------------------- informe
@@ -109,6 +135,8 @@ def prueba(nombre):
             _fallos.append(f"{_grupo} › {nombre}")
         return fn
     return deco
+
+CUENTAS = {k: (CORREOS[k], v) for k, v in _claves().items()}
 
 # --------------------------------------------------------------------- datos
 

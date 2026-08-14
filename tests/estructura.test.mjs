@@ -5,7 +5,7 @@
    una traduccion a medias dejara textos en blanco, y el de los identificadores
    despues de que un `t` mal puesto tirara la pantalla del alumno entera. */
 
-import { cargar, HTML, FUENTE } from "./extraer.mjs";
+import { cargar, HTML, FUENTE, SOLO_HTML } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual } from "./marco.mjs";
 
 const M = await cargar(["STR"]);
@@ -60,7 +60,7 @@ await prueba("el espanol no se colo en el diccionario ingles", () => {
 seccion("Los textos y la pantalla concuerdan");
 
 const enHtml = (attr) =>
-  [...HTML.matchAll(new RegExp(`${attr}="([^"]+)"`, "g"))].map(m => m[1]);
+  [...SOLO_HTML.matchAll(new RegExp(`${attr}="([^"]+)"`, "g"))].map(m => m[1]);
 
 await prueba("cada texto marcado en la pantalla existe en el diccionario", () => {
   const usados = new Set([...enHtml("data-i18n"), ...enHtml("data-i18n-ph")]);

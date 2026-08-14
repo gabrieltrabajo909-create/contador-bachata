@@ -98,4 +98,8 @@ export async function cargar(nombres) {
   }
 }
 
+/* El HTML sin el codigo. Hace falta para buscar atributos de verdad: dentro
+   del script hay selectores que se le parecen y daban falsas alarmas. */
+export const SOLO_HTML = HTML.replace(/<script>[\s\S]*?<\/script>/g, "");
+
 export { script as FUENTE };

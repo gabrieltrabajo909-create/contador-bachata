@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: de la web a Google Play</title>
+<style>
+  :root {
+    --ground: #0c0b10;
+    --ink: #f4f2f8;
+    --muted: #948ea6;
+    --dim: #625c75;
+    --line: #23202d;
+    --card: #15131b;
+    --card2: #1d1a25;
+
+    --go: #3ecf8e;
+    --wait: #ffb648;
+    --stop: #ff5a36;
+    --cool: #4ea8ff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 30px 18px 80px; }
+
+  .eyebrow {
+    font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+  }
+
+  h1 {
+    font-size: clamp(1.9rem, 5.5vw, 3rem);
+    line-height: 1.08; letter-spacing: -0.03em; margin: 6px 0 12px; text-wrap: balance;
+  }
+
+  .lede { color: var(--muted); max-width: 40rem; margin: 0 0 34px; }
+
+  h2 {
+    font-size: 1.35rem; letter-spacing: -0.02em; margin: 54px 0 6px;
+  }
+  h2 .num {
+    color: var(--dim); font-variant-numeric: tabular-nums; margin-right: 10px; font-size: 0.95rem;
+  }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.92rem; max-width: 42rem; }
+
+  /* ---------- Big headline number ---------- */
+  .headline {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 22px;
+    align-items: center;
+    background: linear-gradient(120deg, rgba(62,207,142,0.09), transparent 60%);
+    border: 1px solid rgba(62,207,142,0.3);
+    border-radius: 20px;
+    padding: 24px 26px;
+    margin-bottom: 14px;
+  }
+  .headline .big {
+    font-size: clamp(3rem, 11vw, 5rem);
+    font-weight: 750; line-height: 0.9; letter-spacing: -0.05em; color: var(--go);
+    font-variant-numeric: tabular-nums;
+  }
+  .headline p { margin: 0; color: #ddd8e6; }
+  .headline strong { color: var(--ink); }
+
+  /* ---------- Callout ---------- */
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--cool);
+    background: var(--card);
+    border-radius: 0 14px 14px 0;
+    padding: 18px 20px;
+    margin: 22px 0;
+  }
+  .callout h3 { margin: 0 0 6px; font-size: 1.02rem; }
+  .callout p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+  /* ---------- Roadmap ---------- */
+  .road { display: grid; gap: 12px; }
+
+  .phase {
+    display: grid;
+    grid-template-columns: 3.2rem 1fr;
+    gap: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px;
+    position: relative;
+  }
+
+  .phase .marker {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .phase .ball {
+    width: 2.1rem; height: 2.1rem; border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 0.9rem;
+    background: var(--card2); border: 2px solid var(--dim); color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .phase[data-state="done"] .ball { border-color: var(--go); color: var(--go); }
+  .phase[data-state="next"] .ball { border-color: var(--cool); color: var(--cool); }
+
+  .phase h3 { margin: 2px 0 4px; font-size: 1.05rem; }
+  .phase .meta {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0;
+  }
+  .tag {
+    font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--card2); border: 1px solid var(--line); color: var(--muted);
+  }
+  .tag.cost { color: var(--go); border-color: rgba(62,207,142,0.35); }
+  .tag.time { color: var(--wait); border-color: rgba(255,182,72,0.32); }
+  .tag.state { color: var(--cool); border-color: rgba(78,168,255,0.35); }
+  .phase p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+  /* ---------- Decision cards ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 12px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 18px; position: relative;
+  }
+  .card.pick { border-color: rgba(62,207,142,0.45); }
+  .card .badge {
+    position: absolute; top: -9px; left: 16px;
+    font-size: 0.63rem; letter-spacing: 0.14em; text-transform: uppercase;
+    background: var(--go); color: #06180f; font-weight: 700;
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .card h3 { margin: 6px 0 4px; font-size: 1.02rem; }
+  .card .k { font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+  .card p { margin: 8px 0 0; color: var(--muted); font-size: 0.88rem; }
+  .card ul { margin: 10px 0 0; padding-left: 0; list-style: none; }
+  .card li { font-size: 0.86rem; color: var(--muted); padding-left: 20px; position: relative; margin-bottom: 5px; }
+  .card li::before { position: absolute; left: 0; }
+  .card li.y::before { content: "+"; color: var(--go); font-weight: 700; }
+  .card li.n::before { content: "−"; color: var(--stop); font-weight: 700; }
+
+  /* ---------- Table ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.9rem; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  th {
+    font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); font-weight: 600; background: var(--card);
+  }
+  td { color: #ddd8e6; }
+  tr:last-child td { border-bottom: none; }
+  td.money { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+  td.free { color: var(--go); }
+  .note { font-size: 0.78rem; color: var(--dim); margin-top: 8px; }
+
+  /* ---------- Risk ---------- */
+  .risks { display: grid; gap: 10px; }
+  .risk {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 15px 17px;
+  }
+  .risk .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 8px; }
+  .risk[data-sev="alta"] .dot { background: var(--stop); }
+  .risk[data-sev="media"] .dot { background: var(--wait); }
+  .risk h3 { margin: 0 0 4px; font-size: 0.98rem; }
+  .risk p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+  .risk .fix { color: #ddd8e6; }
+
+  footer { margin-top: 60px; color: var(--dim); font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 18px; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 480px) {
+    .headline { grid-template-columns: 1fr; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Plan de producto · Agosto 2026</div>
+  <h1>De página web a app en Google Play</h1>
+  <p class="lede">
+    Qué cuentas hay que abrir, qué se paga, en qué orden hacerlo y qué decidir
+    en cada bifurcación. Ordenado para gastar lo mínimo y no construir nada
+    antes de saber si tus amigos lo usan.
+  </p>
+
+  <div class="headline">
+    <div class="big">$25</div>
+    <p>
+      Es <strong>todo</strong> lo que cuesta llegar a Google Play: un pago único
+      de la cuenta de desarrollador. El resto de la infraestructura —base de datos,
+      login, hosting— entra en planes gratuitos hasta que tengas cientos de usuarios reales.
+    </p>
+  </div>
+
+  <div class="callout">
+    <h3>Lo más importante: todavía no necesitás Google Play</h3>
+    <p>
+      Tus amigos ya pueden probar la app hoy, con el link que tenés. Se abre en
+      cualquier teléfono y el micrófono funciona. La tienda solo hace falta para
+      que gente que no te conoce te encuentre, y para cobrar. Testear primero por
+      web te ahorra semanas y te dice si vale la pena seguir.
+    </p>
+  </div>
+
+  <h2><span class="num">01</span>El camino, por etapas</h2>
+  <p class="sub">
+    Cada etapa deja algo utilizable. Si en cualquier punto los resultados no
+    acompañan, parás sin haber gastado lo de la etapa siguiente.
+  </p>
+
+  <div class="road">
+    <div class="phase" data-state="done">
+      <div class="marker"><div class="ball">✓</div></div>
+      <div>
+        <h3>Ya está: la app funciona por web</h3>
+        <p>Modo profesor y alumno, reconocimiento por micrófono, cuenta sincronizada. Todo guardado en el teléfono.</p>
+        <div class="meta"><span class="tag cost">$0</span><span class="tag">Hecho</span></div>
+      </div>
+    </div>
+
+    <div class="phase" data-state="next">
+      <div class="marker"><div class="ball">1</div></div>
+      <div>
+        <h3>Probarlo con tu comunidad, tal cual está</h3>
+        <p>
+          Mandás el link a 10–15 amigos de salsa y bachata. Lo único que querés
+          saber: ¿reconoce las canciones en una sala real?, ¿la cuenta se mantiene
+          pegada al ritmo?, ¿lo volverían a abrir? Si acá falla algo, se arregla
+          antes de construir lo demás.
+        </p>
+        <div class="meta"><span class="tag cost">$0</span><span class="tag time">1–2 semanas</span><span class="tag state">Empezar por acá</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="marker"><div class="ball">2</div></div>
+      <div>
+        <h3>Login y canciones en la nube</h3>
+        <p>
+          Una cuenta por persona. El profesor sube sus canciones y los alumnos
+          las ven sin pasarse archivos a mano. Es el cambio que convierte esto
+          de "una herramienta" en "un servicio". Sigue siendo web.
+        </p>
+        <div class="meta"><span class="tag cost">$0</span><span class="tag time">2–3 días de trabajo</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="marker"><div class="ball">3</div></div>
+      <div>
+        <h3>Empaquetarla como app de Android</h3>
+        <p>
+          La misma web metida dentro de una app instalable. No se reescribe nada.
+          Acá es donde entran los $25 y donde aparece el requisito de Google que
+          está más abajo.
+        </p>
+        <div class="meta"><span class="tag cost">$25 único</span><span class="tag time">1–2 días + 14 de espera</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="marker"><div class="ball">4</div></div>
+      <div>
+        <h3>Publicar gratis y dejar que crezca</h3>
+        <p>
+          Sin cobrar nada todavía. Necesitás gente usándola de verdad antes de
+          poner un precio: si cobrás con una biblioteca de 5 canciones, nadie paga.
+        </p>
+        <div class="meta"><span class="tag cost">$0</span><span class="tag time">1–2 meses</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="marker"><div class="ball">5</div></div>
+      <div>
+        <h3>Recién ahí, cobrar</h3>
+        <p>
+          Con usuarios reales y una biblioteca que ya vale algo, se activa la
+          suscripción. Google se queda con el 15%.
+        </p>
+        <div class="meta"><span class="tag cost">15% de lo que factures</span><span class="tag time">2–3 días de trabajo</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h2><span class="num">02</span>Las tres decisiones técnicas</h2>
+  <p class="sub">En cada una hay una opción recomendada y por qué.</p>
+
+  <div class="cards">
+    <div class="card pick">
+      <span class="badge">Recomendado</span>
+      <div class="k">Cómo llegar a Android</div>
+      <h3>Capacitor</h3>
+      <p>Envuelve la web actual en una app nativa sin reescribir el código.</p>
+      <ul>
+        <li class="y">Reutiliza el 100% de lo hecho</li>
+        <li class="y">Da acceso a los pagos de Google</li>
+        <li class="y">Sirve también para iPhone después</li>
+        <li class="n">Hay que instalar herramientas de Android</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="k">Alternativa</div>
+      <h3>App nativa desde cero</h3>
+      <p>Reescribir todo en Kotlin.</p>
+      <ul>
+        <li class="y">Algo más rápida</li>
+        <li class="n">Tirar meses de trabajo y empezar de nuevo</li>
+        <li class="n">Dos versiones que mantener</li>
+        <li class="n">No se justifica en este punto</li>
+      </ul>
+    </div>
+
+    <div class="card pick">
+      <span class="badge">Recomendado</span>
+      <div class="k">Login y base de datos</div>
+      <h3>Supabase</h3>
+      <p>Login y base de datos en un solo servicio, con plan gratuito real.</p>
+      <ul>
+        <li class="y">Gratis hasta 50.000 usuarios al mes</li>
+        <li class="y">Login con Google en dos clics</li>
+        <li class="y">$25/mes recién cuando crezca</li>
+        <li class="n">Los proyectos gratis se duermen sin uso</li>
+      </ul>
+    </div>
+
+    <div class="card pick">
+      <span class="badge">Recomendado</span>
+      <div class="k">Cómo cobrar</div>
+      <h3>Suscripción mensual</h3>
+      <p>Un pago recurrente por acceso a toda la biblioteca.</p>
+      <ul>
+        <li class="y">Un solo producto que configurar</li>
+        <li class="y">Ingreso previsible</li>
+        <li class="y">Cuantas más canciones subas, más vale</li>
+        <li class="n">Hay que sostener el catálogo creciendo</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="num">03</span>Suscripción o canción por canción</h2>
+  <p class="sub">
+    Preguntabas cuál es más fácil. La diferencia es grande y no es obvia.
+  </p>
+
+  <div class="cards">
+    <div class="card pick">
+      <span class="badge">Más fácil</span>
+      <h3>Suscripción</h3>
+      <p>
+        Configurás <strong>un</strong> producto en Google Play y no lo tocás nunca más.
+        Agregar una canción nueva no requiere ningún trámite: aparece y ya está
+        incluida para quien esté suscripto.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Canción por canción</h3>
+      <p>
+        Cada canción es un producto que hay que dar de alta a mano en Google Play,
+        con su precio y su ficha. Con 50 canciones son 50 trámites, y cada
+        canción nueva es uno más. Además obliga a programar quién compró qué.
+      </p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h3>La respuesta corta</h3>
+    <p>
+      Suscripción. No por lo que le gusta a la gente, sino porque el trabajo de
+      mantenerla no crece cuando crece el catálogo, y el de vender canciones
+      sueltas sí. Si más adelante querés vender packs por profesor, se agrega
+      encima sin rehacer nada.
+    </p>
+  </div>
+
+  <h2><span class="num">04</span>Cuentas que hay que abrir</h2>
+  <p class="sub">En este orden. Ninguna hace falta antes de la etapa que dice.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Cuenta</th><th>Para qué</th><th>Cuándo</th><th>Coste</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>GitHub</td><td>El código y la web</td><td>Ya la tenés</td><td class="money free">Gratis</td></tr>
+        <tr><td>Supabase</td><td>Login y canciones compartidas</td><td>Etapa 2</td><td class="money free">Gratis</td></tr>
+        <tr><td>Google Play Console</td><td>Publicar en la tienda</td><td>Etapa 3</td><td class="money">$25 único</td></tr>
+        <tr><td>Cuenta bancaria en Play</td><td>Cobrar suscripciones</td><td>Etapa 5</td><td class="money free">Gratis</td></tr>
+        <tr><td>Dominio propio <span style="color:var(--dim)">(opcional)</span></td><td>Un link con tu nombre</td><td>Cuando quieras</td><td class="money">~$12/año</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    La cuenta de Play Console pide verificación de identidad con documento y una
+    dirección real, y tarda unos días en aprobarse. Conviene abrirla con tiempo.
+  </p>
+
+  <h2><span class="num">05</span>Qué vas a pagar, mes a mes</h2>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Momento</th><th>Infraestructura</th><th>Comisión de Google</th><th>Total mensual</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Hoy y durante el test</td><td>Gratis</td><td>—</td><td class="money free">$0</td></tr>
+        <tr><td>Con login y nube</td><td>Supabase gratis</td><td>—</td><td class="money free">$0</td></tr>
+        <tr><td>Publicada y gratis</td><td>Supabase gratis</td><td>—</td><td class="money free">$0</td></tr>
+        <tr><td>Cobrando, pocos usuarios</td><td>Supabase gratis</td><td>15%</td><td class="money">15% de ventas</td></tr>
+        <tr><td>Cientos de usuarios activos</td><td>Supabase $25</td><td>15%</td><td class="money">$25 + 15%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    El 15% se compone de 10% de tarifa de servicio más 5% de tarifa de facturación,
+    vigente desde el 30 de junio de 2026. Ese porcentaje se mantiene hasta el
+    primer millón de dólares anuales.
+  </p>
+
+  <h2><span class="num">06</span>Lo que puede salir mal</h2>
+  <p class="sub">Ordenado por lo que más probablemente te frene.</p>
+
+  <div class="risks">
+    <div class="risk" data-sev="alta">
+      <div class="dot"></div>
+      <div>
+        <h3>Google exige 12 personas probando durante 14 días seguidos</h3>
+        <p>
+          Si abrís la cuenta a tu nombre, Google no te deja publicar hasta que
+          12 personas hayan estado en una prueba cerrada 14 días corridos, sin
+          abandonar. <span class="fix">Es exactamente para lo que te sirve tu
+          comunidad — pero hay que avisarles con tiempo y que no se den de baja
+          a mitad de camino.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="risk" data-sev="alta">
+      <div class="dot"></div>
+      <div>
+        <h3>Google rechaza apps que son "solo una web metida en una caja"</h3>
+        <p>
+          Es un motivo de rechazo frecuente. <span class="fix">Nuestro caso está
+          bien parado: usa el micrófono, funciona sin conexión y hace algo que
+          una web común no hace. Aun así, hay que presentarla mostrando eso.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="risk" data-sev="media">
+      <div class="dot"></div>
+      <div>
+        <h3>Las huellas de audio ocupan mucho</h3>
+        <p>
+          Cada canción son unos 500 KB de huella. El plan gratuito de base de datos
+          son 500 MB: alcanza para unas mil canciones, pero el tráfico se consume
+          rápido si muchos alumnos descargan bibliotecas enteras.
+          <span class="fix">Se puede reducir la huella a la mitad sin perder
+          precisión, cuando haga falta.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="risk" data-sev="media">
+      <div class="dot"></div>
+      <div>
+        <h3>Usar canciones de otros tiene un límite legal</h3>
+        <p>
+          La app no guarda ni reproduce música, solo una huella matemática, y eso
+          la deja en terreno bastante firme. <span class="fix">Pero si algún día
+          se distribuyen audios, ahí sí hace falta licencia. Conviene no cruzar
+          esa línea.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="risk" data-sev="media">
+      <div class="dot"></div>
+      <div>
+        <h3>El iPhone queda afuera de la tienda</h3>
+        <p>
+          La web ya funciona en iPhone, pero para estar en la App Store son
+          $99 al año, todos los años. <span class="fix">Con Capacitor el mismo
+          código sirve para las dos, así que es solo decidir cuándo pagarlo.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <h2><span class="num">07</span>Qué haría esta semana</h2>
+  <p class="sub">Concreto, en orden, sin gastar un peso.</p>
+
+  <div class="road">
+    <div class="phase" data-state="next">
+      <div class="marker"><div class="ball">1</div></div>
+      <div>
+        <h3>Grabá tres canciones que uses en clase</h3>
+        <p>Vos, con la app tal como está. Es la prueba de si el flujo del profesor aguanta en la vida real.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="ball">2</div></div>
+      <div>
+        <h3>Pasale el link a cinco amigos</h3>
+        <p>Que lo prueben con música fuerte, en una sala, no en su casa en silencio. Ahí es donde se rompe o aguanta.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="ball">3</div></div>
+      <div>
+        <h3>Anotá qué falla</h3>
+        <p>Sobre todo: si no reconoce alguna canción, y si la cuenta se corre con el tiempo. Con eso decidimos si seguimos a la etapa 2 o arreglamos primero.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="ball">4</div></div>
+      <div>
+        <h3>Abrí la cuenta de Play Console</h3>
+        <p>Los $25 y la verificación de identidad tardan unos días. Se puede ir haciendo en paralelo, sin que bloquee nada.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Datos de costes y requisitos verificados en agosto de 2026.
+    Otros links del proyecto: <a href="./">la app</a> ·
+    <a href="./architecture.html">cómo está construida</a>.
+  </footer>
+</div>
+</body>
+</html>

@@ -82,6 +82,9 @@
     padding: 7px 4px; border-radius: 14px; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; gap: 3px;
   }
+  /* Ocultar un boton tiene que ganarle al display:flex de arriba, o el
+     navegador lo sigue dibujando y la barra se parte en dos filas. */
+  .tabs button[hidden] { display: none; }
   .tabs button[aria-selected="true"] { color: var(--accent); background: var(--card); }
 
   /* Los iconos son trazos, no rellenos: heredan el color del texto que los
@@ -215,6 +218,25 @@
 
   /* Una tarjeta dentro de otra: se distingue sin gritar */
   .card.dentro { background: var(--card2); margin: 14px 0 0; }
+
+  /* Tarjeta plegable: el título es el mango */
+  .card.plegable > h2 {
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px; user-select: none;
+  }
+  .card.plegable > h2::after {
+    content: "+"; margin-left: auto; color: var(--muted);
+    font-size: 1.3rem; font-weight: 400; line-height: 1;
+  }
+  .card.plegable:not(.cerrada) > h2::after { content: "\2212"; }
+  .card.plegable.cerrada > h2 { margin-bottom: 0; }
+  .card.plegable.cerrada > *:not(h2) { display: none !important; }
+  .cuantas {
+    background: var(--card2); color: var(--muted);
+    border-radius: 999px; padding: 2px 8px;
+    font-size: .68rem; font-weight: 700; letter-spacing: 0;
+  }
+  .cuantas:empty { display: none; }
   .editando {
     margin: -6px 0 14px; font-size: .95rem; font-weight: 600;
     color: var(--accent);
@@ -624,6 +646,10 @@
     <button role="tab" id="tab-ayuda" aria-selected="false" aria-controls="panel-ayuda">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-help"/></svg><span data-i18n="tabHelp">Ayuda</span>
     </button>
+    <!-- Solo aparece para quien administra el catalogo -->
+    <button role="tab" id="tab-admin" aria-selected="false" aria-controls="panel-admin" hidden>
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-lock"/></svg><span data-i18n="tabAdmin">Catálogo</span>
+    </button>
   </nav>
 
   <!-- ============ PROFESOR ============ -->
@@ -824,6 +850,16 @@
     <div class="card">
       <h2 data-i18n="yourScores">Tus puntajes</h2>
       <div id="a-scores"></div>
+    </div>
+  </section>
+
+  <!-- ============ CATALOGO (solo administrador) ============ -->
+  <section class="panel" id="panel-admin" role="tabpanel" hidden>
+    <div class="card">
+      <h2 data-i18n="adminTitle">Qué es gratis y qué no</h2>
+      <p class="hint" data-i18n="adminHelp">Las gratis son el escaparate: cualquiera las usa sin pagar. El resto pide suscripción.</p>
+      <div id="adm-list"></div>
+      <p class="status" id="adm-status"></p>
     </div>
   </section>
 
@@ -1038,6 +1074,10 @@ const STR = {
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
     helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    tabAdmin: "Catálogo",
+    adminTitle: "Qué es gratis y qué no",
+    adminHelp: "Las gratis son el escaparate: cualquiera las usa sin pagar. El resto pide suscripción.",
+    adminCount: "{0} gratis de {1}.",
     someBroken: "({0} no se pudieron leer)",
     isFree: "gratis ✓", makeFree: "hacer gratis",
     nowFree: "«{0}» ahora es gratis para todos.",
@@ -1216,6 +1256,10 @@ const STR = {
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
     helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    tabAdmin: "Catalogue",
+    adminTitle: "What's free and what isn't",
+    adminHelp: "The free ones are the shop window: anyone can use them. The rest need a subscription.",
+    adminCount: "{0} free out of {1}.",
     someBroken: "({0} couldn\u2019t be read)",
     isFree: "free ✓", makeFree: "make free",
     nowFree: "\u201c{0}\u201d is now free for everyone.",
@@ -1701,8 +1745,83 @@ function fmt(s) {
   return m + ":" + String(r).padStart(2, "0");
 }
 
+/* ---------- Tarjetas plegables ----------
+
+   La pantalla estaba cargadísima: todo abierto todo el tiempo y mucho
+   desplazar para llegar a lo de siempre. Ahora las secciones se pliegan.
+
+   Se hace por código y no reescribiendo cada tarjeta a mano porque son
+   ocho y hay que poder añadir la novena sin volver a tocar el HTML. Lo que
+   se pliega es todo lo que hay debajo del título; el título queda de mango.
+
+   Cuáles arrancan abiertas: las que son la acción principal de su pantalla.
+   Grabar en Profesor. En Alumno, la cuenta y los botones no son tarjeta
+   plegable a propósito: son la razón de estar ahí. */
+const PLEGABLES = {
+  newSong: true,        // grabar es a lo que se viene
+  savedSongs: false,
+  repertoire: false,
+  yourScores: false,
+  adminTitle: true,
+  helpWhatTitle: true,  // en Ayuda, la primera abierta y el resto no
+  helpFirstTitle: false,
+  helpTeachTitle: false,
+  helpStudTitle: false,
+  helpIconsTitle: false,
+  helpTroubleTitle: false
+};
+
+function prepararPlegables() {
+  for (const [clave, abiertaPorDefecto] of Object.entries(PLEGABLES)) {
+    /* El titulo puede llevar la clave en si mismo o en un span de dentro,
+       cuando ademas tiene un icono al lado. Se aceptan las dos formas o esas
+       tarjetas se quedan sin plegar sin que se note por que. */
+    const h = [...document.querySelectorAll("h2")].find(x =>
+      x.dataset.i18n === clave ||
+      [...x.querySelectorAll("[data-i18n]")].some(y => y.dataset.i18n === clave));
+    if (!h) continue;
+    const card = h.closest(".card");
+    if (!card || card.classList.contains("plegable")) continue;
+
+    card.classList.add("plegable");
+    h.setAttribute("role", "button");
+    h.setAttribute("tabindex", "0");
+
+    const cuenta = document.createElement("span");
+    cuenta.className = "cuantas";
+    h.appendChild(cuenta);
+
+    const guardado = localStorage.getItem("plegada:" + clave);
+    const cerrada = guardado === null ? !abiertaPorDefecto : guardado === "1";
+    card.classList.toggle("cerrada", cerrada);
+    h.setAttribute("aria-expanded", String(!cerrada));
+
+    const alternar = () => {
+      const ahoraCerrada = !card.classList.contains("cerrada");
+      card.classList.toggle("cerrada", ahoraCerrada);
+      h.setAttribute("aria-expanded", String(!ahoraCerrada));
+      localStorage.setItem("plegada:" + clave, ahoraCerrada ? "1" : "0");
+    };
+    h.addEventListener("click", alternar);
+    h.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); }
+    });
+  }
+}
+
+/* Cuántas cosas hay dentro, para no tener que abrir para saberlo. */
+function contarEnPlegable(clave, n) {
+  const h = [...document.querySelectorAll("h2")].find(x =>
+    x.dataset.i18n === clave ||
+    [...x.querySelectorAll("[data-i18n]")].some(y => y.dataset.i18n === clave));
+  const chapa = h && h.querySelector(".cuantas");
+  if (chapa) chapa.textContent = n ? String(n) : "";
+}
+
 /* ---------- Pestañas ---------- */
-const PESTANAS = { prof: "panel-prof", alum: "panel-alum", ayuda: "panel-ayuda" };
+const PESTANAS = {
+  prof: "panel-prof", alum: "panel-alum", ayuda: "panel-ayuda", admin: "panel-admin"
+};
 
 function selectTab(which) {
   for (const [nombre, panel] of Object.entries(PESTANAS)) {
@@ -1712,6 +1831,7 @@ function selectTab(which) {
   }
   /* Al cambiar de pantalla se suelta el microfono. Dejarlo abierto gasta
      bateria y, peor, deja a alguien grabando sin darse cuenta. */
+  if (which === "admin") renderAdmin();
   if (which !== "alum") stopStudent();
   if (which !== "prof") stopTeacher(true);
   scrollTo({ top: 0, behavior: "instant" });
@@ -2008,6 +2128,53 @@ function setP(msg, kind) {
   el.className = "status" + (kind ? " " + kind : "");
 }
 
+/* Lista de todo el catálogo con el interruptor de gratis. Vive en su propia
+   pestaña y no en la del profesor porque es el mando de una sola persona: en
+   la lista de canciones estorbaba a todos los demás. */
+function renderAdmin() {
+  const el = $("adm-list");
+  if (!el) return;
+  el.textContent = "";
+
+  if (!catalog.length) {
+    const v = document.createElement("div");
+    v.className = "empty";
+    v.textContent = t("noSongsYet");
+    el.appendChild(v);
+    return;
+  }
+
+  // Primero las de pago: son las que hay que revisar
+  const orden = [...catalog].sort((a, b) =>
+    (a.free === b.free) ? a.title.localeCompare(b.title) : (a.free ? 1 : -1));
+
+  let gratis = 0;
+  for (const c of orden) {
+    if (c.free) gratis++;
+    const row = document.createElement("div");
+    row.className = "song";
+
+    const info = document.createElement("div");
+    info.className = "info";
+    const tt = document.createElement("div");
+    tt.className = "t";
+    tt.textContent = c.title;
+    const m = document.createElement("div");
+    m.className = "m";
+    m.textContent = [c.artist, rhythmName(c.rhythm), c.teacher].filter(Boolean).join(" · ");
+    info.appendChild(tt); info.appendChild(m);
+
+    const b = document.createElement("button");
+    b.className = "chip" + (c.free ? " on" : "");
+    b.textContent = t(c.free ? "isFree" : "makeFree");
+    b.addEventListener("click", () => cambiarGratis(c, !c.free));
+
+    row.appendChild(info); row.appendChild(b);
+    el.appendChild(row);
+  }
+  $("adm-status").textContent = t("adminCount", gratis, catalog.length);
+}
+
 /* ---------- Marcar una canción como gratis (solo administrador) ----------
 
    Es la palanca del negocio: las gratis son el escaparate y el resto empuja
@@ -2023,9 +2190,10 @@ async function cambiarGratis(s, gratis) {
     const c = enCatalogo.find(x => x.id === s.id);
     if (c) await DB.put({ ...c, free: gratis }, "catalog");
     await reload();
-    setP(t(gratis ? "nowFree" : "nowPaid", s.title), "ok");
+    renderAdmin();
+    $("adm-status").textContent = t(gratis ? "nowFree" : "nowPaid", s.title);
   } catch (e) {
-    setP(t("editFailed") + String(e.message || e), "err");
+    $("adm-status").textContent = t("editFailed") + String(e.message || e);
   }
 }
 
@@ -2737,19 +2905,6 @@ function renderLists() {
     } else {
       // Solo se ofrece borrar lo propio: mostrar el boton en canciones ajenas
       // hace creer que se pueden borrar, y no es cierto.
-      /* Mando de administrador: decidir que canciones son gratis. Aparece en
-         cualquier cancion, no solo en las propias, porque de eso se trata.
-         Quien no es administrador ni ve el boton, y aunque lo forzara el
-         servidor lo rechazaria: la decision no vive en el telefono. */
-      if (soyAdmin) {
-        const g = document.createElement("button");
-        g.className = "chip" + (s.free ? " on" : "");
-        g.textContent = t(s.free ? "isFree" : "makeFree");
-        g.addEventListener("click", () => cambiarGratis(s, !s.free));
-        row.appendChild(info); row.appendChild(g);
-        info = null;
-      }
-
       const propia = !s.owner || (cloud.session && cloud.session.uid === s.owner);
       if (propia) {
         // Editar va antes que borrar: es lo que más se usa y lo reversible
@@ -2851,6 +3006,8 @@ function renderLists() {
     }
     songs.forEach(s => el.appendChild(mk(s, forStudent)));
   }
+  contarEnPlegable("savedSongs", songs.length);
+  contarEnPlegable("repertoire", catalog.length);
 }
 
 /* Borrar no borra: esconde.
@@ -2973,6 +3130,7 @@ function renderTrash() {
 
 async function reloadScores() {
   const scores = (await DB.all("scores")).sort((a, b) => b.when - a.when).slice(0, 20);
+  contarEnPlegable("yourScores", scores.length);
   const el = $("a-scores");
   el.textContent = "";
   if (!scores.length) {
@@ -3232,11 +3390,20 @@ function huellaRala(fp) {
 const rowToSong = (r) => ({
   id: r.id, owner: r.owner, title: r.title, artist: r.artist || "", teacher: r.teacher || "",
   rhythm: r.rhythm, duration: r.duration || 0, fpv: r.fpv,
+  /* Si es gratis viene del servidor y hay que conservarlo. Sin esta linea, al
+     sincronizar se reemplazaba la copia local por una sin la marca y la
+     pantalla se olvidaba de cuales eran gratis. En el servidor nunca se
+     perdio: era solo lo que se veia. */
+  free: !!r.free,
   createdAt: new Date(r.created_at).getTime(),
   downbeats: r.downbeats,
   fp: { keys: fromB64(r.fp_keys, Uint32Array), times: fromB64(r.fp_times, Uint16Array) }
 });
 
+/* Fijate en lo que NO se sube: `free`. Quien grabo la cancion no decide si es
+   gratis, eso lo decide el administrador. Si se subiera, bastaria con que el
+   autor sincronizara con una copia vieja para deshacer la decision sin
+   enterarse. Al no mandarlo, el servidor conserva el valor que ya tenia. */
 const songToRow = (s, uid) => ({
   id: s.id, owner: uid, title: s.title, artist: s.artist || null,
   teacher: s.teacher || null, rhythm: s.rhythm, duration: s.duration || 0,
@@ -3390,6 +3557,12 @@ function renderAccount() {
   /* El punto verde sobre el icono dice si hay sesion sin tener que abrir
      nada. Sin el, la cuenta plegada esconderia tambien si estas dentro. */
   $("acct-pip").hidden = !on;
+  /* La pestana del catalogo solo existe para quien administra. Esconderla no
+     es la proteccion —esa la pone el servidor— sino no ensenarle a todo el
+     mundo un mando que no puede usar. */
+  $("tab-admin").hidden = !(on && soyAdmin);
+  document.querySelector(".tabs").style.gridTemplateColumns =
+    "repeat(" + (on && soyAdmin ? 4 : 3) + ", 1fr)";
   /* El icono es siempre una persona: si cambiara de dibujo al entrar, se
      confundiria con los de las pestañas. Lo que informa es el punto verde. */
   if (on) {
@@ -3569,7 +3742,18 @@ function applyLang() {
 
   document.querySelectorAll("[data-i18n]").forEach(el => {
     const v = STR[lang][el.dataset.i18n];
-    if (v !== undefined) el.textContent = v;
+    if (v === undefined) return;
+    /* Si el elemento tiene hijos, cambiar todo su texto los borraria. Pasa
+       con los titulos plegables, que llevan dentro la chapita con cuantas
+       cosas hay: se perdia al arrancar y en cada cambio de idioma. Se toca
+       solo el texto suelto y se dejan los hijos en paz. */
+    if (el.firstElementChild) {
+      const suelto = [...el.childNodes].find(n => n.nodeType === 3);
+      if (suelto) suelto.nodeValue = v;
+      else el.prepend(document.createTextNode(v));
+    } else {
+      el.textContent = v;
+    }
   });
   document.querySelectorAll("[data-i18n-ph]").forEach(el => {
     const v = STR[lang][el.dataset.i18nPh];
@@ -3622,6 +3806,7 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
    ========================================================================= */
 (async () => {
   initVibe();
+  prepararPlegables();
   cloud.load();
   applyLang();
   /* Antes de dibujar nada: si se llega desde el enlace de un correo, la
