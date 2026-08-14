@@ -215,6 +215,10 @@
 
   /* Una tarjeta dentro de otra: se distingue sin gritar */
   .card.dentro { background: var(--card2); margin: 14px 0 0; }
+  .editando {
+    margin: -6px 0 14px; font-size: .95rem; font-weight: 600;
+    color: var(--accent);
+  }
 
   /* Estrellas de votación */
   .estrellas { display: flex; align-items: center; gap: 1px; margin-top: 5px; }
@@ -388,10 +392,24 @@
 
   .song:last-child { border-bottom: none; }
   .song .info { flex: 1; min-width: 0; }
+
+  /* Boton de solo icono dentro de una fila */
+  .song button.solo-ic {
+    padding: 8px; line-height: 0; border-radius: 10px;
+  }
+  .song button.solo-ic .ic { margin: 0; width: 1.05rem; height: 1.05rem; }
+  .song button.solo-ic.peligro { color: var(--accent); }
+  .song button.chip { padding: 6px 10px; font-size: .72rem; }
+  .song button.chip.on { color: var(--accent2); border-color: var(--accent2); }
   .song .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .song .m { font-size: 0.76rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .song button {
+    /* Ancho automatico SIEMPRE. Los botones grandes de la app llevan
+       width:100%, y en cuanto uno de esos cayo dentro de una fila se comio el
+       nombre de la cancion entero: quedaba en cero pixeles. */
+    width: auto;
+    flex: none;
     border: 1px solid var(--line);
     background: var(--card2);
     color: var(--muted);
@@ -690,6 +708,9 @@
       <!-- Editor: aparece al tocar el lápiz de una canción propia -->
       <div class="card dentro" id="p-editor" hidden>
         <h2 data-i18n="editSong">Editar canción</h2>
+        <!-- Cuál se está editando. Sin esto, con varias en la lista, el
+             formulario es idéntico para todas y no hay forma de saberlo. -->
+        <p class="editando" id="e-cual"></p>
         <label for="e-title" data-i18n="song">Canción</label>
         <input type="text" id="e-title">
         <label for="e-artist" data-i18n="artist">Artista</label>
@@ -2073,6 +2094,7 @@ let editando = null;
 
 function abrirEditor(s) {
   editando = s;
+  $("e-cual").textContent = s.title;
   $("e-title").value = s.title || "";
   $("e-artist").value = s.artist || "";
   $("e-teacher").value = s.teacher || "";
@@ -2721,7 +2743,7 @@ function renderLists() {
          servidor lo rechazaria: la decision no vive en el telefono. */
       if (soyAdmin) {
         const g = document.createElement("button");
-        g.className = "ghost" + (s.free ? " on" : "");
+        g.className = "chip" + (s.free ? " on" : "");
         g.textContent = t(s.free ? "isFree" : "makeFree");
         g.addEventListener("click", () => cambiarGratis(s, !s.free));
         row.appendChild(info); row.appendChild(g);
@@ -2732,13 +2754,18 @@ function renderLists() {
       if (propia) {
         // Editar va antes que borrar: es lo que más se usa y lo reversible
         const edit = document.createElement("button");
-        edit.className = "ghost";
-        edit.append(icono("pencil"), document.createTextNode(t("edit")));
+        edit.className = "solo-ic";
+        edit.appendChild(icono("pencil"));
+        edit.title = t("edit");
+        edit.setAttribute("aria-label", t("edit") + ": " + s.title);
         edit.addEventListener("click", () => abrirEditor(s));
         if (info) { row.appendChild(info); info = null; }
         row.appendChild(edit);
 
-        btn.append(icono("trash"), document.createTextNode(t("del")));
+        btn.className = "solo-ic peligro";
+        btn.appendChild(icono("trash"));
+        btn.title = t("del");
+        btn.setAttribute("aria-label", t("del") + ": " + s.title);
         btn.addEventListener("click", () => borrarCancion(s));
       } else {
         btn.textContent = t("fromOther");

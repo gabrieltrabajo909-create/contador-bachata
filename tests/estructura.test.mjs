@@ -181,6 +181,28 @@ await prueba("solo se sube lo propio", () => {
     "desaparecio el filtro que evita subir canciones de otros");
 });
 
+await prueba("ningun boton de una fila puede estirarse y tapar el titulo", () => {
+  /* Los botones grandes de la app llevan width:100%. En cuanto uno de esos
+     cayo dentro de una fila de cancion, se comio el nombre entero: el titulo
+     quedo en cero pixeles y la lista mostraba solo botones. */
+  afirmar(/\.song button \{[^}]*width:\s*auto/.test(HTML),
+    "falta el ancho automatico en los botones de las filas");
+
+  // Y que no se cuelen las clases de boton grande al construir las filas
+  const constructor = FUENTE.slice(FUENTE.indexOf("const mk = (s, forStudent)"),
+                                   FUENTE.indexOf("const catEl = $(\"a-list\")"));
+  const anchos = [...constructor.matchAll(/className\s*=\s*"(ghost|primary|danger)\b/g)];
+  igual(anchos.length, 0,
+    "una fila usa una clase de boton grande: volveria a tapar el titulo");
+});
+
+await prueba("al editar se ve que cancion se esta editando", () => {
+  /* El formulario es identico para todas: sin el nombre a la vista no hay
+     forma de saber cual se toco. */
+  afirmar(/id="e-cual"/.test(HTML), "falta el hueco para el nombre");
+  afirmar(/\$\("e-cual"\)\.textContent/.test(FUENTE), "el nombre nunca se rellena");
+});
+
 await prueba("la clave del servidor es la publica, no una secreta", () => {
   /* La publicable esta pensada para ir en la pagina; una clave de servicio
      ahi seria dar acceso total a la base a cualquiera que mire el codigo. */
