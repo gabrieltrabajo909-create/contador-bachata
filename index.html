@@ -3506,9 +3506,16 @@ const rowToSong = (r) => ({
    gratis, eso lo decide el administrador. Si se subiera, bastaria con que el
    autor sincronizara con una copia vieja para deshacer la decision sin
    enterarse. Al no mandarlo, el servidor conserva el valor que ya tenia. */
+/* Y fijate de donde sale el `teacher`: de la CUENTA, no de la copia del
+   telefono. Aqui hubo un fallo real y de los que no se ven venir. Cambiabas
+   tu nombre, el servidor renombraba tus canciones, y acto seguido la
+   sincronizacion volvia a subirlas con el nombre viejo que seguia guardado en
+   el telefono: el cambio se deshacia solo, en el mismo segundo. Como el nombre
+   del perfil SI cambiaba, parecia que habia funcionado. */
 const songToRow = (s, uid) => ({
   id: s.id, owner: uid, title: s.title, artist: s.artist || null,
-  teacher: s.teacher || null, rhythm: s.rhythm, duration: s.duration || 0,
+  teacher: miNombreDeProfesor() || s.teacher || null,
+  rhythm: s.rhythm, duration: s.duration || 0,
   fpv: fpVersionOf(s), downbeats: Array.from(s.downbeats),
   fp_keys: toB64(s.fp.keys), fp_times: toB64(s.fp.times), shared: true,
   fpl_keys: toB64(huellaRala(s.fp).keys), fpl_times: toB64(huellaRala(s.fp).times)

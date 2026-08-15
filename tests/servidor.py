@@ -152,6 +152,12 @@ def cancion(id_, titulo, dueno, gratis=False):
 MARCA = "zzz-prueba-" + str(int(time.time()))
 ID_LIBRE = MARCA + "-libre"
 ID_PAGA = MARCA + "-paga"
+ID_NOMBRE = MARCA + "-nombre"
+
+# Nombres de profesor para las pruebas: cortos, y distintos en cada corrida
+# para que dos ejecuciones seguidas no choquen entre si.
+NOMBRE_A = "Zzz " + MARCA[-8:]
+NOMBRE_A2 = NOMBRE_A + " bis"
 
 # ===========================================================================
 
@@ -164,14 +170,20 @@ print(f"{GRIS}cuenta B (alumna)  {uidB}{FIN}")
 # Se pregunta por la columna: si la base aun no tiene la migracion aplicada,
 # PostgREST contesta con un error en vez de con filas.
 hay_papelera = rest("songs?select=deleted_at&limit=1", token=tokenA).codigo == 200
+hay_nombre = rest("profiles?select=display_name&limit=1", token=tokenA).codigo == 200
 
 def limpiar():
-    for id_ in (ID_LIBRE, ID_PAGA):
+    for id_ in (ID_LIBRE, ID_PAGA, ID_NOMBRE):
         rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
     rest(f"scores?song_id=eq.{ID_LIBRE}", "DELETE", token=tokenB)
     for t in (tokenA, tokenB):
         rest("profiles?id=eq." + (uidA if t is tokenA else uidB), "PATCH",
              {"subscribed": False, "sub_source": "none"}, token=t)
+    # El nombre se suelta al terminar: es unico en toda la base, y dejarlo
+    # ocupado seria quitarselo a un profesor de verdad.
+    if hay_nombre:
+        for t, u in ((tokenA, uidA), (tokenB, uidB)):
+            rest(f"profiles?id=eq.{u}", "PATCH", {"display_name": None}, token=t)
 
 limpiar()
 
@@ -457,6 +469,111 @@ else:
         assert not r.datos, "quedaron votos huerfanos de una cancion borrada"
 
 # --------------------------------------------------------------------------
+seccion("El nombre del profesor")
+
+if not hay_nombre:
+    print(f"  {GRIS}· la base todavia no tiene el nombre de cuenta: sin probar{FIN}")
+else:
+    def cambiar(nombre, token):
+        return pedir("/rest/v1/rpc/cambiar_nombre", "POST", {"nuevo": nombre}, token=token)
+
+    def libre(nombre, token):
+        return pedir("/rest/v1/rpc/nombre_libre", "POST", {"candidato": nombre}, token=token)
+
+    @prueba("la autora se pone nombre y le queda en la cuenta")
+    def _():
+        r = cambiar(NOMBRE_A, tokenA)
+        assert r.codigo < 400, f"no pudo ponerse nombre: {r.codigo} {r.texto[:150]}"
+        v = rest(f"profiles?select=display_name&id=eq.{uidA}", token=tokenA)
+        assert v.datos and v.datos[0]["display_name"] == NOMBRE_A, \
+            f"el nombre no quedo guardado: {v.texto[:120]}"
+
+    @prueba("las canciones ya subidas pasan a llamarse igual")
+    def _():
+        """Sin esto el catalogo seguiria mostrando el nombre viejo para siempre."""
+        rest("songs", "POST", [cancion(ID_NOMBRE, "Prueba de nombre", uidA, gratis=True)],
+             token=tokenA, cabeceras={"Prefer": "resolution=merge-duplicates"})
+        r = cambiar(NOMBRE_A2, tokenA)
+        assert r.codigo < 400, f"no pudo cambiarse el nombre: {r.codigo} {r.texto[:150]}"
+        v = rest(f"songs?select=teacher&id=eq.{ID_NOMBRE}", token=tokenA)
+        assert v.datos and v.datos[0]["teacher"] == NOMBRE_A2, \
+            f"la cancion se quedo con el nombre viejo: {v.texto[:120]}"
+
+    @prueba("el nombre que se suelta queda libre para otro")
+    def _():
+        r = libre(NOMBRE_A, tokenB)
+        assert r.datos is True, f"el nombre viejo sigue ocupado sin dueno: {r.texto[:120]}"
+
+    @prueba("nadie puede quedarse con el nombre de otro")
+    def _():
+        r = cambiar(NOMBRE_A2, tokenB)
+        assert r.codigo >= 400, "la cuenta B se quedo con el nombre de la A"
+        assert "ocupado" in r.texto, \
+            f"el error no dice 'ocupado' y la app no sabra que avisar: {r.texto[:150]}"
+
+    @prueba("ni cambiando mayusculas o poniendo espacios de sobra")
+    def _():
+        """"Gabriel", "gabriel" y "Gabriel " son la misma persona para un
+        alumno: permitir las tres seria dejar hacerse pasar por otro."""
+        for disfraz in (NOMBRE_A2.upper(), NOMBRE_A2.lower(), "  " + NOMBRE_A2 + "  "):
+            r = cambiar(disfraz, tokenB)
+            assert r.codigo >= 400, f"colo el nombre disfrazado de «{disfraz}»"
+            assert libre(disfraz, tokenB).datos is False, \
+                f"«{disfraz}» figura como libre y no lo esta"
+
+    @prueba("tampoco escribiendolo a mano en el perfil")
+    def _():
+        """La funcion comprueba, pero la tabla se puede tocar directo: si el
+        candado no estuviera tambien en la base, bastaria con saltarsela."""
+        rest(f"profiles?id=eq.{uidB}", "PATCH", {"display_name": NOMBRE_A2}, token=tokenB)
+        v = rest(f"profiles?select=display_name&id=eq.{uidB}", token=tokenB)
+        tiene = (v.datos or [{}])[0].get("display_name")
+        assert tiene != NOMBRE_A2, "dos cuentas quedaron con el mismo nombre"
+
+        # Y que el rechazo sea por repetido, no porque la columna este cerrada
+        # a cal y canto: si no, esta prueba pasaria sola aunque no hubiera
+        # candado ninguno.
+        propio = NOMBRE_A2 + " otro"
+        rest(f"profiles?id=eq.{uidB}", "PATCH", {"display_name": propio}, token=tokenB)
+        w = rest(f"profiles?select=display_name&id=eq.{uidB}", token=tokenB)
+        assert (w.datos or [{}])[0].get("display_name") == propio, \
+            "lo de arriba no prueba nada: la columna no se deja escribir nunca"
+
+    @prueba("un nombre vacio no se acepta")
+    def _():
+        for vacio in ("", "   "):
+            r = cambiar(vacio, tokenB)
+            assert r.codigo >= 400, f"acepto un nombre vacio «{vacio}»"
+            assert "vacio" in r.texto, f"el error no dice 'vacio': {r.texto[:150]}"
+
+    @prueba("un nombre larguisimo tampoco")
+    def _():
+        r = cambiar("N" * 41, tokenB)
+        assert r.codigo >= 400, "acepto un nombre de 41 letras"
+        assert "largo" in r.texto, f"el error no dice 'largo': {r.texto[:150]}"
+
+    @prueba("el propio nombre no se cuenta como ocupado por uno mismo")
+    def _():
+        """Si no, no se podria corregir la mayuscula del propio nombre."""
+        assert libre(NOMBRE_A2, tokenA).datos is True, \
+            "la autora no puede volver a guardar su propio nombre"
+
+    @prueba("preguntar si un nombre esta libre no deja leer los perfiles")
+    def _():
+        """La funcion existe justamente para no tener que abrir la tabla: si
+        se pudiera leer, cualquiera se bajaria la lista de profesores."""
+        r = rest("profiles?select=display_name", token=tokenB)
+        ajenos = [x for x in (r.datos or []) if x.get("display_name") == NOMBRE_A2]
+        assert not ajenos, "se pueden leer los nombres de los demas profesores"
+
+    @prueba("sin cuenta no se puede ni preguntar por los nombres")
+    def _():
+        assert libre(NOMBRE_A2, None).codigo >= 400, \
+            "un desconocido puede ir probando nombres hasta dar con los profesores"
+        assert cambiar("Colado", None).codigo >= 400, \
+            "un desconocido puede cambiar nombres"
+
+# --------------------------------------------------------------------------
 seccion("Los puntajes son de cada uno")
 
 @prueba("cada cual solo ve los suyos")
@@ -523,6 +640,13 @@ def _():
     seccion("Limpieza")
     r = rest(f"songs?select=id&id=like.{MARCA}*", token=tokenA)
     assert not r.datos, "quedaron canciones de prueba: " + str(r.datos)
+    if hay_nombre:
+        # El nombre es unico en toda la base: dejarlo tomado seria quitarselo
+        # a un profesor de verdad.
+        for t, u in ((tokenA, uidA), (tokenB, uidB)):
+            v = rest(f"profiles?select=display_name&id=eq.{u}", token=t)
+            quedo = (v.datos or [{}])[0].get("display_name")
+            assert not quedo, f"quedo ocupado el nombre de prueba «{quedo}»"
 
 print("\n" + "─" * 58)
 if _fallos:

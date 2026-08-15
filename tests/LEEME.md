@@ -23,7 +23,7 @@ firma oficial.
 | `algoritmo.test.mjs` | Reconocer la canción y en qué segundo va |
 | `cuenta.test.mjs` | Qué número se muestra y cómo se puntúa el juego |
 | `estructura.test.mjs` | Traducciones, botones rotos, reglas ya rompidas |
-| `servidor.py` | El candado, la privacidad y la papelera |
+| `servidor.py` | El candado, la privacidad, la papelera y el nombre del profesor |
 
 Las tres primeras funcionan sin internet y tardan segundos. La última habla con
 la base de datos de verdad, porque las reglas de acceso solo existen allí.

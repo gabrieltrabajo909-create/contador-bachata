@@ -5,6 +5,7 @@
    una traduccion a medias dejara textos en blanco, y el de los identificadores
    despues de que un `t` mal puesto tirara la pantalla del alumno entera. */
 
+import { readFileSync } from "node:fs";
 import { cargar, HTML, FUENTE, SOLO_HTML } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual } from "./marco.mjs";
 
@@ -201,6 +202,69 @@ await prueba("al editar se ve que cancion se esta editando", () => {
      forma de saber cual se toco. */
   afirmar(/id="e-cual"/.test(HTML), "falta el hueco para el nombre");
   afirmar(/\$\("e-cual"\)\.textContent/.test(FUENTE), "el nombre nunca se rellena");
+});
+
+await prueba("el nombre del profesor sale de la cuenta, no se escribe a mano", () => {
+  /* Escribirlo en cada cancion fue el fallo original: dos profesores llamados
+     "Gabriel" daban dos "La Bachata · Gabriel" sin forma de saber cual era de
+     quien. Si vuelve la casilla para teclearlo, vuelve el problema entero. */
+  afirmar(!/<input[^>]*id="f-teacher"/.test(HTML),
+    "volvio la casilla para escribir el nombre a mano en cada cancion");
+  afirmar(/teacher:\s*miNombreDeProfesor\(\)/.test(FUENTE),
+    "la cancion ya no se firma con el nombre de la cuenta");
+});
+
+await prueba("al sincronizar no se sube el nombre viejo del telefono", () => {
+  /* Este llego a produccion. Cambiabas tu nombre, el servidor renombraba tus
+     canciones, y un segundo despues la sincronizacion las volvia a subir con
+     el nombre viejo que seguia guardado en el telefono: el cambio se deshacia
+     solo. Y como el perfil SI cambiaba, parecia que habia funcionado.
+     Cuatro de las seis canciones reales volvieron al nombre anterior. */
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("const songToRow"),
+                              FUENTE.indexOf("const scoreToRow"));
+  const firma = /teacher:\s*([^,]+),/.exec(cuerpo);
+  afirmar(firma, "no encuentro con que se firma la cancion al subirla");
+  afirmar(/miNombreDeProfesor\(\)/.test(firma[1]),
+    "lo que se sube es el nombre guardado en el telefono: pisa el de la cuenta");
+  afirmar(!/^\s*s\.teacher/.test(firma[1]),
+    "el nombre del telefono manda sobre el de la cuenta");
+});
+
+await prueba("sin nombre no se deja grabar", () => {
+  /* Una cancion sin firma sale al catalogo y nadie sabe de quien es. Peor:
+     hay que ir a corregirla despues, una por una. */
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("function avisarNombre"),
+                              FUENTE.indexOf("async function guardarNombre"));
+  afirmar(/disabled\s*=\s*!!cloud\.session && !nombre/.test(cuerpo),
+    "el boton de grabar ya no se bloquea cuando falta el nombre");
+});
+
+await prueba("el nombre lo cambia el servidor de una sola vez", () => {
+  /* Renombrar el perfil y renombrar las canciones son dos pasos. Hechos desde
+     aqui, si el segundo falla el nombre queda partido y el catalogo muestra el
+     viejo para siempre. Por eso va todo en una sola llamada. */
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("async function guardarNombre"),
+                              FUENTE.indexOf('$("ac-name-save").addEventListener'));
+  afirmar(/rpc\/cambiar_nombre/.test(cuerpo), "ya no le pide el cambio al servidor");
+  afirmar(!/rest\(\s*"songs\?/.test(cuerpo),
+    "renombra las canciones por su cuenta: puede quedarse a medias");
+  afirmar(!/profiles\?select=display_name/.test(FUENTE),
+    "comprueba el nombre leyendo los perfiles: eso deja listar a los profesores");
+});
+
+await prueba("los rechazos del servidor tienen respuesta en la pantalla", () => {
+  /* El servidor rechaza con una palabra suelta -ocupado, largo, vacio- y la
+     app la convierte en algo entendible. Si alguien cambia una palabra en la
+     base y no aqui, al usuario le aparece el error crudo del servidor. */
+  const sql = readFileSync(new URL("../db/06-nombre-de-profesor.sql", import.meta.url), "utf8");
+  const avisos = [...sql.matchAll(/raise exception '([a-z]+)'/g)].map(m => m[1]);
+  afirmar(avisos.length >= 3, "no encuentro los rechazos en el archivo de la base");
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("async function guardarNombre"),
+                              FUENTE.indexOf('$("ac-name-save").addEventListener'));
+  for (const aviso of avisos) {
+    afirmar(new RegExp(`/${aviso}/`).test(cuerpo),
+      `la base rechaza con "${aviso}" y la app no sabe que contestar`);
+  }
 });
 
 await prueba("la clave del servidor es la publica, no una secreta", () => {
