@@ -624,6 +624,15 @@
 
     <div id="acct-in" hidden>
       <div class="who"><span class="dot-on"></span><b id="ac-who"></b></div>
+
+      <label for="ac-name" data-i18n="teacherName">Tu nombre de profesor</label>
+      <p class="hint" data-i18n="teacherNameHelp">Es con el que te van a ver tus alumnos. Tiene que ser único: si dos profesores se llaman igual, nadie distingue quién grabó qué.</p>
+      <div class="row">
+        <input type="text" id="ac-name" maxlength="40" placeholder="Gabriel L." data-i18n-ph="phTeacherName">
+        <button class="ghost" id="ac-name-save" data-i18n="save2">Guardar</button>
+      </div>
+      <p class="status" id="ac-name-msg"></p>
+
       <div class="subline"><span id="ac-sub">—</span></div>
       <button class="ghost" id="ac-subbtn" data-i18n="subOn">Suscribirme (prueba)</button>
       <div class="row">
@@ -680,8 +689,10 @@
       <input type="text" id="f-title" placeholder="Propuesta indecente" data-i18n-ph="phSong">
       <label for="f-artist" data-i18n="artist">Artista</label>
       <input type="text" id="f-artist" placeholder="Romeo Santos" data-i18n-ph="phArtist">
-      <label for="f-teacher" data-i18n="teacher">Profesor</label>
-      <input type="text" id="f-teacher" placeholder="Tu nombre" data-i18n-ph="phTeacher">
+      <!-- El nombre del profesor ya no se escribe por canción: sale de la
+           cuenta y es único, para poder distinguir dos versiones de la misma
+           canción grabadas por personas distintas. -->
+      <p class="hint" id="f-teacher-nota"></p>
       <label data-i18n="rhythm">Ritmo</label>
       <div class="seg" id="f-rhythm">
         <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
@@ -741,8 +752,6 @@
         <input type="text" id="e-title">
         <label for="e-artist" data-i18n="artist">Artista</label>
         <input type="text" id="e-artist">
-        <label for="e-teacher" data-i18n="teacher">Profesor</label>
-        <input type="text" id="e-teacher">
         <label data-i18n="rhythm">Ritmo</label>
         <div class="seg" id="e-rhythm">
           <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
@@ -962,7 +971,7 @@
 const STR = {
   es: {
     tabProf: "Profesor", tabAlum: "Alumno",
-    newSong: "Nueva canción", song: "Canción", artist: "Artista", teacher: "Profesor",
+    newSong: "Nueva canción", song: "Canción", artist: "Artista",
     rhythm: "Ritmo", bachata: "Bachata", salsa1: "Salsa en 1",
     startRec: "Empezar a grabar", recording: "Grabando",
     tapOne: "Toca en cada UNO", tapHint: "Empieza cuando entre el 1 de la canción",
@@ -1014,7 +1023,7 @@ const STR = {
     tapCount: "{0} golpe", tapCountN: "{0} golpes", keepTapping: "Seguí marcando",
     bpmApprox: "{0} BPM aprox.", remove: "quitar",
     revInfo: "{0} golpes · {1} BPM · {2} grabados · {3}",
-    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Tu nombre",
+    phSong: "Propuesta indecente", phArtist: "Romeo Santos",
     account: "Cuenta", signIn: "Entrar", signUp: "Crear cuenta", signOut: "Salir",
     sync: "Sincronizar", phEmail: "tu@email.com", phPass: "Contraseña",
     needEmail: "Escribí tu email y una contraseña.",
@@ -1074,6 +1083,19 @@ const STR = {
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
     helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    teacherName: "Tu nombre de profesor",
+    teacherNameHelp: "Es con el que te van a ver tus alumnos. Tiene que ser único: si dos profesores se llaman igual, nadie distingue quién grabó qué.",
+    phTeacherName: "Gabriel L.",
+    save2: "Guardar",
+    teacherNameIs: "Vas a firmar como {0}.",
+    teacherNameMissing: "Antes de grabar, elegí tu nombre de profesor en Cuenta, arriba a la derecha.",
+    teacherNameOffline: "Sin cuenta, la canción queda solo en este teléfono y sin nombre de profesor.",
+    nameChecking: "Comprobando…",
+    nameSaved: "Ahora firmás como {0}. Tus canciones ya subidas también.",
+    nameTaken: "«{0}» ya lo usa otro profesor. Probá con otro.",
+    nameTooLong: "Máximo 40 caracteres.",
+    nameEmpty: "Escribí un nombre.",
+    nameFailed: "No se pudo guardar: ",
     tabAdmin: "Catálogo",
     adminTitle: "Qué es gratis y qué no",
     adminHelp: "Las gratis son el escaparate: cualquiera las usa sin pagar. El resto pide suscripción.",
@@ -1144,7 +1166,7 @@ const STR = {
   },
   en: {
     tabProf: "Teacher", tabAlum: "Student",
-    newSong: "New song", song: "Song", artist: "Artist", teacher: "Teacher",
+    newSong: "New song", song: "Song", artist: "Artist",
     rhythm: "Rhythm", bachata: "Bachata", salsa1: "Salsa on 1",
     startRec: "Start recording", recording: "Recording",
     tapOne: "Tap on every ONE", tapHint: "Start when the 1 comes round",
@@ -1196,7 +1218,7 @@ const STR = {
     tapCount: "{0} tap", tapCountN: "{0} taps", keepTapping: "Keep marking",
     bpmApprox: "~{0} BPM", remove: "remove",
     revInfo: "{0} taps · {1} BPM · {2} recorded · {3}",
-    phSong: "Propuesta indecente", phArtist: "Romeo Santos", phTeacher: "Your name",
+    phSong: "Propuesta indecente", phArtist: "Romeo Santos",
     account: "Account", signIn: "Sign in", signUp: "Create account", signOut: "Sign out",
     sync: "Sync", phEmail: "you@email.com", phPass: "Password",
     needEmail: "Enter your email and a password.",
@@ -1256,6 +1278,19 @@ const STR = {
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
     helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    teacherName: "Your teacher name",
+    teacherNameHelp: "This is how your students will see you. It has to be unique: if two teachers share a name, nobody can tell who recorded what.",
+    phTeacherName: "Gabriel L.",
+    save2: "Save",
+    teacherNameIs: "You'll be credited as {0}.",
+    teacherNameMissing: "Before recording, choose your teacher name in Account, top right.",
+    teacherNameOffline: "Without an account the song stays on this phone only, with no teacher name.",
+    nameChecking: "Checking\u2026",
+    nameSaved: "You're now credited as {0}. Your uploaded songs too.",
+    nameTaken: "\u201c{0}\u201d is already taken by another teacher. Try a different one.",
+    nameTooLong: "40 characters maximum.",
+    nameEmpty: "Type a name.",
+    nameFailed: "Couldn't save it: ",
     tabAdmin: "Catalogue",
     adminTitle: "What's free and what isn't",
     adminHelp: "The free ones are the shop window: anyone can use them. The rest need a subscription.",
@@ -1888,7 +1923,7 @@ $("p-start").addEventListener("click", async () => {
   teacher.meta = {
     title,
     artist: $("f-artist").value.trim(),
-    teacher: $("f-teacher").value.trim(),
+    teacher: miNombreDeProfesor(),
     rhythm: teacher.rhythm
   };
   teacher.fp = new Fingerprinter();
@@ -2265,7 +2300,6 @@ function abrirEditor(s) {
   $("e-cual").textContent = s.title;
   $("e-title").value = s.title || "";
   $("e-artist").value = s.artist || "";
-  $("e-teacher").value = s.teacher || "";
   for (const b of $("e-rhythm").children) {
     b.setAttribute("aria-pressed", String(b.dataset.r === s.rhythm));
   }
@@ -2299,7 +2333,7 @@ $("e-save").addEventListener("click", async () => {
   const cambios = {
     title: titulo,
     artist: $("e-artist").value.trim(),
-    teacher: $("e-teacher").value.trim(),
+    teacher: miNombreDeProfesor() || editando.teacher || "",
     rhythm: ritmo
   };
 
@@ -3335,6 +3369,74 @@ const cloud = {
   }
 };
 
+/* ---------- El nombre del profesor ----------
+
+   Vive en la cuenta y es único en todo el sistema. Antes se escribía a mano
+   en cada canción, y con dos profesores llamados igual el catálogo mostraba
+   dos "La Bachata · Gabriel" sin forma de saber cuál era cuál.
+
+   La comprobación de si está libre la hace el servidor con una función que
+   solo contesta sí o no: preguntar mirando la tabla de perfiles dejaría que
+   cualquiera se bajara la lista de todos los profesores. */
+
+function miNombreDeProfesor() {
+  return (cloud.profile && cloud.profile.display_name) || "";
+}
+
+/* Sin nombre no se puede grabar: la canción saldría al catálogo sin autor y
+   nadie sabría de quién es. Se avisa donde se graba, no en un rincón. */
+function avisarNombre() {
+  const nota = $("f-teacher-nota");
+  if (!nota) return;
+  const nombre = miNombreDeProfesor();
+  if (!cloud.session) {
+    nota.textContent = t("teacherNameOffline");
+    nota.style.color = "";
+  } else if (nombre) {
+    nota.textContent = t("teacherNameIs", nombre);
+    nota.style.color = "";
+  } else {
+    nota.textContent = t("teacherNameMissing");
+    nota.style.color = "var(--accent)";
+  }
+  const b = $("p-start");
+  if (b) b.disabled = !!cloud.session && !nombre;
+}
+
+async function guardarNombre() {
+  const nuevo = $("ac-name").value.trim();
+  const msg = $("ac-name-msg");
+  if (!nuevo) { msg.textContent = t("nameEmpty"); msg.className = "status err"; return; }
+
+  $("ac-name-save").disabled = true;
+  msg.textContent = t("nameChecking"); msg.className = "status";
+  try {
+    /* El servidor renombra el perfil Y las canciones ya subidas de una sola
+       vez. Hacerlo en dos pasos desde aquí dejaria el nombre partido si el
+       segundo fallara. */
+    await cloud.rest("rpc/cambiar_nombre", {
+      method: "POST", body: JSON.stringify({ nuevo })
+    });
+    await cargarPerfil();
+    renderAccount();
+    avisarNombre();
+    msg.textContent = t("nameSaved", nuevo); msg.className = "status ok";
+    await doSync();
+  } catch (e) {
+    const m = String(e.message || e);
+    msg.textContent = /ocupado/.test(m) ? t("nameTaken", nuevo)
+                    : /largo/.test(m)   ? t("nameTooLong")
+                    : /vacio/.test(m)   ? t("nameEmpty")
+                    : t("nameFailed") + m;
+    msg.className = "status err";
+  } finally {
+    $("ac-name-save").disabled = false;
+  }
+}
+
+$("ac-name-save").addEventListener("click", guardarNombre);
+$("ac-name").addEventListener("keydown", (e) => { if (e.key === "Enter") guardarNombre(); });
+
 /* ---------- Perfil: nombre y estado de suscripcion ----------
    El perfil se crea aqui la primera vez, no con un disparador en la base:
    la tabla de usuarios es del sistema y no admite que le cuelguen nada. */
@@ -3571,8 +3673,10 @@ function renderAccount() {
     $("ac-sub").textContent = p.subscribed ? "✓ " + t("subActive") : t("subOff");
     $("ac-sub").style.color = p.subscribed ? "var(--accent2)" : "var(--muted)";
     $("ac-subbtn").textContent = t(p.subscribed ? "subCancel" : "subOn");
+    if (document.activeElement !== $("ac-name")) $("ac-name").value = p.display_name || "";
   }
   else if (!$("ac-status").textContent) setAc(t("offlineNote"));
+  avisarNombre();
 }
 
 async function doAuth(kind) {
