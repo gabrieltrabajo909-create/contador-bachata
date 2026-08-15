@@ -6,7 +6,7 @@
    dice, y decir lo que no es hace perder mas tiempo que no decir nada. */
 
 import { cargar, FUENTE } from "./extraer.mjs";
-import { seccion, prueba, afirmar, igual } from "./marco.mjs";
+import { seccion, prueba, afirmar, igual, resumen } from "./marco.mjs";
 
 const M = await cargar([
   "exportarCanciones", "importarCanciones", "mensajeDeBusqueda", "STR"
@@ -349,3 +349,9 @@ await prueba("la sincronización salta la fila mala y sigue", () => {
 await prueba("y avisa de cuántas no pudo leer", () => {
   afirmar(/someBroken/.test(FUENTE), "se saltan en silencio, sin decirlo");
 });
+
+/* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
+   diciendo que todo habia ido bien: correr.sh no tenia como enterarse y
+   remataba con "Todo en orden". Una prueba que falla sin que nadie se entere
+   es peor que no tenerla. */
+process.exit(resumen());

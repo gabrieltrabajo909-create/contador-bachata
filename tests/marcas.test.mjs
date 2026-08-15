@@ -2,7 +2,7 @@
    salieron de tiempo cuando el profesor grababa. */
 
 import { cargar, FUENTE } from "./extraer.mjs";
-import { seccion, prueba, afirmar, igual, cerca } from "./marco.mjs";
+import { seccion, prueba, afirmar, igual, cerca, resumen } from "./marco.mjs";
 
 const M = await cargar(["rejillaDeCompases", "TOLERANCIA"]);
 
@@ -94,3 +94,9 @@ await prueba("ningún callback llama a su parámetro t", () => {
   const solos = [...FUENTE.matchAll(/\.(?:forEach|map|filter)\(\(?t\)?\s*=>/g)];
   igual(solos.length, 0, "hay recorridos cuyo parámetro se llama t");
 });
+
+/* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
+   diciendo que todo habia ido bien: correr.sh no tenia como enterarse y
+   remataba con "Todo en orden". Una prueba que falla sin que nadie se entere
+   es peor que no tenerla. */
+process.exit(resumen());

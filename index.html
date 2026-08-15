@@ -425,6 +425,9 @@
   .song button.chip.on { color: var(--accent2); border-color: var(--accent2); }
   .song .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .song .m { font-size: 0.76rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* La firma, en su propia linea y con el ancho entero para ella: antes iba
+     pegada al artista y el primer titulo largo se la comia. */
+  .song .by { font-size: 0.76rem; color: var(--accent2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .song button {
     /* Ancho automatico SIEMPRE. Los botones grandes de la app llevan
@@ -1154,6 +1157,7 @@ const STR = {
     deleted: "Borrada: {0}",
     deleteNeedsLogin: "Entrá con la cuenta que la creó para poder borrarla del servidor.",
     deleteFailed: "No se pudo borrar del servidor: ",
+    byTeacher: "por {0}",
     fromOther: "de otro",
     notYetLocked: "No la reconozco. Si es una canción bloqueada, no puedo identificarla hasta que la desbloquees.",
     notFound: "Esta canción no está en la biblioteca: nadie la grabó todavía. Podés grabarla vos desde la pestaña Profesor.",
@@ -1349,6 +1353,7 @@ const STR = {
     deleted: "Deleted: {0}",
     deleteNeedsLogin: "Sign in with the account that created it to delete it from the server.",
     deleteFailed: "Couldn't delete from the server: ",
+    byTeacher: "by {0}",
     fromOther: "not yours",
     notYetLocked: "Can't place it. If the song is locked I can't identify it until you unlock it.",
     notFound: "This song isn't in the library: nobody has recorded it yet. You can record it yourself from the Teacher tab.",
@@ -2194,10 +2199,8 @@ function renderAdmin() {
     const tt = document.createElement("div");
     tt.className = "t";
     tt.textContent = c.title;
-    const m = document.createElement("div");
-    m.className = "m";
-    m.textContent = [c.artist, rhythmName(c.rhythm), c.teacher].filter(Boolean).join(" · ");
-    info.appendChild(tt); info.appendChild(m);
+    info.appendChild(tt);
+    ponerDatos(info, c);
 
     const b = document.createElement("button");
     b.className = "chip" + (c.free ? " on" : "");
@@ -2903,6 +2906,29 @@ $("g-finish").addEventListener("click", async () => {
 /* =========================================================================
    Listas de canciones
    ========================================================================= */
+
+/* Los datos de una cancion, en DOS lineas.
+   Con todo junto en una sola -artista, ritmo, profesor y duracion separados
+   por puntos- un titulo o un artista largo empujaba el nombre del profesor
+   fuera de la pantalla, y la firma es justamente lo que hay que ver: dice de
+   quien es el trabajo. En su propia linea tiene el ancho entero para ella.
+   Lo usan las dos listas, la del profesor y el catalogo, para que no se
+   vayan pareciendo cada vez menos. */
+function ponerDatos(info, s) {
+  const m = document.createElement("div");
+  m.className = "m";
+  m.textContent = [s.artist, rhythmName(s.rhythm), fmt(s.duration || 0)]
+    .filter(Boolean).join(" · ");
+  info.appendChild(m);
+
+  if (s.teacher) {
+    const por = document.createElement("div");
+    por.className = "by";
+    por.textContent = t("byTeacher", s.teacher);
+    info.appendChild(por);
+  }
+}
+
 function renderLists() {
   const mk = (s, forStudent) => {
     const row = document.createElement("div");
@@ -2913,11 +2939,8 @@ function renderLists() {
     const titleEl = document.createElement("div");
     titleEl.className = "t";
     titleEl.textContent = s.title;
-    const m = document.createElement("div");
-    m.className = "m";
-    m.textContent = [s.artist, rhythmName(s.rhythm), s.teacher, fmt(s.duration || 0)]
-      .filter(Boolean).join(" · ");
-    info.appendChild(titleEl); info.appendChild(m);
+    info.appendChild(titleEl);
+    ponerDatos(info, s);
 
     if (!usable(s)) {
       const w = document.createElement("div");
@@ -2987,11 +3010,8 @@ function renderLists() {
       titleEl.appendChild(document.createTextNode(c.title));
       if (c.free) { const f = document.createElement("span"); f.className = "tag-free"; f.textContent = t("freeTag"); titleEl.appendChild(f); }
 
-      const m = document.createElement("div");
-      m.className = "m";
-      m.textContent = [c.artist, rhythmName(c.rhythm), c.teacher, fmt(c.duration || 0)]
-        .filter(Boolean).join(" · ");
-      info.appendChild(titleEl); info.appendChild(m);
+      info.appendChild(titleEl);
+      ponerDatos(info, c);
       // Solo se vota lo que se puede escuchar: puntuar algo bloqueado no
       // significaria nada.
       if (abierta && cloud.session) info.appendChild(estrellas(c.id));

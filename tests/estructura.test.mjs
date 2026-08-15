@@ -7,7 +7,7 @@
 
 import { readFileSync } from "node:fs";
 import { cargar, HTML, FUENTE, SOLO_HTML } from "./extraer.mjs";
-import { seccion, prueba, afirmar, igual } from "./marco.mjs";
+import { seccion, prueba, afirmar, igual, resumen } from "./marco.mjs";
 
 const M = await cargar(["STR"]);
 const { es, en } = M.STR;
@@ -197,6 +197,27 @@ await prueba("ningun boton de una fila puede estirarse y tapar el titulo", () =>
     "una fila usa una clase de boton grande: volveria a tapar el titulo");
 });
 
+await prueba("la firma del profesor tiene su propia linea", () => {
+  /* Iba pegada al artista y al ritmo en una sola linea que se corta con
+     puntos suspensivos: con un titulo o un artista largo, el nombre del
+     profesor quedaba fuera de la pantalla. Y la firma es lo que dice de quien
+     es el trabajo, que es de lo que vive el catalogo. */
+  afirmar(/\.song \.by \{/.test(HTML), "desaparecio el estilo de la linea de la firma");
+  afirmar(/class(?:Name)?\s*=\s*"by"/.test(FUENTE), "ya nadie crea esa linea");
+
+  const juntas = [...FUENTE.matchAll(/\[([^\]]*rhythmName\(\S+?\)[^\]]*)\]/g)]
+    .filter(m => /\.teacher/.test(m[1]));
+  igual(juntas.length, 0,
+    "la firma volvio a la linea del ritmo: un titulo largo se la come");
+});
+
+await prueba("las dos listas ensenan los mismos datos", () => {
+  /* La del profesor y el catalogo se construyen aparte. Cuando cada una se
+     armaba sus lineas, cambiar una y olvidar la otra era cuestion de tiempo. */
+  const usos = [...FUENTE.matchAll(/ponerDatos\(/g)].length;
+  afirmar(usos >= 3, "las listas volvieron a armarse los datos por su cuenta");
+});
+
 await prueba("al editar se ve que cancion se esta editando", () => {
   /* El formulario es identico para todas: sin el nombre a la vista no hay
      forma de saber cual se toco. */
@@ -274,3 +295,9 @@ await prueba("la clave del servidor es la publica, no una secreta", () => {
     "hay una clave secreta metida en la pagina");
   afirmar(/sb_publishable_/.test(HTML), "no encuentro la clave publica");
 });
+
+/* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
+   diciendo que todo habia ido bien: correr.sh no tenia como enterarse y
+   remataba con "Todo en orden". Una prueba que falla sin que nadie se entere
+   es peor que no tenerla. */
+process.exit(resumen());

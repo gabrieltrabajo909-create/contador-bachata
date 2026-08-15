@@ -3,7 +3,7 @@
    peor error posible: le ensena mal y encima con seguridad. */
 
 import { cargar } from "./extraer.mjs";
-import { seccion, prueba, afirmar, igual, cerca, azar } from "./marco.mjs";
+import { seccion, prueba, afirmar, igual, cerca, azar, resumen } from "./marco.mjs";
 
 const M = await cargar([
   "FP", "packHash", "Fingerprinter", "Matcher",
@@ -370,3 +370,9 @@ await prueba("el silencio tampoco cuela con la búsqueda dirigida", () => {
   const q = huellar(mudo);
   igual(m.match(q.keys, q.times, "A"), null, "reconoció algo en el silencio");
 });
+
+/* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
+   diciendo que todo habia ido bien: correr.sh no tenia como enterarse y
+   remataba con "Todo en orden". Una prueba que falla sin que nadie se entere
+   es peor que no tenerla. */
+process.exit(resumen());

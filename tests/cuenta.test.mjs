@@ -4,7 +4,7 @@
    no se nota leyendo el codigo pero se nota bailando. */
 
 import { cargar } from "./extraer.mjs";
-import { seccion, prueba, afirmar, igual, cerca } from "./marco.mjs";
+import { seccion, prueba, afirmar, igual, cerca, resumen } from "./marco.mjs";
 
 const M = await cargar(["countAt", "nearestOne", "BANDS", "judge", "isOne", "isTap"]);
 
@@ -182,3 +182,9 @@ await prueba("cuando la cuenta marca el uno, el juego lo da por clavado", () => 
       `con ${(j.err * 1000).toFixed(0)} ms de error`);
   }
 });
+
+/* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
+   diciendo que todo habia ido bien: correr.sh no tenia como enterarse y
+   remataba con "Todo en orden". Una prueba que falla sin que nadie se entere
+   es peor que no tenerla. */
+process.exit(resumen());
