@@ -7,7 +7,7 @@ aunque te quedes sin internet.
 **El link:**
 
 ```
-https://gabrieltrabajo909-create.github.io/contador-bachata/
+https://feeltheone.app
 ```
 
 ---
