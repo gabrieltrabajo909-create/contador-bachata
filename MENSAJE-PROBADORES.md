@@ -53,8 +53,9 @@ Cambiá lo que esté entre corchetes.
 > **As a teacher** (🎙 tab)
 > - Pick your teacher name once, in Account. Your songs get signed with it.
 > - Put one of your own songs on, tap *Start recording* and tap the screen on
->   every ONE. **The first minute is enough** — it carries on by itself to the
->   end.
+>   every ONE, **all the way through the song**. The count follows your marks,
+>   so where you stop marking it can only assume the song keeps going the same
+>   way — and plenty of them don't, bachata especially.
 > - Save it, and it's there for everyone in the group, with your name on it.
 >
 > One thing: it only knows the songs that have been recorded so far. If you
@@ -111,7 +112,9 @@ Cambiá lo que esté entre corchetes.
 > - Elegí una vez tu nombre de profesor, en Cuenta. Con ese nombre salen
 >   firmadas tus canciones.
 > - Poné una canción tuya, tocá *Empezar a grabar* y tocá la pantalla en cada
->   UNO. **Con el primer minuto alcanza**: sigue sola hasta el final.
+>   UNO, **de principio a fin**. La cuenta sigue tus marcas, así que donde
+>   dejás de marcar solo puede suponer que la canción sigue igual — y muchas no
+>   siguen igual, la bachata sobre todo.
 > - La guardás y queda para todo el grupo, con tu nombre.
 >
 > Una sola cosa: solo conoce las canciones que ya se grabaron. Si ponés otra te
