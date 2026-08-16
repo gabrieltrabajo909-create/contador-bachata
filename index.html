@@ -941,6 +941,53 @@
     </div>
 
     <div class="card">
+      <h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-user"/></svg><span data-i18n="helpAcctTitle">Tu cuenta</span></h2>
+      <p class="hint" data-i18n="helpAcctWhy">
+        Sin cuenta la app funciona igual, pero todo queda solo en ese teléfono.
+        Con cuenta, tus canciones y tus puntajes viven en la nube: cambiás de
+        teléfono y siguen ahí.
+      </p>
+      <p class="hint" data-i18n="helpAcctName">
+        Si vas a grabar, elegí una vez tu nombre de profesor en Cuenta. Con ese
+        nombre salen firmadas todas tus canciones. Se puede cambiar cuando
+        quieras: las que ya subiste se renombran solas.
+      </p>
+      <p class="hint" data-i18n="helpAcctSub">
+        El botón «Suscribirme (prueba)» está mientras la app se prueba. No hay
+        nada que pagar y no hace falta tocarlo.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="helpPrivTitle">Privacidad</h2>
+      <p class="hint" data-i18n="helpPrivMic">
+        El micrófono se enciende solo mientras tocás «Escuchar». No se graba
+        audio ni se manda a ningún lado: la app calcula unos números con los
+        que no se puede reconstruir el sonido.
+      </p>
+      <p class="hint" data-i18n="helpPrivPass">
+        Tu contraseña no queda guardada en el teléfono ni la ve nadie. Aun así,
+        usá una distinta de la del correo o el banco.
+      </p>
+      <p class="hint" data-i18n="helpPrivScores">
+        Tus puntajes son tuyos: nadie más los ve, ni el profesor. De las
+        canciones se comparte el título y quién las grabó.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="helpInstTitle">¿Hace falta instalarla?</h2>
+      <p class="hint" data-i18n="helpInstBody">
+        No. Con abrir el link alcanza y funciona todo igual.
+      </p>
+      <p class="hint" data-i18n="helpInstHow">
+        Si la querés con ícono propio y que ande sin internet: en Android, menú
+        de los tres puntitos e «Instalar aplicación». En iPhone tiene que ser
+        con Safari: botón de compartir y «Añadir a pantalla de inicio».
+      </p>
+    </div>
+
+    <div class="card">
       <h2 data-i18n="helpTroubleTitle">Si algo no anda</h2>
       <dl class="qa">
         <dt data-i18n="helpQ1">No reconoce la canción</dt>
@@ -1075,6 +1122,17 @@ const STR = {
     helpIcOnly: "Solo esta: le decís cuál es, por si no la reconoce.",
     helpIcDel: "Borrar: va a la papelera y se puede recuperar 30 días.",
     helpIcAcct: "Arriba a la derecha: tu cuenta.",
+    helpAcctTitle: "Tu cuenta",
+    helpAcctWhy: "Sin cuenta la app funciona igual, pero todo queda solo en ese teléfono. Con cuenta, tus canciones y tus puntajes viven en la nube: cambiás de teléfono y siguen ahí.",
+    helpAcctName: "Si vas a grabar, elegí una vez tu nombre de profesor en Cuenta. Con ese nombre salen firmadas todas tus canciones. Se puede cambiar cuando quieras: las que ya subiste se renombran solas.",
+    helpAcctSub: "El botón «Suscribirme (prueba)» está mientras la app se prueba. No hay nada que pagar y no hace falta tocarlo.",
+    helpPrivTitle: "Privacidad",
+    helpPrivMic: "El micrófono se enciende solo mientras tocás «Escuchar». No se graba audio ni se manda a ningún lado: la app calcula unos números con los que no se puede reconstruir el sonido.",
+    helpPrivPass: "Tu contraseña no queda guardada en el teléfono ni la ve nadie. Aun así, usá una distinta de la del correo o el banco.",
+    helpPrivScores: "Tus puntajes son tuyos: nadie más los ve, ni el profesor. De las canciones se comparte el título y quién las grabó.",
+    helpInstTitle: "¿Hace falta instalarla?",
+    helpInstBody: "No. Con abrir el link alcanza y funciona todo igual.",
+    helpInstHow: "Si la querés con ícono propio y que ande sin internet: en Android, menú de los tres puntitos e «Instalar aplicación». En iPhone tiene que ser con Safari: botón de compartir y «Añadir a pantalla de inicio».",
     helpTroubleTitle: "Si algo no anda",
     helpQ1: "No reconoce la canción",
     helpA1: "Acercá el teléfono, subí un poco el volumen y esperá diez segundos. Si dice que nadie la grabó, hay que grabarla desde Profesor.",
@@ -1271,6 +1329,17 @@ const STR = {
     helpIcOnly: "Only this one: you tell it which song, in case it can't tell.",
     helpIcDel: "Delete: goes to the bin and can be restored for 30 days.",
     helpIcAcct: "Top right: your account.",
+    helpAcctTitle: "Your account",
+    helpAcctWhy: "Without an account the app works the same, but everything stays on that phone only. With one, your songs and scores live in the cloud: change phones and they are still there.",
+    helpAcctName: "If you are going to record, pick your teacher name once in Account. All your songs are signed with it. You can change it whenever you like: the ones already uploaded rename themselves.",
+    helpAcctSub: "The “Subscribe (test)” button is there while the app is being tested. There is nothing to pay and no need to touch it.",
+    helpPrivTitle: "Privacy",
+    helpPrivMic: "The microphone only comes on while you hold “Listen”. No audio is recorded or sent anywhere: the app works out a set of numbers that the sound cannot be rebuilt from.",
+    helpPrivPass: "Your password is not kept on the phone and nobody gets to see it. Even so, use a different one from your email or your bank.",
+    helpPrivScores: "Your scores are yours: nobody else sees them, not even the teacher. What is shared about a song is its title and who recorded it.",
+    helpInstTitle: "Do I have to install it?",
+    helpInstBody: "No. Opening the link is enough and everything works the same.",
+    helpInstHow: "If you want it with its own icon and working offline: on Android, the three-dot menu and “Install app”. On iPhone it has to be Safari: the share button and “Add to Home Screen”.",
     helpTroubleTitle: "If something doesn't work",
     helpQ1: "It doesn't recognise the song",
     helpA1: "Move the phone closer, turn the volume up a little and wait ten seconds. If it says nobody recorded it, it has to be recorded from Teacher.",
@@ -1808,6 +1877,9 @@ const PLEGABLES = {
   helpTeachTitle: false,
   helpStudTitle: false,
   helpIconsTitle: false,
+  helpAcctTitle: false,
+  helpPrivTitle: false,
+  helpInstTitle: false,
   helpTroubleTitle: false
 };
 
