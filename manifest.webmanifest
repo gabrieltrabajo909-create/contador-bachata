@@ -1,7 +1,7 @@
 {
   "name": "Cuentas · Bachata y Salsa",
   "short_name": "Cuentas",
-  "description": "Escucha la música y te muestra en qué tiempo va. Para ver el UNO mientras bailás.",
+  "description": "Escucha la música y te muestra en qué tiempo va. Para trabajar la musicalidad y encontrar el UNO.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
