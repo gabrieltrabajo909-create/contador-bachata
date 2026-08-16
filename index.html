@@ -3560,6 +3560,13 @@ async function syncNow() {
   const uid = cloud.session.uid;
   const merge = { headers: { Prefer: "resolution=merge-duplicates" } };
 
+  /* El perfil, ANTES de subir nada. Ahi vive el nombre con el que se firman
+     las canciones, y al abrir la app todavia no esta cargado: sin esta linea,
+     la primera sincronizacion del dia subia las canciones sin firma y volvia
+     a pisar el nombre bueno del servidor. Justo lo que se acababa de
+     arreglar, colandose por la puerta de al lado. */
+  await cargarPerfil();
+
   // Solo se sube lo propio. Las canciones que bajaste de otro profesor
   // viven en tu telefono pero siguen siendo suyas: intentar subirlas seria
   // pretender adueñarse de ellas, y el servidor lo rechaza con razon.
@@ -3655,6 +3662,11 @@ async function syncNow() {
   try {
     soyAdmin = await cloud.rest("rpc/soy_admin", { method: "POST", body: "{}" }) === true;
   } catch (e) { soyAdmin = false; }
+  /* Y se vuelve a pintar la cuenta, que es quien ensena o esconde la pestana
+     del catalogo. Sin esto se averiguaba que mandas y no se hacia nada con el
+     dato: la pestana seguia escondida hasta que otra cosa repintara la
+     pantalla. El mando existia y no habia forma de llegar a el. */
+  renderAccount();
 
   // Estrellas: el promedio de todos, y el voto propio
   try {
@@ -3949,6 +3961,20 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
     await reload();
   } catch (e) {
     setP(t("dbFail") + e.message, "err");
+  }
+
+  /* Con la sesion ya recordada quedan dos cosas que solo sabe el servidor:
+     como te llamas y si mandas. Sin preguntarlas al abrir, la app arrancaba
+     dando por hecho que no eras administrador -y la pestana del catalogo no
+     aparecia nunca- y sin tu nombre para firmar lo que grabaras. Si no hay
+     internet no pasa nada: se sigue con lo que haya. */
+  if (cloud.session) {
+    try {
+      await cargarPerfil();
+      soyAdmin = await cloud.rest("rpc/soy_admin", { method: "POST", body: "{}" }) === true;
+    } catch (e) { /* sin conexion, se queda como estaba */ }
+    renderAccount();
+    avisarNombre();
   }
 })();
 

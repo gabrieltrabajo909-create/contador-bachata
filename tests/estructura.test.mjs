@@ -197,6 +197,39 @@ await prueba("ningun boton de una fila puede estirarse y tapar el titulo", () =>
     "una fila usa una clase de boton grande: volveria a tapar el titulo");
 });
 
+await prueba("el perfil se carga antes de subir nada", () => {
+  /* El nombre con el que se firman las canciones vive en el perfil, y al
+     abrir la app todavia no esta cargado. Si se sube antes de pedirlo, se
+     suben sin firma y se pisa el nombre bueno que tiene el servidor: el mismo
+     fallo de antes, colandose por la puerta de al lado. */
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("async function syncNow"),
+                              FUENTE.indexOf("/* ---------- Interfaz de la cuenta"));
+  const perfil = cuerpo.indexOf("cargarPerfil()");
+  const sube = cuerpo.indexOf("songToRow(");
+  afirmar(perfil >= 0 && sube >= 0, "no encuentro el orden de la sincronizacion");
+  afirmar(perfil < sube,
+    "se suben las canciones antes de saber como te llamas: van sin firma");
+});
+
+await prueba("enterarse de que mandas sirve de algo", () => {
+  /* Se preguntaba al servidor si eras administrador y no se hacia nada con la
+     respuesta: la pestana del catalogo seguia escondida hasta que otra cosa
+     repintara la pantalla. El mando existia y no habia forma de llegar a el.
+     Y al abrir la app ni se preguntaba, asi que no aparecia nunca. */
+  const cuerpo = FUENTE.slice(FUENTE.indexOf("async function syncNow"),
+                              FUENTE.indexOf("/* ---------- Interfaz de la cuenta"));
+  const pregunta = cuerpo.indexOf("rpc/soy_admin");
+  afirmar(pregunta >= 0, "ya no se pregunta quien administra");
+  afirmar(cuerpo.indexOf("renderAccount()", pregunta) > pregunta,
+    "se averigua que mandas y no se repinta la pestana: sigue escondida");
+
+  const arranque = FUENTE.slice(FUENTE.indexOf("   Arranque"));
+  afirmar(/rpc\/soy_admin/.test(arranque),
+    "al abrir la app no se pregunta: la pestana no aparece hasta sincronizar");
+  afirmar(/cargarPerfil\(\)/.test(arranque),
+    "al abrir la app no se pide el perfil: se arranca sin nombre para firmar");
+});
+
 await prueba("la firma del profesor tiene su propia linea", () => {
   /* Iba pegada al artista y al ritmo en una sola linea que se corta con
      puntos suspensivos: con un titulo o un artista largo, el nombre del
