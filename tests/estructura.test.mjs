@@ -321,6 +321,30 @@ await prueba("los rechazos del servidor tienen respuesta en la pantalla", () => 
   }
 });
 
+await prueba("la app se llama igual en todos lados", () => {
+  /* El nombre estaba en cinco sitios: la pestana del navegador, la barra de
+     arriba, el titulo de iOS y las dos formas del manifiesto. Quedo el nombre
+     provisorio de trabajo en todos ellos mientras el dominio ya decia otra
+     cosa, y quien abria la app veia un nombre que no era el suyo. */
+  const manifiesto = JSON.parse(
+    readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8"));
+  const nombre = manifiesto.short_name;
+  afirmar(nombre && nombre.length > 2, "el manifiesto no dice como se llama");
+
+  const sitios = {
+    "la pestana del navegador": /<title>([^<]+)<\/title>/.exec(HTML),
+    "el titulo en iPhone": /apple-mobile-web-app-title" content="([^"]+)"/.exec(HTML),
+    "la barra de arriba": /<div class="brand">.*?<b>([^<]+)<\/b>/s.exec(HTML)
+  };
+  for (const [donde, m] of Object.entries(sitios)) {
+    afirmar(m, "no encuentro el nombre en " + donde);
+    afirmar(m[1].includes(nombre),
+      `en ${donde} la app se llama "${m[1]}" y en el manifiesto "${nombre}"`);
+  }
+  afirmar(manifiesto.name.includes(nombre),
+    `el manifiesto se contradice a si mismo: "${manifiesto.name}" y "${nombre}"`);
+});
+
 await prueba("la clave del servidor es la publica, no una secreta", () => {
   /* La publicable esta pensada para ir en la pagina; una clave de servicio
      ahi seria dar acceso total a la base a cualquiera que mire el codigo. */
