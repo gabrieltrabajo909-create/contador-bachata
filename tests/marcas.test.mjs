@@ -4,7 +4,7 @@
 import { cargar, FUENTE } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual, cerca, resumen } from "./marco.mjs";
 
-const M = await cargar(["rejillaDeCompases", "TOLERANCIA"]);
+const M = await cargar(["rejillaDeCompases", "TOLERANCIA", "DUDOSA", "clasificarMarcas"]);
 
 // Un profesor perfecto: un uno cada 2 segundos
 const perfecto = (n = 20, paso = 2, desde = 1.5) =>
@@ -76,6 +76,50 @@ await prueba("con muy pocas marcas no arriesga", () => {
 await prueba("con marcas absurdas se abstiene", () => {
   igual(M.rejillaDeCompases([0, 0.05, 0.1, 0.15]), null, "aceptó compases de 50 ms");
   igual(M.rejillaDeCompases([0, 30, 60, 90]), null, "aceptó compases de 30 s");
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("Lo que se acomoda solo y lo que se pregunta");
+
+/* Mirando solo los tiempos, una marca que llego tarde y un medio compas de
+   verdad se ven IGUAL. Por eso lo pequeño -el temblor del pulso- se acomoda
+   solo, y lo grande se le pregunta al profesor: si ahi la cancion cambia de
+   verdad, moverla le borra el trabajo, y se lo borra en silencio. */
+
+await prueba("el temblor humano se acomoda solo", () => {
+  const marcas = perfecto();
+  marcas[7] += 0.35;                       // torcida, pero no tanto
+  const { torcidas, dudosas } = M.clasificarMarcas(marcas);
+  igual(torcidas.join(","), "7", "no vio la marca torcida");
+  igual(dudosas.length, 0, "trato como dudosa un simple temblor de pulso");
+});
+
+await prueba("lo que esta muy lejos no se toca sin preguntar", () => {
+  const marcas = perfecto();
+  marcas[7] += 0.9;                        // casi medio compas
+  const { torcidas, dudosas } = M.clasificarMarcas(marcas);
+  igual(dudosas.join(","), "7", "movio sola una marca que puede ser un cambio");
+  igual(torcidas.length, 0, "la conto dos veces");
+});
+
+await prueba("una marca no puede ser torcida y dudosa a la vez", () => {
+  const marcas = perfecto(24);
+  marcas[3] += 0.35; marcas[11] += 0.9; marcas[19] -= 0.95;
+  const { torcidas, dudosas } = M.clasificarMarcas(marcas);
+  const repetidas = torcidas.filter(i => dudosas.includes(i));
+  igual(repetidas.length, 0, "hay marcas en los dos grupos");
+  igual(torcidas.join(","), "3", "no separo bien las torcidas");
+  igual(dudosas.join(","), "11,19", "no separo bien las dudosas");
+});
+
+await prueba("con las marcas bien no hay nada que acomodar", () => {
+  const { torcidas, dudosas } = M.clasificarMarcas(perfecto());
+  igual(torcidas.length + dudosas.length, 0, "invento trabajo donde no habia");
+});
+
+await prueba("el limite de lo dudoso es mayor que el de lo torcido", () => {
+  afirmar(M.DUDOSA > M.TOLERANCIA,
+    "si lo dudoso fuera mas estricto, no se acomodaria nunca nada solo");
 });
 
 /* ------------------------------------------------------------------------ */

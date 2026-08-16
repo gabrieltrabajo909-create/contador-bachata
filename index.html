@@ -256,6 +256,8 @@
 
   /* Una marca que se salió del compás */
   .taplist .fuera { color: var(--accent); font-weight: 600; }
+  /* Las dudosas se ven distinto de las torcidas: puede que no sean un error */
+  .taplist .dudosa { color: var(--accent2); font-weight: 600; }
 
   /* Guía plegable: quien ya sabe no la abre, quien no sabe la tiene a mano */
   .guia {
@@ -1177,6 +1179,10 @@ const STR = {
     outliersFound: "{0} marcas quedaron fuera de tiempo respecto de las demás.",
     outliersFix: "Acomodarlas",
     outliersFixed: "Acomodadas {0} marcas.",
+    outliersFixedSome: "Acomodadas {0}. Dejé {1} sin tocar.",
+    outliersDoubt: "Hay {0} marcas muy lejos de la cuenta pareja. Puede que ahí la canción cambie de verdad y no sea un error tuyo: si las muevo, se pierde ese cambio. ¿Las muevo igual?",
+    outliersKept: "Dejé las {0} como estaban.",
+    maybeChange: "¿cambia la canción?",
     guideRecTitle: "Cómo grabar bien",
     guideRec1t: "Buscá silencio",
     guideRec1b: "Una habitación sin gente hablando, sin tele, sin otra música. Es lo que más influye.",
@@ -1384,6 +1390,10 @@ const STR = {
     outliersFound: "{0} taps are off the beat compared with the rest.",
     outliersFix: "Line them up",
     outliersFixed: "{0} taps lined up.",
+    outliersFixedSome: "{0} lined up. Left {1} alone.",
+    outliersDoubt: "{0} taps are a long way off the even count. The song may genuinely change there rather than you having missed: moving them would lose that change. Move them anyway?",
+    outliersKept: "Left the {0} as they were.",
+    maybeChange: "song changes here?",
     guideRecTitle: "How to record well",
     guideRec1t: "Find a quiet room",
     guideRec1b: "Nobody talking, no TV, no other music. This matters more than anything else.",
@@ -2161,6 +2171,15 @@ function rejillaDeCompases(marcas) {
    bailando. Más estricto marcaría como error el pulso humano normal. */
 const TOLERANCIA = 1 / 8;
 
+/* A partir de aquí ya no se sabe si el profesor se equivocó o si la canción
+   cambia de verdad. Mirando solo los tiempos, una marca que llegó tarde y un
+   medio compás real se ven IGUAL, y no hay forma de distinguirlos. Un cuarto
+   de compás son dos tiempos: nadie marca tan mal por temblor de pulso, así
+   que lo más probable es que ahí la canción haga algo. Esas no se tocan sin
+   preguntar: mover una marca buena estropea el trabajo de grabar la canción,
+   y lo estropea en silencio. */
+const DUDOSA = 1 / 4;
+
 function marcasFueraDeTiempo() {
   const r = rejillaDeCompases(teacher.downbeats);
   if (!r) return [];
@@ -2168,6 +2187,22 @@ function marcasFueraDeTiempo() {
   const fuera = [];
   r.desvios.forEach((e, i) => { if (Math.abs(e) > limite) fuera.push(i); });
   return fuera;
+}
+
+/* Las torcidas se separan de las dudosas: las primeras son pulso humano y se
+   pueden acomodar solas; las segundas las decide el profesor. */
+function clasificarMarcas(marcas) {
+  const r = rejillaDeCompases(marcas);
+  if (!r) return { torcidas: [], dudosas: [] };
+  const limite = r.compas * TOLERANCIA;
+  const lejos = r.compas * DUDOSA;
+  const torcidas = [], dudosas = [];
+  r.desvios.forEach((e, i) => {
+    const d = Math.abs(e);
+    if (d > lejos) dudosas.push(i);
+    else if (d > limite) torcidas.push(i);
+  });
+  return { torcidas, dudosas };
 }
 
 function renderReview() {
@@ -2178,6 +2213,7 @@ function renderReview() {
 
   const rejilla = rejillaDeCompases(d);
   const fuera = new Set(marcasFueraDeTiempo());
+  const dudosas = new Set(clasificarMarcas(d).dudosas);
 
   const aviso = $("p-outliers");
   aviso.hidden = fuera.size === 0;
@@ -2190,13 +2226,16 @@ function renderReview() {
      solo aparece cuando hay al menos una marca, no se ve al probar en vacío. */
   d.forEach((momento, i) => {
     const row = document.createElement("div");
-    if (fuera.has(i)) row.className = "fuera";
+    if (dudosas.has(i)) row.className = "dudosa";
+    else if (fuera.has(i)) row.className = "fuera";
 
     const span = document.createElement("span");
     span.textContent = "#" + (i + 1) + "  " + momento.toFixed(2) + " s";
     if (rejilla && fuera.has(i)) {
       const ms = Math.round(rejilla.desvios[i] * 1000);
       span.textContent += "   " + (ms > 0 ? "+" : "") + ms + " ms";
+      // Tan lejos que lo más probable es que ahí cambie la canción
+      if (dudosas.has(i)) span.textContent += "   " + t("maybeChange");
     }
 
     const del = document.createElement("button");
@@ -2217,12 +2256,24 @@ function renderReview() {
 function arreglarFueraDeTiempo() {
   const r = rejillaDeCompases(teacher.downbeats);
   if (!r) return;
-  const fuera = marcasFueraDeTiempo();
-  if (!fuera.length) return;
-  for (const i of fuera) teacher.downbeats[i] = r.donde[i];
+  const { torcidas, dudosas } = clasificarMarcas(teacher.downbeats);
+  if (!torcidas.length && !dudosas.length) return;
+
+  /* Las torcidas van solas. Las dudosas se preguntan una vez, todas juntas:
+     puede que ahí la canción cambie de verdad, y entonces la marca buena es
+     la del profesor y no la de la recta. */
+  const mover = [...torcidas];
+  if (dudosas.length && confirm(t("outliersDoubt", dudosas.length))) {
+    mover.push(...dudosas);
+  }
+  if (!mover.length) { setP(t("outliersKept", dudosas.length), "ok"); return; }
+
+  for (const i of mover) teacher.downbeats[i] = r.donde[i];
   teacher.downbeats.sort((a, b) => a - b);
   renderReview();
-  setP(t("outliersFixed", fuera.length), "ok");
+  const quedaron = torcidas.length + dudosas.length - mover.length;
+  setP(quedaron ? t("outliersFixedSome", mover.length, quedaron)
+                : t("outliersFixed", mover.length), "ok");
 }
 
 function nudge(ms) {
