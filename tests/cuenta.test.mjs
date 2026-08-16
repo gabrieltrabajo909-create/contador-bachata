@@ -6,7 +6,7 @@
 import { cargar } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual, cerca, resumen } from "./marco.mjs";
 
-const M = await cargar(["countAt", "nearestOne", "BANDS", "judge", "isOne", "isTap"]);
+const M = await cargar(["pulsoDe", "countAt", "nearestOne", "BANDS", "judge", "isOne", "isTap"]);
 
 /* Un compas de bachata dura 8 tiempos. Con los "unos" cada 2 segundos, cada
    tiempo dura un cuarto de segundo. */
@@ -71,6 +71,53 @@ await prueba("aguanta que el profesor no marque parejo", () => {
     const c = M.countAt(humano, humano[i] + 0.01);
     igual(c.index, 0, "perdio el uno en la marca " + i);
   }
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("Cuando la cancion no es pareja");
+
+/* Lo dijo Gabriel, que es quien da las clases: no todas las canciones llevan
+   ocho tiempos de punta a punta. En bachata hay cortes y medios compases, y
+   pasajes que cambian y vuelven. Antes se repartian OCHO cuentas entre dos
+   marcas cualesquiera sin mirar cuanto duraba el hueco, asi que en un medio
+   compas la cuenta salia al doble de velocidad: le mostraba 1,3,5,7 al alumno
+   mientras la musica iba 1,2,3,4. Contar mal es peor que callarse. */
+
+// 120 pulsos por minuto: un tiempo = 0.5 s, un compas de ocho = 4 s.
+// Ocho, luego CUATRO, luego ocho y ocho.
+const CON_MEDIO = [0, 4, 6, 10, 14];
+
+await prueba("un medio compas se cuenta como cuatro, no como ocho", () => {
+  for (const [t, idx] of [[4.0, 0], [4.5, 1], [5.0, 2], [5.5, 3]]) {
+    const c = M.countAt(CON_MEDIO, t + 0.01);
+    afirmar(c, "se quedo sin cuenta en el segundo " + t);
+    igual(c.index, idx,
+      `en el segundo ${t} muestra el tiempo ${c.index + 1} y va el ${idx + 1}`);
+  }
+});
+
+await prueba("despues del medio compas se vuelve a los ocho", () => {
+  for (let k = 0; k < 8; k++) {
+    const c = M.countAt(CON_MEDIO, 6 + k * 0.5 + 0.01);
+    igual(c.index, k, "el medio compas descoloco lo que venia despues");
+  }
+});
+
+await prueba("el medio compas no estropea la parte pareja", () => {
+  for (let k = 0; k < 8; k++) {
+    const c = M.countAt(CON_MEDIO, 0 + k * 0.5 + 0.01);
+    igual(c.index, k, "se estropeo el compas anterior al medio");
+  }
+});
+
+await prueba("si el profesor se come un uno, no cuenta a mitad de velocidad", () => {
+  /* El consejo de la app es "si te comes uno, segui". Con el hueco del doble,
+     antes repartia ocho cuentas donde iban dieciseis. */
+  const COMIDO = [0, 2, 6, 8];        // falta la marca del segundo 4
+  igual(M.countAt(COMIDO, 4.01).index, 0,
+    "no encontro el uno del compas que el profesor se salto");
+  igual(M.countAt(COMIDO, 4.26).index, 1, "va a mitad de velocidad");
+  igual(M.countAt(COMIDO, 5.01).index, 4, "va a mitad de velocidad");
 });
 
 /* ------------------------------------------------------------------------ */
