@@ -58,12 +58,22 @@
     display: grid; place-items: center; cursor: pointer;
   }
   .iconbtn[aria-expanded="true"] { border-color: var(--accent); }
-  /* Punto verde: hay sesión abierta. Se ve de un vistazo, sin abrir nada. */
-  .pip {
-    position: absolute; right: 2px; bottom: 2px;
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--accent2); border: 2px solid var(--ground);
-  }
+
+  /* ---------- La puerta ----------
+     Sin sesión no hay app: se esconde todo lo demás desde el CSS, para que no
+     dependa de que el código se acuerde de esconder cada trozo por separado.
+     Lo que no se dibuja no se puede tocar por error. */
+  body.fuera .tabs,
+  body.fuera .panel,
+  body.fuera #acct,
+  body.fuera #acct-toggle { display: none !important; }
+  body:not(.fuera) #gate { display: none; }
+  body.fuera .wrap { padding-bottom: 24px; }
+
+  .hero { text-align: center; padding: 18px 6px 22px; }
+  .hero-ic { width: 76px; height: 76px; border-radius: 20px; display: block; margin: 0 auto 12px; }
+  .hero h1 { font-size: 1.35rem; margin: 0 0 8px; font-weight: 700; letter-spacing: -0.01em; }
+  .hero p { margin: 0 auto; max-width: 25rem; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
 
   /* ---------- Pestañas, fijas abajo ---------- */
   .tabs {
@@ -557,7 +567,9 @@
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
-<body>
+<!-- Se arranca fuera a proposito. Si el codigo tardara o fallara, lo que se ve
+     es la puerta, no la app abierta de par en par. -->
+<body class="fuera">
 
 <!-- Los iconos, dibujados aquí una vez y usados por toda la app.
      Se probó con emoji y no sirve: hay navegadores y teléfonos donde salen
@@ -570,6 +582,7 @@
     <g id="g-head"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H5a1 1 0 0 1-1-1zM20 14h-3v6h2a1 1 0 0 0 1-1z"/></g>
     <g id="g-help"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a3 3 0 0 1 5.6 1.2c0 2-2.8 2.3-2.8 4"/><path d="M12 17.4v.01"/></g>
     <g id="g-user"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></g>
+    <g id="g-gear"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.7l1.4 2.6 2.9-.4.9 2.8 2.6 1.4-1.1 2.9 1.1 2.9-2.6 1.4-.9 2.8-2.9-.4-1.4 2.6-1.4-2.6-2.9.4-.9-2.8-2.6-1.4L5.3 12 4.2 9.1l2.6-1.4.9-2.8 2.9.4z"/></g>
     <g id="g-sync"><path d="M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6"/><path d="M17.5 3v3.5H14M6.5 21v-3.5H10"/></g>
     <g id="g-exit"><path d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 8l-4 4 4 4M6 12h9"/></g>
     <g id="g-down"><path d="M12 4v11M7.5 11l4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></g>
@@ -600,32 +613,49 @@
         <button data-lang="en" aria-pressed="false">EN</button>
       </div>
       <button class="iconbtn" id="acct-toggle" aria-expanded="false"
-              aria-controls="acct" data-i18n-title="account" title="Cuenta">
-        <svg class="ic" id="acct-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-user"/></svg>
-        <span class="pip" id="acct-pip" hidden></span>
+              aria-controls="acct" data-i18n-title="settings" title="Ajustes">
+        <svg class="ic" id="acct-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-gear"/></svg>
       </button>
     </div>
   </header>
 
-  <div class="card" id="acct" hidden>
-    <h2 data-i18n="account">Cuenta</h2>
+  <!-- ============ LA PUERTA ============
+       Mientras no haya sesion, esto es lo unico que hay. Antes se podia
+       trastear con la app entera sin cuenta y luego resultaba que las
+       canciones no eran de nadie y no subian a ningun lado. Una sola puerta
+       y una sola pregunta: entrar o crear la cuenta. -->
+  <section id="gate">
+    <div class="hero">
+      <img class="hero-ic" src="icono-192.png" alt="">
+      <h1>Feel The One</h1>
+      <p data-i18n="gateClaim">Encontrá el UNO en la bachata y la salsa. Poné la música y la app te dice en qué tiempo va.</p>
+    </div>
 
-    <div id="acct-out">
-      <input type="email" id="ac-email" placeholder="tu@email.com" data-i18n-ph="phEmail" autocomplete="email">
-      <input type="password" id="ac-pass" placeholder="Contraseña" data-i18n-ph="phPass" autocomplete="current-password">
-      <div class="row">
-        <button class="primary" id="ac-in" data-i18n="signIn">Entrar</button>
-        <button class="ghost" id="ac-up" data-i18n="signUp">Crear cuenta</button>
+    <div class="card">
+      <div id="acct-out">
+        <input type="email" id="ac-email" placeholder="tu@email.com" data-i18n-ph="phEmail" autocomplete="email">
+        <input type="password" id="ac-pass" placeholder="Contraseña" data-i18n-ph="phPass" autocomplete="current-password">
+        <div class="row">
+          <button class="primary" id="ac-in" data-i18n="signIn">Entrar</button>
+          <button class="ghost" id="ac-up" data-i18n="signUp">Crear cuenta</button>
+        </div>
+        <button class="link" id="ac-forgot" data-i18n="forgot">¿Olvidaste tu contraseña?</button>
+        <p class="hint" data-i18n="gateWhy">Hace falta una cuenta para que tus canciones y tus puntajes no se pierdan si cambiás de teléfono.</p>
       </div>
-      <button class="link" id="ac-forgot" data-i18n="forgot">¿Olvidaste tu contraseña?</button>
-    </div>
 
-    <!-- Solo aparece al volver desde el enlace del correo -->
-    <div id="acct-new" hidden>
-      <p class="hint" data-i18n="newPassHelp">Elegí una contraseña nueva. Vas a quedar dentro de tu cuenta.</p>
-      <input type="password" id="ac-newpass" placeholder="Contraseña nueva" data-i18n-ph="phNewPass" autocomplete="new-password">
-      <button class="primary" id="ac-savepass" data-i18n="savePass">Guardar contraseña</button>
+      <!-- Solo aparece al volver desde el enlace del correo -->
+      <div id="acct-new" hidden>
+        <p class="hint" data-i18n="newPassHelp">Elegí una contraseña nueva. Vas a quedar dentro de tu cuenta.</p>
+        <input type="password" id="ac-newpass" placeholder="Contraseña nueva" data-i18n-ph="phNewPass" autocomplete="new-password">
+        <button class="primary" id="ac-savepass" data-i18n="savePass">Guardar contraseña</button>
+      </div>
+
+      <p class="status" id="gate-status"></p>
     </div>
+  </section>
+
+  <div class="card" id="acct" hidden>
+    <h2 data-i18n="settings">Ajustes</h2>
 
     <div id="acct-in" hidden>
       <div class="who"><span class="dot-on"></span><b id="ac-who"></b></div>
@@ -638,6 +668,14 @@
       </div>
       <p class="status" id="ac-name-msg"></p>
 
+      <!-- Cambiar la clave sin tener que pedirse un correo a uno mismo. -->
+      <label for="ac-chpass" data-i18n="changePass">Cambiar la contraseña</label>
+      <div class="row">
+        <input type="password" id="ac-chpass" placeholder="Contraseña nueva" data-i18n-ph="phNewPass" autocomplete="new-password">
+        <button class="ghost" id="ac-chpass-save" data-i18n="save2">Guardar</button>
+      </div>
+      <p class="status" id="ac-chpass-msg"></p>
+
       <div class="subline"><span id="ac-sub">—</span></div>
       <button class="ghost" id="ac-subbtn" data-i18n="subOn">Suscribirme (prueba)</button>
       <div class="row">
@@ -649,13 +687,15 @@
     <p class="status" id="ac-status"></p>
   </div>
 
-  <!-- Abajo y fijas: se llega con el pulgar sin dejar de bailar. -->
+  <!-- Abajo y fijas: se llega con el pulgar sin dejar de bailar.
+       Primero Alumno: usar la cuenta es lo que se hace todos los dias;
+       grabar una cancion lo hace un profesor de vez en cuando. -->
   <nav class="tabs" role="tablist">
-    <button role="tab" id="tab-prof" aria-selected="true" aria-controls="panel-prof">
-      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-mic"/></svg><span data-i18n="tabProf">Profesor</span>
-    </button>
-    <button role="tab" id="tab-alum" aria-selected="false" aria-controls="panel-alum">
+    <button role="tab" id="tab-alum" aria-selected="true" aria-controls="panel-alum">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="tabAlum">Alumno</span>
+    </button>
+    <button role="tab" id="tab-prof" aria-selected="false" aria-controls="panel-prof">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-mic"/></svg><span data-i18n="tabProf">Profesor</span>
     </button>
     <button role="tab" id="tab-ayuda" aria-selected="false" aria-controls="panel-ayuda">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-help"/></svg><span data-i18n="tabHelp">Ayuda</span>
@@ -667,7 +707,7 @@
   </nav>
 
   <!-- ============ PROFESOR ============ -->
-  <section class="panel" id="panel-prof" role="tabpanel">
+  <section class="panel" id="panel-prof" role="tabpanel" hidden>
 
     <!-- Plegada: quien ya sabe grabar no la vuelve a abrir, y quien no sabe
          la tiene justo encima del botón, que es donde hace falta. -->
@@ -781,7 +821,7 @@
   </section>
 
   <!-- ============ ALUMNO ============ -->
-  <section class="panel" id="panel-alum" role="tabpanel" hidden>
+  <section class="panel" id="panel-alum" role="tabpanel">
 
     <details class="guia">
       <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-help"/></svg><span data-i18n="guideListenTitle">Cómo hacer que enganche</span></summary>
@@ -941,21 +981,21 @@
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-lock"/></svg><span data-i18n="helpIcLock">Candado: esa canción existe pero necesitás suscripción.</span></li>
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-target"/></svg><span data-i18n="helpIcOnly">Solo esta: le decís cuál es, por si no la reconoce.</span></li>
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-trash"/></svg><span data-i18n="helpIcDel">Borrar: va a la papelera y se puede recuperar 30 días.</span></li>
-        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-user"/></svg><span data-i18n="helpIcAcct">Arriba a la derecha: tu cuenta.</span></li>
+        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-gear"/></svg><span data-i18n="helpIcAcct">Arriba a la derecha: tus ajustes.</span></li>
       </ul>
     </div>
 
     <div class="card">
-      <h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-user"/></svg><span data-i18n="helpAcctTitle">Tu cuenta</span></h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-gear"/></svg><span data-i18n="helpAcctTitle">Tu cuenta</span></h2>
       <p class="hint" data-i18n="helpAcctWhy">
-        Sin cuenta la app funciona igual, pero todo queda solo en ese teléfono.
-        Con cuenta, tus canciones y tus puntajes viven en la nube: cambiás de
-        teléfono y siguen ahí.
+        La app pide cuenta desde el principio: tus canciones y tus puntajes
+        viven en la nube, así que cambiás de teléfono y siguen ahí.
       </p>
       <p class="hint" data-i18n="helpAcctName">
-        Si vas a grabar, elegí una vez tu nombre de profesor en Cuenta. Con ese
-        nombre salen firmadas todas tus canciones. Se puede cambiar cuando
-        quieras: las que ya subiste se renombran solas.
+        Si vas a grabar, elegí una vez tu nombre de profesor en el engranaje de
+        arriba. Con ese nombre salen firmadas todas tus canciones. Se puede
+        cambiar cuando quieras: las que ya subiste se renombran solas. Ahí mismo
+        se cambia la contraseña.
       </p>
       <p class="hint" data-i18n="helpAcctSub">
         El botón «Suscribirme (prueba)» está mientras la app se prueba. No hay
@@ -1004,7 +1044,7 @@
         <dt data-i18n="helpQ4">No me pide el micrófono</dt>
         <dd data-i18n="helpA4">El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.</dd>
         <dt data-i18n="helpQ5">¿Pierdo mis canciones?</dt>
-        <dd data-i18n="helpA5">Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.</dd>
+        <dd data-i18n="helpA5">Quedan en la nube, bajo tu cuenta. Usá «Exportar» si además querés una copia tuya.</dd>
       </dl>
     </div>
 
@@ -1079,7 +1119,10 @@ const STR = {
     bpmApprox: "{0} BPM aprox.", remove: "quitar",
     revInfo: "{0} golpes · {1} BPM · {2} grabados · {3}",
     phSong: "Propuesta indecente", phArtist: "Romeo Santos",
-    account: "Cuenta", signIn: "Entrar", signUp: "Crear cuenta", signOut: "Salir",
+    settings: "Ajustes", signIn: "Entrar", signUp: "Crear cuenta", signOut: "Salir",
+    gateClaim: "Encontrá el UNO en la bachata y la salsa. Poné la música y la app te dice en qué tiempo va.",
+    gateWhy: "Hace falta una cuenta para que tus canciones y tus puntajes no se pierdan si cambiás de teléfono.",
+    changePass: "Cambiar la contraseña",
     sync: "Sincronizar", phEmail: "tu@email.com", phPass: "Contraseña",
     needEmail: "Escribí tu email y una contraseña.",
     shortPass: "La contraseña necesita al menos 6 caracteres.",
@@ -1091,7 +1134,6 @@ const STR = {
     syncing: "Sincronizando…",
     synced: "Sincronizado: {0} canciones y {1} puntajes.",
     syncFail: "Falló la sincronización: ",
-    offlineNote: "Sin cuenta, todo se guarda solo en este teléfono y el navegador puede borrarlo.",
     loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono.",
     syncDenied: "El servidor rechazó parte de los datos. Volvé a intentar; si sigue, avisame.",
     locked: "Bloqueada", subActive: "Suscripción activa",
@@ -1126,10 +1168,10 @@ const STR = {
     helpIcLock: "Candado: esa canción existe pero necesitás suscripción.",
     helpIcOnly: "Solo esta: le decís cuál es, por si no la reconoce.",
     helpIcDel: "Borrar: va a la papelera y se puede recuperar 30 días.",
-    helpIcAcct: "Arriba a la derecha: tu cuenta.",
+    helpIcAcct: "El engranaje, arriba a la derecha: tus ajustes.",
     helpAcctTitle: "Tu cuenta",
-    helpAcctWhy: "Sin cuenta la app funciona igual, pero todo queda solo en ese teléfono. Con cuenta, tus canciones y tus puntajes viven en la nube: cambiás de teléfono y siguen ahí.",
-    helpAcctName: "Si vas a grabar, elegí una vez tu nombre de profesor en Cuenta. Con ese nombre salen firmadas todas tus canciones. Se puede cambiar cuando quieras: las que ya subiste se renombran solas.",
+    helpAcctWhy: "La app pide cuenta desde el principio: tus canciones y tus puntajes viven en la nube, así que cambiás de teléfono y siguen ahí.",
+    helpAcctName: "Si vas a grabar, elegí una vez tu nombre de profesor en el engranaje de arriba. Con ese nombre salen firmadas todas tus canciones. Se puede cambiar cuando quieras: las que ya subiste se renombran solas. Ahí mismo se cambia la contraseña.",
     helpAcctSub: "El botón «Suscribirme (prueba)» está mientras la app se prueba. No hay nada que pagar y no hace falta tocarlo.",
     helpPrivTitle: "Privacidad",
     helpPrivMic: "El micrófono se enciende solo mientras tocás «Escuchar». No se graba audio ni se manda a ningún lado: la app calcula unos números con los que no se puede reconstruir el sonido.",
@@ -1148,7 +1190,7 @@ const STR = {
     helpQ4: "No me pide el micrófono",
     helpA4: "El navegador lo pide una sola vez. Si lo rechazaste, hay que habilitarlo desde el candado de la barra de direcciones.",
     helpQ5: "¿Pierdo mis canciones?",
-    helpA5: "Con cuenta, quedan en la nube. Sin cuenta, solo en este teléfono y el navegador puede borrarlas. Usá «Exportar» para guardar una copia.",
+    helpA5: "Quedan en la nube, bajo tu cuenta. Usá «Exportar» si además querés una copia tuya.",
     teacherName: "Tu nombre de profesor",
     teacherNameHelp: "Es con el que te van a ver tus alumnos. Tiene que ser único: si dos profesores se llaman igual, nadie distingue quién grabó qué.",
     phTeacherName: "Gabriel L.",
@@ -1290,7 +1332,10 @@ const STR = {
     bpmApprox: "~{0} BPM", remove: "remove",
     revInfo: "{0} taps · {1} BPM · {2} recorded · {3}",
     phSong: "Propuesta indecente", phArtist: "Romeo Santos",
-    account: "Account", signIn: "Sign in", signUp: "Create account", signOut: "Sign out",
+    settings: "Settings", signIn: "Sign in", signUp: "Create account", signOut: "Sign out",
+    gateClaim: "Find the ONE in bachata and salsa. Put the music on and the app tells you which beat you're on.",
+    gateWhy: "You need an account so your songs and your scores don't vanish when you change phone.",
+    changePass: "Change your password",
     sync: "Sync", phEmail: "you@email.com", phPass: "Password",
     needEmail: "Enter your email and a password.",
     shortPass: "The password needs at least 6 characters.",
@@ -1302,7 +1347,6 @@ const STR = {
     syncing: "Syncing…",
     synced: "Synced: {0} songs and {1} scores.",
     syncFail: "Sync failed: ",
-    offlineNote: "Without an account everything stays on this phone only, and the browser may erase it.",
     loggedOut: "Signed out. Your data is still on this phone.",
     syncDenied: "The server refused some of the data. Try again; if it persists, tell me.",
     locked: "Locked", subActive: "Subscription active",
@@ -1337,10 +1381,10 @@ const STR = {
     helpIcLock: "Padlock: that song exists but needs a subscription.",
     helpIcOnly: "Only this one: you tell it which song, in case it can't tell.",
     helpIcDel: "Delete: goes to the bin and can be restored for 30 days.",
-    helpIcAcct: "Top right: your account.",
+    helpIcAcct: "The gear, top right: your settings.",
     helpAcctTitle: "Your account",
-    helpAcctWhy: "Without an account the app works the same, but everything stays on that phone only. With one, your songs and scores live in the cloud: change phones and they are still there.",
-    helpAcctName: "If you are going to record, pick your teacher name once in Account. All your songs are signed with it. You can change it whenever you like: the ones already uploaded rename themselves.",
+    helpAcctWhy: "The app asks for an account from the start: your songs and scores live in the cloud, so you change phones and they are still there.",
+    helpAcctName: "If you are going to record, pick your teacher name once under the gear at the top. All your songs are signed with it. You can change it whenever you like: the ones already uploaded rename themselves. Your password is changed in the same place.",
     helpAcctSub: "The “Subscribe (test)” button is there while the app is being tested. There is nothing to pay and no need to touch it.",
     helpPrivTitle: "Privacy",
     helpPrivMic: "The microphone only comes on while you hold “Listen”. No audio is recorded or sent anywhere: the app works out a set of numbers that the sound cannot be rebuilt from.",
@@ -1359,7 +1403,7 @@ const STR = {
     helpQ4: "It never asks for the microphone",
     helpA4: "The browser asks once. If you said no, you have to allow it from the padlock in the address bar.",
     helpQ5: "Can I lose my songs?",
-    helpA5: "With an account they live in the cloud. Without one, only on this phone, and the browser can delete them. Use \u201cExport\u201d to keep a copy.",
+    helpA5: "They live in the cloud, under your account. Use \u201cExport\u201d if you also want a copy of your own.",
     teacherName: "Your teacher name",
     teacherNameHelp: "This is how your students will see you. It has to be unique: if two teachers share a name, nobody can tell who recorded what.",
     phTeacherName: "Gabriel L.",
@@ -1978,7 +2022,7 @@ function contarEnPlegable(clave, n) {
 
 /* ---------- Pestañas ---------- */
 const PESTANAS = {
-  prof: "panel-prof", alum: "panel-alum", ayuda: "panel-ayuda", admin: "panel-admin"
+  alum: "panel-alum", prof: "panel-prof", ayuda: "panel-ayuda", admin: "panel-admin"
 };
 
 function selectTab(which) {
@@ -3843,28 +3887,37 @@ async function syncNow() {
   return { songs: remoteSongs.length - rotas, scores: remoteScores.length, rotas };
 }
 
-/* ---------- Interfaz de la cuenta ---------- */
+/* ---------- Interfaz de la cuenta ----------
+
+   El mismo aviso se escribe en los dos sitios: en la puerta y en los ajustes.
+   Solo uno de los dos esta a la vista en cada momento, y quien avisa no
+   siempre sabe cual: al entrar, el mensaje nace fuera y termina dentro. */
 function setAc(msg, kind) {
-  const el = $("ac-status");
-  el.textContent = msg;
-  el.className = "status" + (kind ? " " + kind : "");
+  for (const id of ["ac-status", "gate-status"]) {
+    const el = $(id);
+    el.textContent = msg;
+    el.className = "status" + (kind ? " " + kind : "");
+  }
 }
 
+/* Se vuelve del enlace del correo: hay sesion, pero lo unico que toca hacer
+   es elegir clave nueva. Sin esta bandera la puerta se abriria de par en par
+   y el formulario de la clave se quedaria escondido detras de la app. */
+let pidiendoClave = false;
+
 function renderAccount() {
-  const on = !!cloud.session;
-  $("acct-out").hidden = on;
+  const on = !!cloud.session && !pidiendoClave;
+  document.body.classList.toggle("fuera", !on);
+  $("gate").hidden = on;
+  $("acct-out").hidden = pidiendoClave;
+  $("acct-new").hidden = !pidiendoClave;
   $("acct-in").hidden = !on;
-  /* El punto verde sobre el icono dice si hay sesion sin tener que abrir
-     nada. Sin el, la cuenta plegada esconderia tambien si estas dentro. */
-  $("acct-pip").hidden = !on;
   /* La pestana del catalogo solo existe para quien administra. Esconderla no
      es la proteccion —esa la pone el servidor— sino no ensenarle a todo el
      mundo un mando que no puede usar. */
   $("tab-admin").hidden = !(on && soyAdmin);
   document.querySelector(".tabs").style.gridTemplateColumns =
     "repeat(" + (on && soyAdmin ? 4 : 3) + ", 1fr)";
-  /* El icono es siempre una persona: si cambiara de dibujo al entrar, se
-     confundiria con los de las pestañas. Lo que informa es el punto verde. */
   if (on) {
     $("ac-who").textContent = cloud.session.email || "";
     const p = cloud.profile || {};
@@ -3873,7 +3926,6 @@ function renderAccount() {
     $("ac-subbtn").textContent = t(p.subscribed ? "subCancel" : "subOn");
     if (document.activeElement !== $("ac-name")) $("ac-name").value = p.display_name || "";
   }
-  else if (!$("ac-status").textContent) setAc(t("offlineNote"));
   avisarNombre();
 }
 
@@ -3951,7 +4003,8 @@ $("ac-savepass").addEventListener("click", async () => {
   try {
     await cloud.setPassword(pass);
     $("ac-newpass").value = "";
-    $("acct-new").hidden = true;
+    /* Ya hay clave: se acabo el encargo del correo y la app se abre entera. */
+    pidiendoClave = false;
     await cargarPerfil();
     renderAccount();
     setAc(t("passChanged"), "ok");
@@ -3960,6 +4013,27 @@ $("ac-savepass").addEventListener("click", async () => {
     setAc(t("passFailed") + String(e.message || e), "err");
   } finally {
     $("ac-savepass").disabled = false;
+  }
+});
+
+/* Cambiar la clave estando dentro. Antes solo se podia pidiendose un correo a
+   uno mismo, que es un rodeo absurdo para quien ya entro. */
+$("ac-chpass-save").addEventListener("click", async () => {
+  const pass = $("ac-chpass").value;
+  const msg = $("ac-chpass-msg");
+  if (pass.length < 6) { msg.textContent = t("passTooShort"); msg.className = "status err"; return; }
+
+  $("ac-chpass-save").disabled = true;
+  msg.textContent = ""; msg.className = "status";
+  try {
+    await cloud.setPassword(pass);
+    $("ac-chpass").value = "";
+    msg.textContent = t("passChanged"); msg.className = "status ok";
+  } catch (e) {
+    msg.textContent = t("passFailed") + String(e.message || e);
+    msg.className = "status err";
+  } finally {
+    $("ac-chpass-save").disabled = false;
   }
 });
 
@@ -4001,13 +4075,10 @@ async function recogerEnlaceDelCorreo() {
   }
 
   /* Se pide la clave nueva antes que nada: se entro con un enlace de un
-     correo, no con una contrasena que la persona recuerde. Y se despliega la
-     cuenta, que normalmente esta plegada: si no, el formulario quedaria
-     escondido detras de un boton y nadie lo encontraria. */
-  toggleCuenta(true);
-  $("acct-out").hidden = true;
-  $("acct-in").hidden = true;
-  $("acct-new").hidden = false;
+     correo, no con una contrasena que la persona recuerde. Hay sesion, pero
+     la puerta sigue cerrada hasta que la elija. */
+  pidiendoClave = true;
+  renderAccount();
   $("ac-newpass").focus();
   return true;
 }
@@ -4031,6 +4102,12 @@ $("ac-subbtn").addEventListener("click", async () => {
 });
 $("ac-out").addEventListener("click", () => {
   cloud.signOut();
+  /* Al salir se vuelve a la puerta: se cierran los ajustes, se suelta el
+     microfono y la app queda como la encuentra quien llega por primera vez. */
+  toggleCuenta(false);
+  stopStudent();
+  stopTeacher(true);
+  selectTab("alum");
   renderAccount();
   setAc(t("loggedOut"));
 });
@@ -4113,8 +4190,8 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
   applyLang();
   /* Antes de dibujar nada: si se llega desde el enlace de un correo, la
      pantalla que toca es la de elegir contrasena nueva, no la de entrar. */
-  const desdeCorreo = await recogerEnlaceDelCorreo();
-  if (!desdeCorreo) renderAccount();
+  await recogerEnlaceDelCorreo();
+  renderAccount();
   try {
     await DB.open();
     await reload();

@@ -36,9 +36,10 @@ Cambiá lo que esté entre corchetes.
 > 2. You'll see a button saying **"Subscribe (test)"**. Ignore it — it's free,
 >    there's nothing to pay.
 >
-> Make an account with your email so nothing gets lost if you change phones.
-> Use a different password from your email or your bank, as you would with any
-> new app.
+> The first thing it asks for is an account — email and a password. That's so
+> your songs and your scores live on the server and don't vanish if you change
+> phones. Use a different password from your email or your bank, as you would
+> with any new app.
 >
 > **Please try it both ways — as a student and as a teacher.** Everyone in this
 > group can do both.
@@ -51,7 +52,8 @@ Cambiá lo que esté entre corchetes.
 >   teaches you.
 >
 > **As a teacher** (🎙 tab)
-> - Pick your teacher name once, in Account. Your songs get signed with it.
+> - Pick your teacher name once, under the gear at the top right. Your songs
+>   get signed with it.
 > - Put one of your own songs on, tap *Start recording* and tap the screen on
 >   every ONE, **all the way through the song**. The count follows your marks,
 >   so where you stop marking it can only assume the song keeps going the same
@@ -95,9 +97,10 @@ Cambiá lo que esté entre corchetes.
 > 2. Vas a ver un botón que dice **«Suscribirme (prueba)»**. Ignoralo: es
 >    gratis, no hay nada que pagar.
 >
-> Hacete una cuenta con tu correo así no se pierde nada si cambiás de teléfono.
-> Usá una contraseña distinta de la del correo o el banco, como con cualquier
-> app nueva.
+> Lo primero que pide es una cuenta: correo y contraseña. Es para que tus
+> canciones y tus puntajes vivan en el servidor y no se pierdan si cambiás de
+> teléfono. Usá una contraseña distinta de la del correo o el banco, como con
+> cualquier app nueva.
 >
 > **Probala de las dos formas: como alumno y como profesor.** En este grupo
 > todos pueden hacer las dos cosas.
@@ -109,8 +112,8 @@ Cambiá lo que esté entre corchetes.
 >   UNO y te dice qué tan cerca estuviste. Esa es la parte que enseña de verdad.
 >
 > **Como profesor** (pestaña 🎙)
-> - Elegí una vez tu nombre de profesor, en Cuenta. Con ese nombre salen
->   firmadas tus canciones.
+> - Elegí una vez tu nombre de profesor, en el engranaje de arriba a la
+>   derecha. Con ese nombre salen firmadas tus canciones.
 > - Poné una canción tuya, tocá *Empezar a grabar* y tocá la pantalla en cada
 >   UNO, **de principio a fin**. La cuenta sigue tus marcas, así que donde
 >   dejás de marcar solo puede suponer que la canción sigue igual — y muchas no

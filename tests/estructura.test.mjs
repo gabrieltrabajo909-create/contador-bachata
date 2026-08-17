@@ -345,6 +345,110 @@ await prueba("la app se llama igual en todos lados", () => {
     `el manifiesto se contradice a si mismo: "${manifiesto.name}" y "${nombre}"`);
 });
 
+/* ------------------------------------------------------------------------ */
+seccion("La puerta y el orden de las pantallas");
+
+/* Antes se entraba directamente a la app y la cuenta era un boton de arriba
+   que casi nadie tocaba. Resultado: gente grabando canciones sin sesion, que
+   se quedaban en su telefono y no subian a ningun lado. Ahora sin cuenta no
+   hay app. */
+
+await prueba("se arranca fuera aunque el codigo no llegue a correr", () => {
+  afirmar(/<body class="[^"]*\bfuera\b/.test(HTML),
+    "la pagina nace abierta: si el codigo tardara, se veria la app sin sesion");
+});
+
+await prueba("estando fuera no se dibuja nada de la app", () => {
+  /* Se esconde desde el CSS y no elemento por elemento: asi no depende de que
+     alguien se acuerde de esconder tambien la pantalla que anada manana. */
+  const regla = /((?:body\.fuera[^,{]*,\s*)*body\.fuera[^,{]*)\{([^}]*)\}/.exec(SOLO_HTML);
+  afirmar(regla, "no hay ninguna regla que esconda la app estando fuera");
+  afirmar(/display:\s*none/.test(regla[2]), "la regla de fuera no esconde nada");
+  for (const que of [".tabs", ".panel", "#acct", "#acct-toggle"]) {
+    afirmar(regla[1].includes(que), "estando fuera se sigue viendo " + que);
+  }
+  afirmar(/body:not\(\.fuera\)\s*#gate\s*\{[^}]*display:\s*none/.test(SOLO_HTML),
+    "la puerta se queda puesta despues de entrar");
+});
+
+await prueba("la puerta pregunta lo justo: entrar o crear la cuenta", () => {
+  const puerta = /<section id="gate">([\s\S]*?)<\/section>/.exec(SOLO_HTML);
+  afirmar(puerta, "no encuentro la puerta");
+  for (const id of ["ac-email", "ac-pass", "ac-in", "ac-up", "ac-forgot"]) {
+    afirmar(puerta[1].includes('id="' + id + '"'),
+      "falta " + id + " en la puerta: no se podria entrar");
+  }
+  afirmar(!puerta[1].includes('id="ac-name"'),
+    "el nombre de profesor no va en la puerta: se elige despues, en los ajustes");
+});
+
+await prueba("la primera pantalla es la del alumno", () => {
+  /* Ver la cuenta es lo de todos los dias; grabar una cancion lo hace un
+     profesor de vez en cuando. Lo primero que se ve tiene que ser lo primero
+     que se usa. */
+  const orden = [...SOLO_HTML.matchAll(/id="tab-(\w+)"/g)].map(m => m[1]);
+  igual(orden[0], "alum", "la primera pestana es " + orden[0]);
+  afirmar(/id="tab-alum"[^>]*aria-selected="true"/.test(SOLO_HTML),
+    "la pestana del alumno no arranca marcada");
+  afirmar(!/id="panel-alum"[^>]*\shidden/.test(SOLO_HTML),
+    "la pantalla del alumno arranca escondida");
+  afirmar(/id="panel-prof"[^>]*\shidden/.test(SOLO_HTML),
+    "arrancan dos pantallas a la vez");
+});
+
+await prueba("los ajustes se abren con el engranaje", () => {
+  const boton = /<button class="iconbtn" id="acct-toggle"[\s\S]*?<\/button>/.exec(SOLO_HTML);
+  afirmar(boton, "no encuentro el boton de ajustes");
+  afirmar(boton[0].includes("#g-gear"),
+    "el boton de ajustes no es un engranaje: se confundiria con otra cosa");
+  afirmar(/<g id="g-gear">/.test(SOLO_HTML), "el engranaje no esta dibujado");
+});
+
+await prueba("el aviso se escribe donde se esta mirando", () => {
+  /* Al entrar, el mensaje nace en la puerta y termina dentro de la app. Si
+     solo se escribiera en uno de los dos sitios, la mitad de los avisos
+     -«email o contrasena incorrectos»- caerian en una pantalla invisible. */
+  const f = /function setAc\([\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(f, "no encuentro setAc");
+  for (const id of ["ac-status", "gate-status"]) {
+    afirmar(f[0].includes(id), "setAc no escribe en " + id);
+  }
+});
+
+await prueba("volver desde el correo no abre la app de par en par", () => {
+  /* El enlace del correo trae sesion valida. Si eso bastara para abrir, el
+     formulario de la clave nueva quedaria detras de la app y nadie lo
+     encontraria: se entro sin saber ninguna contrasena. */
+  afirmar(/pidiendoClave\s*=\s*true/.test(FUENTE),
+    "al volver del correo no se marca que falta elegir clave");
+  afirmar(/const on = !!cloud\.session && !pidiendoClave/.test(FUENTE),
+    "tener sesion basta para abrir, aunque la clave este a medias");
+  afirmar(/pidiendoClave\s*=\s*false/.test(FUENTE),
+    "una vez elegida la clave nunca se abre la app");
+});
+
+await prueba("al salir se vuelve a la puerta y se suelta el microfono", () => {
+  const salir = /\$\("ac-out"\)\.addEventListener\([\s\S]*?\n\}\);/.exec(FUENTE);
+  afirmar(salir, "no encuentro el boton de salir");
+  for (const [que, aviso] of [
+    ["stopStudent", "se sale con el microfono abierto"],
+    ["renderAccount", "se sale y la pantalla se queda como estaba"],
+    ["toggleCuenta(false)", "los ajustes se quedan abiertos detras de la puerta"]
+  ]) {
+    afirmar(salir[0].includes(que), aviso);
+  }
+});
+
+await prueba("la clave se puede cambiar desde dentro", () => {
+  afirmar(/id="ac-chpass-save"/.test(SOLO_HTML),
+    "para cambiar la clave hay que pedirse un correo a uno mismo");
+  afirmar(/\$\("ac-chpass-save"\)\.addEventListener/.test(FUENTE),
+    "el boton de cambiar la clave no hace nada");
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("La llave del servidor");
+
 await prueba("la clave del servidor es la publica, no una secreta", () => {
   /* La publicable esta pensada para ir en la pagina; una clave de servicio
      ahi seria dar acceso total a la base a cualquiera que mire el codigo. */
