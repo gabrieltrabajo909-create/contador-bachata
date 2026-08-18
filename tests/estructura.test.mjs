@@ -522,6 +522,29 @@ await prueba("el aviso del navegador es de un solo uso y se trata como tal", () 
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("El reloj del audio");
+
+await prueba("capturar audio no depende de que se dibuje la pantalla", () => {
+  /* requestAnimationFrame es el reloj del DIBUJO. Si el telefono va justo o el
+     navegador ahorra bateria, deja de llamar. Medido en el telefono de
+     Gabriel: 5,2 frames por segundo de los 21,6 que hacen falta. Tres de cada
+     cuatro perdidos, y como las parejas de la huella se hacen a distancias
+     fijas de frames, casi ninguna llegaba a formarse. La app oia bien, el
+     microfono estaba perfecto, y no reconocia nada. */
+  afirmar(!/requestAnimationFrame\s*\(/.test(FUENTE),
+    "el audio vuelve a colgar del dibujo de la pantalla");
+});
+
+await prueba("el reloj se apaga al soltar el microfono", () => {
+  /* Un temporizador que sigue corriendo despues de parar gasta bateria y, peor,
+     sigue leyendo un microfono que ya se cerro. */
+  const clase = /class Listener \{[\s\S]*?\n\}\n/.exec(FUENTE);
+  afirmar(clase, "no encuentro la clase que escucha");
+  afirmar(/setInterval/.test(clase[0]), "no hay reloj propio para el audio");
+  afirmar(/clearInterval/.test(clase[0]), "el reloj no se apaga nunca");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("Al microfono no se le toca");
 
 await prueba("nadie le cambia los ajustes al microfono en caliente", () => {

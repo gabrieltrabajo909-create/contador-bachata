@@ -1573,7 +1573,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.12.0";
+const VERSION = "2.12.1";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1845,7 +1845,6 @@ class Listener {
 
     const tick = () => {
       if (!this.running) return;
-      requestAnimationFrame(tick);
       const elapsed = this.ctx.currentTime - this.t0;
       const f = Math.floor(elapsed / FP.HOP);
       if (f === this.frame) return;
@@ -1855,7 +1854,22 @@ class Listener {
       if (onLevel) onLevel(this.medir(), this.saturando);
       onFrame(this.spec, f, elapsed);
     };
-    requestAnimationFrame(tick);
+
+    /* El reloj NO puede ser requestAnimationFrame.
+
+       Ese reloj lo marca el dibujo de la pantalla. Si el telefono va justo, si
+       el navegador decide ahorrar bateria, o si hay cualquier otra cosa
+       pintando, deja de llamar — y se pierden frames de audio sin que nada
+       avise. Medido en el telefono de Gabriel con el panel de datos tecnicos:
+       5,2 frames por segundo de los 21,6 que hacen falta. Tres de cada cuatro
+       perdidos, y las parejas de la huella se hacen a distancias FIJAS de
+       frames, asi que casi ninguna llegaba a formarse. La app oia bien y no
+       reconocia nada.
+
+       Un temporizador corto no depende de que se dibuje nada. Se mira mas a
+       menudo de lo necesario a proposito: preguntar de mas es gratis, llegar
+       tarde cuesta un frame que ya no vuelve. */
+    this.reloj = setInterval(tick, 10);
   }
 
   /* Cuánta señal está entrando, de verdad.
@@ -1927,6 +1941,7 @@ class Listener {
 
   stop() {
     this.running = false;
+    if (this.reloj) { clearInterval(this.reloj); this.reloj = null; }
     if (this.stream) this.stream.getTracks().forEach(pista => pista.stop());
     if (this.ctx) this.ctx.close();
     this.ctx = null; this.stream = null;
