@@ -424,6 +424,13 @@
      problema es el microfono y no la cancion. */
   .meter > i.sat { background: var(--accent); }
 
+  /* Los datos tecnicos: pares de nombre y valor, el valor en cifras alineadas
+     para poder compararlos de un vistazo entre dos telefonos. */
+  .diag { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 0.8rem; }
+  .diag b { font-weight: 400; color: var(--muted); }
+  .diag span { font-variant-numeric: tabular-nums; text-align: right; }
+  .diag span.mal { color: var(--accent); font-weight: 600; }
+
   /* ---------- Lista ---------- */
   .song {
     display: flex;
@@ -918,6 +925,16 @@
       <h2 data-i18n="yourScores">Tus puntajes</h2>
       <div id="a-scores"></div>
     </div>
+
+    <!-- Plegada y la ultima: no es para usar la app, es para cuando la app no
+         anda y hay que saber por que. Se queda dentro de esta pantalla porque
+         cambiar de pestana suelta el microfono, y entonces no habria nada que
+         mirar. -->
+    <details class="guia">
+      <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-target"/></svg><span data-i18n="diagTitle">Si no reconoce: datos técnicos</span></summary>
+      <p class="hint" data-i18n="diagHelp">Poné la música, tocá «Escuchar» y abrí esto sin salir de la pantalla. Mandame lo que dice.</p>
+      <div class="diag" id="diag"></div>
+    </details>
   </section>
 
   <!-- ============ CATALOGO (solo administrador) ============ -->
@@ -1103,6 +1120,11 @@ const STR = {
     onlyThis: "solo esta", del: "borrar",
     install: "Instalar la app", vibrate: "Vibrar",
     micSat: "El micrófono está saturando: bajá el volumen de la música o alejá el teléfono. Con la señal recortada no puede reconocer nada.",
+    diagTitle: "Si no reconoce: datos técnicos",
+    diagHelp: "Poné la música, tocá «Escuchar» y abrí esto sin salir de la pantalla. Mandame lo que dice.",
+    diagRate: "Muestreo del micrófono", diagFps: "Frames por segundo",
+    diagPeak: "Nivel de entrada", diagHashes: "Huellas comparadas",
+    diagMatch: "Mejor coincidencia", diagNothing: "nada todavía",
     vibeNA: "Vibrar: no disponible",
     vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
     startHint: "Pon la canción y dale a escuchar.",
@@ -1316,6 +1338,11 @@ const STR = {
     onlyThis: "this one", del: "delete",
     install: "Install the app", vibrate: "Vibrate",
     micSat: "The microphone is overloading: turn the music down or move the phone away. With a clipped signal it cannot recognise anything.",
+    diagTitle: "If it does not recognise: technical data",
+    diagHelp: "Put the music on, tap “Listen” and open this without leaving the screen. Send me what it says.",
+    diagRate: "Microphone sample rate", diagFps: "Frames per second",
+    diagPeak: "Input level", diagHashes: "Prints compared",
+    diagMatch: "Best match", diagNothing: "nothing yet",
     vibeNA: "Vibrate: unavailable",
     vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
     startHint: "Put the song on and press listen.",
@@ -1546,7 +1573,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.10.0";
+const VERSION = "2.11.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1722,11 +1749,19 @@ class Matcher {
         segundaCancion = Math.max(segundaCancion, bScore);
       }
     }
-    if (!best) return null;
+    if (!best) { this.ultimo = null; return null; }
 
     const MINIMO = this.minimo;   // votos absolutos: sin esto no hay evidencia
     const SOBRESALE = 7;          // desviaciones por encima del monton
     const ENTRE_CANCIONES = 1.6;  // margen sobre la segunda candidata
+
+    /* Lo ultimo que se miro, se acepte o no. Sin esto, "no reconozco" es una
+       pared: no se sabe si falta evidencia, si sobra ruido, o si hay dos
+       canciones peleando. Con esto, quien prueba la app puede leer por que. */
+    this.ultimo = {
+      votos: best.score, hacenFalta: MINIMO,
+      sobresale: best.sobresale, segunda: segundaCancion
+    };
 
     if (best.score < MINIMO) return null;
     if (best.sobresale < SOBRESALE) return null;
@@ -1767,6 +1802,7 @@ class Listener {
     this.onda = new Float32Array(this.analyser.fftSize);
     this.t0 = this.ctx.currentTime;
     this.frame = -1;
+    this.frames = 0;
     this.running = true;
 
     const tick = () => {
@@ -1776,6 +1812,7 @@ class Listener {
       const f = Math.floor(elapsed / FP.HOP);
       if (f === this.frame) return;
       this.frame = f;
+      this.frames++;
       this.analyser.getFloatFrequencyData(this.spec);
       if (onLevel) onLevel(this.medir(), this.saturando);
       onFrame(this.spec, f, elapsed);
@@ -1834,6 +1871,19 @@ class Listener {
   }
 
   get time() { return this.ctx ? this.ctx.currentTime - this.t0 : 0; }
+
+  /* A cuantas muestras por segundo trabaja este telefono. Importa mas de lo
+     que parece: la huella guarda numeros de casilla del espectro, y a que
+     frecuencia corresponde cada casilla depende de esto. Si una cancion se
+     grabo a 44.100 y se escucha a 48.000, las mismas notas caen en casillas
+     distintas y no coincide nada. */
+  get muestreo() { return this.ctx ? Math.round(this.ctx.sampleRate) : 0; }
+
+  /* Frames por segundo de verdad. La huella empareja frames a distancias
+     FIJAS; si el telefono no llega al ritmo, se saltan frames y con ellos se
+     pierden casi todas las parejas. Un telefono lento falla por aqui sin que
+     nada parezca roto. */
+  get ritmo() { const t = this.time; return t > 1 ? this.frames / t : 0; }
 
   stop() {
     this.running = false;
@@ -2723,6 +2773,7 @@ $("p-file").addEventListener("change", async (e) => {
 const student = {
   listener: null, fp: null, song: null, offset: 0, syncAt: 0,
   vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null,
+  nivel: 0, huellas: 0,
   /* searchFrom: momento en que empezo la busqueda ACTUAL. No es lo mismo que el
      tiempo total escuchando: al perder una cancion la busqueda vuelve a empezar,
      y los mensajes tienen que volver a empezar con ella.
@@ -2801,6 +2852,54 @@ function pintarAlumno() {
   $("a-vibe").hidden = !hay;
 }
 
+/* ---------- Datos técnicos ----------
+
+   Gabriel probó la app en un teléfono más barato y no reconocía nada. Desde
+   aquí no hay forma de saber por qué: el teléfono no está en esta mesa. Así
+   que la app cuenta lo que ve, y quien la tiene en la mano lo lee.
+
+   Los cuatro números son los cuatro sitios donde esto se puede romper, y cada
+   uno se pone en rojo cuando se sale de lo razonable. */
+function pintarDiagnostico() {
+  const caja = $("diag");
+  if (!caja) return;
+  const l = student.listener;
+  const m = matcher.ultimo;
+  const filas = [];
+
+  /* La huella guarda números de casilla del espectro. A qué frecuencia
+     corresponde cada casilla depende del muestreo, así que una canción
+     grabada a 44.100 y escuchada a 48.000 no coincide con nada. */
+  filas.push([t("diagRate"), l ? l.muestreo + " Hz" : "—",
+              l && l.muestreo !== 44100]);
+
+  /* Las parejas de la huella se hacen a distancias fijas de frames. Si el
+     teléfono no llega al ritmo, se saltan frames y se pierden las parejas. */
+  const pide = 1 / FP.HOP;
+  filas.push([t("diagFps"),
+              l ? l.ritmo.toFixed(1) + " / " + pide.toFixed(1) : "—",
+              !!l && l.ritmo > 0 && l.ritmo < pide * 0.9]);
+
+  filas.push([t("diagPeak"),
+              l ? Math.round(student.nivel * 100) + "%" : "—",
+              !!l && l.saturando]);
+
+  filas.push([t("diagHashes"), student.huellas ? String(student.huellas) : "—",
+              !!l && student.huellas > 0 && student.huellas < 200]);
+
+  filas.push([t("diagMatch"),
+              m ? m.votos + " / " + m.hacenFalta : t("diagNothing"),
+              !!m && m.votos < m.hacenFalta]);
+
+  caja.textContent = "";
+  for (const [nombre, valor, mal] of filas) {
+    const n = document.createElement("b"); n.textContent = nombre;
+    const v = document.createElement("span"); v.textContent = valor;
+    if (mal) v.className = "mal";
+    caja.append(n, v);
+  }
+}
+
 $("a-start").addEventListener("click", async () => {
   if (!songs.length) { setA(t("noSongs"), "err"); return; }
 
@@ -2818,6 +2917,7 @@ $("a-start").addEventListener("click", async () => {
     await student.listener.start(
       onStudentFrame,
       (lvl, saturando) => {
+        student.nivel = lvl;
         const barra = $("a-level");
         barra.style.width = (lvl * 100) + "%";
         barra.classList.toggle("sat", saturando);
@@ -2841,7 +2941,11 @@ function stopStudent() {
   student.locked = null;
   student.forced = null;
   student.everFound = false;
+  student.huellas = 0;
+  student.nivel = 0;
+  matcher.ultimo = null;
   pintarAlumno();
+  pintarDiagnostico();
   $("a-big").textContent = "·";
   $("a-big").className = "big";
   $("a-sub").textContent = "Sin escuchar";
@@ -2860,6 +2964,8 @@ function onStudentFrame(spec, frame, elapsed) {
   }
 
   if (student.song) paintStudent();
+  // Tres veces por segundo alcanza: son numeros para leer, no una animacion.
+  if (frame % 7 === 0) pintarDiagnostico();
 }
 
 /* Que decirle a alguien que lleva un rato esperando sin que pase nada.
@@ -2898,6 +3004,7 @@ function tryMatch(elapsed) {
     if (times[i] >= minFrame) { qk.push(keys[i]); qt.push(times[i]); }
   }
 
+  student.huellas = qk.length;
   const res = matcher.match(qk, qt, student.forced || undefined);
   student.matching = false;
   if (!res) {
@@ -4328,6 +4435,7 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
 (async () => {
   // Lo primero, para que el numero este puesto pase lo que pase despues.
   $("ver").textContent = VERSION;
+  pintarDiagnostico();     // que no sea una caja vacia antes de escuchar
   initVibe();
   prepararPlegables();
   cloud.load();
