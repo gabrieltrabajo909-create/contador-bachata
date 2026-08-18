@@ -1573,7 +1573,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.11.0";
+const VERSION = "2.11.1";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1780,15 +1780,15 @@ class Listener {
   constructor() { this.ctx = null; this.stream = null; this.analyser = null; this.running = false; }
 
   async start(onFrame, onLevel, onSaturar) {
-    /* La ganancia automática empieza apagada porque deforma un poco el sonido
-       y la huella sale más limpia sin ella. Si el micrófono resulta ser de los
-       que saturan, se enciende sobre la marcha: ver domarGanancia. */
+    /* La ganancia automática, apagada: deforma el sonido y la huella sale más
+       limpia sin ella. Y una vez abierta la captura, estos ajustes no se
+       vuelven a tocar: cambiarlos en caliente reinicia el micrófono. */
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     });
     this.onSaturar = onSaturar;
     this.saturados = 0;
-    this.domada = false;
+    this.avisado = false;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
@@ -1844,29 +1844,27 @@ class Listener {
     if (pico > 0.985) this.saturados++;
     else this.saturados = Math.max(0, this.saturados - 2);
     this.saturando = this.saturados > 8;
-    if (this.saturados > 30) this.domarGanancia();
+    if (this.saturados > 30) this.avisarSaturacion();
 
     // En decibelios, que es como se oye: -60 dB vacía, 0 dB llena.
     const db = 20 * Math.log10(Math.max(pico, 1e-4));
     return Math.max(0, Math.min(1, (db + 60) / 60));
   }
 
-  /* El micrófono viene demasiado caliente para lo que suena. Contra una onda
-     ya recortada no hay arreglo posible: la información se perdió antes de
-     llegar aquí. Lo único que sirve es que entre menos señal, así que se le
-     pide al teléfono que module él la ganancia, que es lo que sabe hacer.
+  /* Aviso de que el micrófono viene demasiado caliente. SOLO aviso.
 
-     Una sola vez: si con la ganancia automática sigue saturando, insistir no
-     va a cambiar nada y hay que bajar el volumen de la música. */
-  async domarGanancia() {
-    if (this.domada) return;
-    this.domada = true;
-    const pista = this.stream && this.stream.getAudioTracks()[0];
-    try {
-      if (pista && pista.applyConstraints) {
-        await pista.applyConstraints({ autoGainControl: true });
-      }
-    } catch (e) { /* hay navegadores que no dejan: queda el aviso al usuario */ }
+     Aquí se intentó, y duró un día, cambiarle la ganancia al micrófono sobre
+     la marcha con applyConstraints. Fue un error: en el teléfono de Gabriel,
+     que reconocía bien, dejó de reconocer. Tocarle los ajustes a un micrófono
+     que ya estaba capturando reinicia la captura, y eso pisa justo el audio
+     que se está comparando.
+
+     La regla que sale de aquí: esta clase MIRA el micrófono, no lo toca.
+     Si entra demasiada señal, el que baja el volumen es el que está en la
+     habitación, que además puede oír lo que pasa. */
+  avisarSaturacion() {
+    if (this.avisado) return;
+    this.avisado = true;
     if (this.onSaturar) this.onSaturar();
   }
 

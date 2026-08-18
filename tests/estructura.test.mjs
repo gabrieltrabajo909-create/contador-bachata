@@ -522,6 +522,37 @@ await prueba("el aviso del navegador es de un solo uso y se trata como tal", () 
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("Al microfono no se le toca");
+
+await prueba("nadie le cambia los ajustes al microfono en caliente", () => {
+  /* Duro un dia. Se le encendia la ganancia automatica al vuelo cuando la
+     senal saturaba, con applyConstraints. Resultado: el telefono de Gabriel,
+     que reconocia bien, dejo de reconocer. Cambiarle los ajustes a un
+     microfono que ya esta capturando reinicia la captura, y eso pisa
+     justamente el audio que se esta comparando.
+
+     La leccion no es "applyConstraints es malo": es que el arreglo salio de
+     una teoria que yo no podia comprobar, y se probo encima de lo unico que
+     funcionaba. */
+  afirmar(!/applyConstraints\s*\(/.test(FUENTE),
+    "se le vuelven a tocar los ajustes al microfono con la captura abierta");
+});
+
+await prueba("del microfono solo se pide el permiso y el apagado", () => {
+  /* Lo unico que la app tiene derecho a hacer con la captura es abrirla y
+     cerrarla. Cualquier otra orden a mitad de camino es tocar el suelo que se
+     esta pisando. */
+  const usos = [...FUENTE.matchAll(/\.getAudioTracks\(\)[^\n;]*/g)].map(m => m[0]);
+  for (const uso of usos) {
+    afirmar(/^\.getAudioTracks\(\)(\[0\])?$/.test(uso.trim()),
+      "se hace algo raro con la captura: " + uso.trim());
+  }
+  const pistas = [...FUENTE.matchAll(/getTracks\(\)\.forEach\(\w+ => \w+\.(\w+)\(\)/g)]
+    .map(m => m[1]);
+  igual(pistas.join(","), "stop", "a las pistas se les hace algo mas que pararlas");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("La version a la vista");
 
 /* La app se guarda en el telefono para abrirse sin internet, asi que la
