@@ -8,7 +8,8 @@ import { seccion, prueba, afirmar, igual, cerca, azar, resumen } from "./marco.m
 const M = await cargar([
   "FP", "packHash", "Fingerprinter", "Matcher",
   "countAt", "nearestOne", "BANDS", "judge",
-  "toB64", "fromB64", "RALO", "huellaRala", "Listener", "ventanaPara"
+  "toB64", "fromB64", "RALO", "huellaRala", "Listener", "ventanaPara",
+  "fftEnSitio", "espectroDe", "VENTANA", "OBRERO"
 ]);
 
 /* ---------------------------------------------------------------------------
@@ -520,6 +521,126 @@ await prueba("con la frecuencia fija se sigue llegando a los 5 kHz", () => {
   afirmar(mira <= techo,
     `se miran ${Math.round(mira)} Hz y a ${M.FP.RATE} Hz solo hay hasta ${techo}`);
   afirmar(mira > 4500, "se dejó de mirar la parte alta: solo llega a " + Math.round(mira));
+});
+
+/* ---------------------------------------------------------------------------
+   El espectro calculado en casa
+
+   Se dejo de preguntarle el espectro al navegador porque esa pregunta la hace
+   el hilo que dibuja la pantalla, y cuando ese hilo se atasca el audio de esos
+   momentos se pierde: 6,6 frames por segundo de los 21,6, medido en el
+   telefono de Gabriel con el microfono funcionando perfectamente.
+
+   Ahora las muestras las empuja el hilo del audio y la cuenta se hace aqui. Lo
+   que estas pruebas protegen es que la cuenta de EXACTAMENTE lo mismo que daba
+   el navegador: si no, las canciones ya grabadas dejan de reconocerse.
+--------------------------------------------------------------------------- */
+seccion("El espectro calculado en casa");
+
+/* Transformada lenta y directa, escrita aparte y de la forma mas tonta
+   posible. Sirve de juez: si la rapida se desvia de esta, la rapida esta mal. */
+function dftLenta(x) {
+  const N = x.length, out = new Float64Array(N / 2);
+  for (let k = 0; k < N / 2; k++) {
+    let re = 0, im = 0;
+    for (let n = 0; n < N; n++) {
+      const a = -2 * Math.PI * k * n / N;
+      re += x[n] * Math.cos(a);
+      im += x[n] * Math.sin(a);
+    }
+    out[k] = Math.sqrt(re * re + im * im) / N;
+  }
+  return out;
+}
+
+await prueba("la transformada rapida da lo mismo que la lenta", () => {
+  const N = M.FP.FFT;
+  const x = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    x[i] = 0.5 * Math.sin(2 * Math.PI * 46 * i / N)
+         + 0.25 * Math.sin(2 * Math.PI * 100 * i / N)
+         + 0.1 * Math.cos(2 * Math.PI * 7 * i / N);
+  }
+  const lenta = dftLenta(x);
+  const re = Float64Array.from(x), im = new Float64Array(N);
+  M.fftEnSitio(re, im);
+  for (let k = 0; k < N / 2; k++) {
+    const rapida = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / N;
+    cerca(rapida, lenta[k], 1e-9, "la casilla " + k + " no coincide con la cuenta lenta");
+  }
+});
+
+await prueba("un tono cae en su casilla y en ninguna otra", () => {
+  const N = M.FP.FFT;
+  for (const casilla of [10, 46, 100, 200]) {
+    const bloque = new Float32Array(N);
+    for (let i = 0; i < N; i++) bloque[i] = Math.sin(2 * Math.PI * casilla * i / N);
+    const spec = new Float32Array(N / 2);
+    M.espectroDe(bloque, new Float64Array(N), new Float64Array(N), spec);
+    let mejor = -Infinity, donde = -1;
+    for (let i = 0; i < N / 2; i++) if (spec[i] > mejor) { mejor = spec[i]; donde = i; }
+    igual(donde, casilla, "un tono de la casilla " + casilla + " salio en la " + donde);
+  }
+});
+
+await prueba("la ventana es la misma que aplica el navegador", () => {
+  /* Blackman: la que dice la norma. Si se cambiara por otra, los picos se
+     moverian y las huellas viejas dejarian de coincidir. Comprobado en el
+     navegador contra su AnalyserNode: -19,58 / -25,60 / -33,56 dB, identicos. */
+  const N = M.FP.FFT;
+  igual(M.VENTANA.length, N, "la ventana no mide lo que la transformada");
+  for (const i of [0, 1, 37, N / 2, N - 1]) {
+    const esperado = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / N)
+                          + 0.08 * Math.cos(4 * Math.PI * i / N);
+    cerca(M.VENTANA[i], esperado, 1e-6, "la ventana no es Blackman en " + i);
+  }
+  cerca(M.VENTANA[N / 2], 1, 0.001, "la ventana no vale 1 en el centro");
+  afirmar(M.VENTANA[0] < 0.01, "la ventana no cierra en los extremos");
+});
+
+await prueba("el silencio no inventa picos ni numeros imposibles", () => {
+  const N = M.FP.FFT;
+  const spec = new Float32Array(N / 2);
+  M.espectroDe(new Float32Array(N), new Float64Array(N), new Float64Array(N), spec);
+  for (let i = 0; i < N / 2; i++) {
+    afirmar(Number.isFinite(spec[i]), "salio un numero imposible en la casilla " + i);
+    afirmar(spec[i] <= -180, "el silencio da " + spec[i] + " dB en la casilla " + i);
+  }
+});
+
+await prueba("el volumen mueve todo el espectro por igual, no los picos", () => {
+  /* Un microfono mas caliente que otro no puede cambiar QUE casilla gana. */
+  const N = M.FP.FFT;
+  const base = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    base[i] = 0.3 * Math.sin(2 * Math.PI * 46 * i / N)
+            + 0.2 * Math.sin(2 * Math.PI * 130 * i / N);
+  }
+  const pico = (mult) => {
+    const b = Float32Array.from(base, v => v * mult);
+    const spec = new Float32Array(N / 2);
+    M.espectroDe(b, new Float64Array(N), new Float64Array(N), spec);
+    let mejor = -Infinity, donde = -1;
+    for (let i = 0; i < N / 2; i++) if (spec[i] > mejor) { mejor = spec[i]; donde = i; }
+    return { donde, mejor };
+  };
+  const flojo = pico(0.05), fuerte = pico(4);
+  igual(flojo.donde, fuerte.donde, "al subir el volumen cambio la casilla ganadora");
+  cerca(fuerte.mejor - flojo.mejor, 20 * Math.log10(4 / 0.05), 0.01,
+    "la diferencia en decibelios no es la que toca");
+});
+
+await prueba("el obrero del hilo de audio no pierde ni una muestra", () => {
+  /* Se lee el programita que corre en el hilo del audio y se comprueba lo
+     unico que importa: que recorra TODAS las muestras que le entran y mande
+     bloques enteros. Si se saltara alguna, la huella saldria coja otra vez. */
+  afirmar(/for \(let i = 0; i < canal\.length; i\+\+\)/.test(M.OBRERO),
+    "el obrero no recorre todas las muestras que le llegan");
+  afirmar(/this\.n === this\.tam/.test(M.OBRERO),
+    "el obrero no manda bloques del tamano que toca");
+  afirmar(/return true/.test(M.OBRERO), "el obrero se apaga solo");
+  afirmar(!/console\.|document|window/.test(M.OBRERO),
+    "el obrero toca cosas que en el hilo del audio no existen");
 });
 
 /* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba

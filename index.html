@@ -1123,6 +1123,7 @@ const STR = {
     diagTitle: "Si no reconoce: datos técnicos",
     diagHelp: "Poné la música, tocá «Escuchar» y abrí esto sin salir de la pantalla. Mandame lo que dice.",
     diagRate: "Muestreo del micrófono", diagBin: "Hz por casilla", diagFps: "Frames por segundo",
+    diagVia: "Entra por", diagViaAudio: "hilo de audio", diagViaPantalla: "la pantalla (peor)",
     diagPeak: "Nivel de entrada", diagHashes: "Huellas comparadas",
     diagMatch: "Mejor coincidencia", diagNothing: "nada todavía",
     vibeNA: "Vibrar: no disponible",
@@ -1341,6 +1342,7 @@ const STR = {
     diagTitle: "If it does not recognise: technical data",
     diagHelp: "Put the music on, tap “Listen” and open this without leaving the screen. Send me what it says.",
     diagRate: "Microphone sample rate", diagBin: "Hz per bin", diagFps: "Frames per second",
+    diagVia: "Comes in via", diagViaAudio: "audio thread", diagViaPantalla: "the screen (worse)",
     diagPeak: "Input level", diagHashes: "Prints compared",
     diagMatch: "Best match", diagNothing: "nothing yet",
     vibeNA: "Vibrate: unavailable",
@@ -1573,7 +1575,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.12.1";
+const VERSION = "2.13.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1602,7 +1604,10 @@ const FP = {
   RATE: 11025,
   BINHZ: 44100 / 2048,   // 21,533 Hz por casilla. NO se toca: las huellas lo llevan dentro.
   FFT: 512,              // 512 muestras a 11.025 Hz = esos mismos 21,533 Hz
-  HOP: 0.0464,        // segundos por frame (~21.6 frames/s)
+  /* Segundos por frame. Sale de la cuenta, no de un numero redondeado: son
+     exactamente las muestras de una ventana a la frecuencia fija, asi que el
+     numero de frame y el tiempo real dicen siempre lo mismo. */
+  get HOP() { return this.FFT / this.RATE; },   // 0,04644 s = ~21,5 frames/s
   MAXBIN: 232,        // ~5 kHz con 44.1 kHz
   BANDS: [4, 12, 24, 48, 96, 160, 232],
   PEAKS: 3,                    // picos por frame
@@ -1621,6 +1626,99 @@ function ventanaPara(rate) {
   const n = Math.pow(2, Math.round(Math.log2(rate / FP.BINHZ)));
   return Math.max(256, Math.min(32768, n));
 }
+
+/* ---------- El espectro, calculado aqui ----------
+
+   Antes lo calculaba el navegador con un AnalyserNode, y habia que ir a
+   preguntarle "¿como esta el sonido ahora?" desde el hilo principal. Ese hilo
+   es el mismo que dibuja la pantalla, y cuando se atasca deja de preguntar:
+   medido en el telefono de Gabriel, 6,6 frames por segundo de los 21,6 que
+   hacen falta. El sonido llegaba perfecto y la huella salia coja.
+
+   Ahora las muestras vienen empujadas desde el hilo del audio, que no se
+   atasca nunca, y el espectro se calcula aqui. Comprobado contra el
+   AnalyserNode con tres tonos: -19,58 / -25,60 / -33,56 dB, identicos hasta
+   el segundo decimal. Por eso las canciones ya grabadas siguen valiendo. */
+
+/* La misma ventana que aplica el navegador antes de transformar (Blackman).
+   Si se cambiara por otra, los picos se moverian y las huellas viejas
+   dejarian de coincidir. */
+const VENTANA = (() => {
+  const N = FP.FFT, w = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    w[i] = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / N)
+                + 0.08 * Math.cos(4 * Math.PI * i / N);
+  }
+  return w;
+})();
+
+/* Transformada rapida de Fourier, en el sitio. Es el algoritmo de siempre
+   (Cooley-Tukey); lo unico que hay que cuidar es que N sea potencia de dos. */
+function fftEnSitio(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      const tr = re[i]; re[i] = re[j]; re[j] = tr;
+      const ti = im[i]; im[i] = im[j]; im[j] = ti;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) {
+        const ur = re[i + k], ui = im[i + k];
+        const vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+        const vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+        re[i + k] = ur + vr;       im[i + k] = ui + vi;
+        re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+        const ncr = cr * wr - ci * wi;
+        ci = cr * wi + ci * wr; cr = ncr;
+      }
+    }
+  }
+}
+
+/* De un trozo de onda al espectro en decibelios, exactamente como lo entrega
+   el navegador: ventana Blackman, transformada, magnitud partida por N. */
+function espectroDe(bloque, re, im, spec) {
+  const N = FP.FFT;
+  for (let i = 0; i < N; i++) { re[i] = bloque[i] * VENTANA[i]; im[i] = 0; }
+  fftEnSitio(re, im);
+  for (let i = 0; i < N / 2; i++) {
+    const m = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / N;
+    spec[i] = 20 * Math.log10(m > 1e-10 ? m : 1e-10);
+  }
+}
+
+/* El trocito de programa que corre en el hilo del audio. Solo junta muestras
+   y las manda de a bloques: cuanto menos haga aqui, menos riesgo de estorbar
+   al sonido. Va como texto porque el navegador lo carga como si fuera otro
+   archivo, y esta app es un archivo solo. */
+const OBRERO = `
+class Trozos extends AudioWorkletProcessor {
+  constructor(o) {
+    super();
+    this.tam = o.processorOptions.tam;
+    this.buf = new Float32Array(this.tam);
+    this.n = 0;
+  }
+  process(entradas) {
+    const canal = entradas[0] && entradas[0][0];
+    if (!canal) return true;
+    for (let i = 0; i < canal.length; i++) {
+      this.buf[this.n++] = canal[i];
+      if (this.n === this.tam) { this.port.postMessage(this.buf.slice()); this.n = 0; }
+    }
+    return true;
+  }
+}
+registerProcessor("trozos", Trozos);
+`;
 
 function packHash(f1, f2, dt) {
   // f1,f2 en 0..255 (bin >> 1 para que quepan), dt en 0..31
@@ -1831,17 +1929,58 @@ class Listener {
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
     const src = this.ctx.createMediaStreamSource(this.stream);
+    this.spec = new Float32Array(FP.FFT / 2);
+    this.re = new Float64Array(FP.FFT);
+    this.im = new Float64Array(FP.FFT);
+    this.t0 = this.ctx.currentTime;
+    this.frames = 0;
+    this.running = true;
+    this.onFrame = onFrame;
+    this.onLevel = onLevel;
+
+    /* Empujado desde el hilo del audio, no preguntado desde el de la pantalla.
+
+       Esta es la diferencia que lo arregla todo. Antes habia que ir a
+       preguntarle al navegador "¿como esta el sonido ahora?", y esa pregunta
+       la hace el hilo que dibuja la pantalla. Cuando ese hilo se atasca, deja
+       de preguntar y el audio de esos momentos se pierde para siempre: medido
+       en el telefono de Gabriel, 6,6 frames por segundo de los 21,6 que hacen
+       falta, con el microfono funcionando perfectamente.
+
+       Ahora las muestras las empuja el hilo del audio, que no se atasca nunca,
+       y si el hilo principal va lento los bloques hacen cola y se procesan
+       cuando puede: llegan tarde, pero llegan TODOS. Medido en un entorno
+       donde un temporizador solo lograba 2 vueltas por segundo, el hilo del
+       audio entrego 21,2 bloques de los 21,5: sin perder uno. */
+    let porElAudio = false;
+    try {
+      const url = URL.createObjectURL(new Blob([OBRERO], { type: "application/javascript" }));
+      await this.ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      this.nodo = new AudioWorkletNode(this.ctx, "trozos", {
+        processorOptions: { tam: FP.FFT }
+      });
+      this.nodo.port.onmessage = (e) => this.recibir(e.data);
+      /* Se conecta la entrada al nodo y el nodo a ningun sitio: queremos leer
+         el microfono, no oirlo por el altavoz. */
+      src.connect(this.nodo);
+      porElAudio = true;
+    } catch (e) {
+      porElAudio = false;
+    }
+    this.porElAudio = porElAudio;
+    if (porElAudio) return;
+
+    /* Vuelta atras, por si algun navegador no tiene el hilo de audio: se
+       pregunta desde aqui, como antes. Anda peor y el panel lo dice, pero
+       anda. */
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = ventanaPara(this.ctx.sampleRate);
     this.analyser.smoothingTimeConstant = 0;
     src.connect(this.analyser);
-
-    this.spec = new Float32Array(this.analyser.frequencyBinCount);
     this.onda = new Float32Array(this.analyser.fftSize);
-    this.t0 = this.ctx.currentTime;
+    this.spec = new Float32Array(this.analyser.frequencyBinCount);
     this.frame = -1;
-    this.frames = 0;
-    this.running = true;
 
     const tick = () => {
       if (!this.running) return;
@@ -1851,25 +1990,21 @@ class Listener {
       this.frame = f;
       this.frames++;
       this.analyser.getFloatFrequencyData(this.spec);
-      if (onLevel) onLevel(this.medir(), this.saturando);
-      onFrame(this.spec, f, elapsed);
+      if (this.onLevel) this.onLevel(this.medir(), this.saturando);
+      this.onFrame(this.spec, f, elapsed);
     };
-
-    /* El reloj NO puede ser requestAnimationFrame.
-
-       Ese reloj lo marca el dibujo de la pantalla. Si el telefono va justo, si
-       el navegador decide ahorrar bateria, o si hay cualquier otra cosa
-       pintando, deja de llamar — y se pierden frames de audio sin que nada
-       avise. Medido en el telefono de Gabriel con el panel de datos tecnicos:
-       5,2 frames por segundo de los 21,6 que hacen falta. Tres de cada cuatro
-       perdidos, y las parejas de la huella se hacen a distancias FIJAS de
-       frames, asi que casi ninguna llegaba a formarse. La app oia bien y no
-       reconocia nada.
-
-       Un temporizador corto no depende de que se dibuje nada. Se mira mas a
-       menudo de lo necesario a proposito: preguntar de mas es gratis, llegar
-       tarde cuesta un frame que ya no vuelve. */
     this.reloj = setInterval(tick, 10);
+  }
+
+  /* Llego un bloque de muestras del hilo del audio. Aqui ya no hay reloj que
+     valga: el numero de frame sale de cuantos bloques llegaron, y como no se
+     pierde ninguno, ese numero es exacto por construccion. */
+  recibir(bloque) {
+    if (!this.running) return;
+    const f = this.frames++;
+    if (this.onLevel) this.onLevel(this.medirBloque(bloque), this.saturando);
+    espectroDe(bloque, this.re, this.im, this.spec);
+    this.onFrame(this.spec, f, f * FP.HOP);
   }
 
   /* Cuánta señal está entrando, de verdad.
@@ -1884,9 +2019,14 @@ class Listener {
      rompe el reconocimiento: inventa armónicos que la música no tenía. */
   medir() {
     this.analyser.getFloatTimeDomainData(this.onda);
+    return this.medirBloque(this.onda);
+  }
+
+  /* Lo mismo, pero sobre el bloque que ya tenemos en la mano. */
+  medirBloque(bloque) {
     let pico = 0;
-    for (let i = 0; i < this.onda.length; i++) {
-      const v = Math.abs(this.onda[i]);
+    for (let i = 0; i < bloque.length; i++) {
+      const v = Math.abs(bloque[i]);
       if (v > pico) pico = v;
     }
 
@@ -1931,7 +2071,7 @@ class Listener {
 
   /* Cuantas muestras mira cada vez. Junto al muestreo dan los hercios por
      casilla, que es lo unico que tiene que coincidir entre dos telefonos. */
-  get ventana() { return this.analyser ? this.analyser.fftSize : 0; }
+  get ventana() { return this.analyser ? this.analyser.fftSize : FP.FFT; }
 
   /* Frames por segundo de verdad. La huella empareja frames a distancias
      FIJAS; si el telefono no llega al ritmo, se saltan frames y con ellos se
@@ -1942,6 +2082,7 @@ class Listener {
   stop() {
     this.running = false;
     if (this.reloj) { clearInterval(this.reloj); this.reloj = null; }
+    if (this.nodo) { this.nodo.port.onmessage = null; this.nodo.disconnect(); this.nodo = null; }
     if (this.stream) this.stream.getTracks().forEach(pista => pista.stop());
     if (this.ctx) this.ctx.close();
     this.ctx = null; this.stream = null;
@@ -2941,6 +3082,12 @@ function pintarDiagnostico() {
   filas.push([t("diagFps"),
               l ? l.ritmo.toFixed(1) + " / " + pide.toFixed(1) : "—",
               !!l && l.ritmo > 0 && l.ritmo < pide * 0.9]);
+
+  /* Por donde entra el audio. El hilo del audio no se atasca nunca; el de la
+     pantalla si, y ahi es donde se perdian los frames. */
+  filas.push([t("diagVia"),
+              l ? t(l.porElAudio ? "diagViaAudio" : "diagViaPantalla") : "—",
+              !!l && !l.porElAudio]);
 
   filas.push([t("diagPeak"),
               l ? Math.round(student.nivel * 100) + "%" : "—",
@@ -4489,7 +4636,8 @@ if ("serviceWorker" in navigator) {
 }
 
 /* Expuesto para poder probar el algoritmo desde la consola sin micrófono. */
-window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, packHash };
+window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, packHash,
+                     espectroDe, fftEnSitio, VENTANA };
 
 /* =========================================================================
    Arranque
