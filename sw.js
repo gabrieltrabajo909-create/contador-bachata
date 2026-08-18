@@ -9,7 +9,10 @@
  * candado que ya se abrió.
  */
 
-const CACHE = "cuentas-v2";
+/* El nombre lleva la version dentro a proposito: al cambiarla, este deposito
+ * pasa a ser otro, se baja todo de nuevo y el viejo se borra. Con un nombre
+ * fijo, una copia mala se quedaba pegada sin manera de echarla. */
+const CACHE = "cuentas-2.10.0";
 const COPIA = [
   "./",
   "./index.html",

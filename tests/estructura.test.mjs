@@ -522,6 +522,43 @@ await prueba("el aviso del navegador es de un solo uso y se trata como tal", () 
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("La version a la vista");
+
+/* La app se guarda en el telefono para abrirse sin internet, asi que la
+   primera vez despues de un cambio se ve la copia vieja. Sin un numero
+   delante se pierde el tiempo discutiendo sobre codigo que no es el que
+   corre: paso, y por eso Gabriel lo pidio. */
+
+const VERSION = /const VERSION = "([^"]+)"/.exec(FUENTE);
+
+await prueba("hay un numero de version y tiene forma de version", () => {
+  afirmar(VERSION, "no encuentro la version en el codigo");
+  afirmar(/^\d+\.\d+\.\d+$/.test(VERSION[1]),
+    'la version es "' + VERSION[1] + '" y deberia ser tipo 2.10.0');
+});
+
+await prueba("la version se ve al lado del nombre", () => {
+  const marca = /<div class="brand">[\s\S]*?<\/div>/.exec(SOLO_HTML);
+  afirmar(marca, "no encuentro la barra de arriba");
+  afirmar(/id="ver"/.test(marca[0]),
+    "la version no esta junto al nombre, que es donde se mira");
+  afirmar(/\$\("ver"\)\.textContent = VERSION/.test(FUENTE),
+    "el hueco de la version se queda vacio");
+});
+
+await prueba("al cambiar la version se tira la copia guardada", () => {
+  /* Con un nombre de deposito fijo, una copia mala se queda pegada y no hay
+     manera de echarla: el numero de arriba diria una cosa y el codigo seria
+     otro, que es justo lo que se quiere evitar. */
+  const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  const cache = /const CACHE = "([^"]+)"/.exec(sw);
+  afirmar(cache, "no encuentro el nombre del deposito en sw.js");
+  afirmar(cache[1].includes(VERSION[1]),
+    `el deposito se llama "${cache[1]}" y la version es ${VERSION[1]}: ` +
+    "al publicar, el telefono se queda con la copia vieja");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("La llave del servidor");
 
 await prueba("la clave del servidor es la publica, no una secreta", () => {

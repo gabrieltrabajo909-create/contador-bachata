@@ -47,6 +47,9 @@
   }
   .brand { display: flex; align-items: center; gap: 8px; font-size: .98rem; }
   .brand-ic { width: 28px; height: 28px; border-radius: 8px; display: block; }
+  /* La version, chiquita y apagada. No es para lucirla: es para saber si lo
+     que tenes delante es el arreglo o la copia vieja que guardo el navegador. */
+  .ver { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.04em; align-self: flex-end; padding-bottom: 2px; }
   .topacts { display: flex; align-items: center; gap: 8px; }
 
   .iconbtn {
@@ -610,7 +613,7 @@
   <!-- La cuenta se consulta de vez en cuando; contar el uno es a cada rato.
        Por eso arriba solo queda un boton, y lo demas se abre al tocarlo. -->
   <header class="topbar">
-    <div class="brand"><img class="brand-ic" src="icono-64.png" alt=""><b>Feel The One</b></div>
+    <div class="brand"><img class="brand-ic" src="icono-64.png" alt=""><b>Feel The One</b><span class="ver" id="ver"></span></div>
     <div class="topacts">
       <div class="langsw" id="langsw">
         <button data-lang="es" aria-pressed="true">ES</button>
@@ -1533,6 +1536,18 @@ const isTap = (i) => i === 3 || i === 7;
    los hashes guardados y los que se oyen ahora se sabe qué canción es y en
    qué segundo va.
    ========================================================================= */
+/* La version que esta corriendo, a la vista.
+
+   La app se guarda en el telefono para poder abrirse sin internet, y eso tiene
+   un precio: la primera vez que la abris despues de un cambio, ves la copia
+   vieja. Sin un numero delante no hay forma de saber si lo que estas probando
+   es el arreglo o lo de antes, y se pierde el tiempo discutiendo sobre codigo
+   que no es el que corre.
+
+   Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
+   la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
+const VERSION = "2.10.0";
+
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
   // Las canciones guardadas con otra versión no se pueden comparar con las
@@ -4311,6 +4326,8 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
    Arranque
    ========================================================================= */
 (async () => {
+  // Lo primero, para que el numero este puesto pase lo que pase despues.
+  $("ver").textContent = VERSION;
   initVibe();
   prepararPlegables();
   cloud.load();
