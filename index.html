@@ -1122,7 +1122,7 @@ const STR = {
     micSat: "El micrófono está saturando: bajá el volumen de la música o alejá el teléfono. Con la señal recortada no puede reconocer nada.",
     diagTitle: "Si no reconoce: datos técnicos",
     diagHelp: "Poné la música, tocá «Escuchar» y abrí esto sin salir de la pantalla. Mandame lo que dice.",
-    diagRate: "Muestreo del micrófono", diagFps: "Frames por segundo",
+    diagRate: "Muestreo del micrófono", diagBin: "Hz por casilla", diagFps: "Frames por segundo",
     diagPeak: "Nivel de entrada", diagHashes: "Huellas comparadas",
     diagMatch: "Mejor coincidencia", diagNothing: "nada todavía",
     vibeNA: "Vibrar: no disponible",
@@ -1340,7 +1340,7 @@ const STR = {
     micSat: "The microphone is overloading: turn the music down or move the phone away. With a clipped signal it cannot recognise anything.",
     diagTitle: "If it does not recognise: technical data",
     diagHelp: "Put the music on, tap “Listen” and open this without leaving the screen. Send me what it says.",
-    diagRate: "Microphone sample rate", diagFps: "Frames per second",
+    diagRate: "Microphone sample rate", diagBin: "Hz per bin", diagFps: "Frames per second",
     diagPeak: "Input level", diagHashes: "Prints compared",
     diagMatch: "Best match", diagNothing: "nothing yet",
     vibeNA: "Vibrate: unavailable",
@@ -1573,14 +1573,35 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.11.1";
+const VERSION = "2.12.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
   // Las canciones guardadas con otra versión no se pueden comparar con las
   // nuevas, así que la app las detecta y avisa en vez de fallar en silencio.
   VERSION: 1,
-  FFT: 2048,
+
+  /* A cuantas muestras por segundo se lleva TODO el audio, venga el telefono
+     como venga. Esta es la pieza que faltaba.
+
+     La huella guarda numeros de casilla del espectro. A que nota corresponde
+     cada casilla depende del muestreo, asi que dos telefonos con muestreos
+     distintos miden con reglas distintas: medido aqui, los mismos 1000 Hz
+     caen en la casilla 46 a 44.100 y en la 43 a 48.000. Tres casillas de
+     diferencia, y ya no coincide nada. Eso, y no el microfono ni el ruido,
+     era por lo que una cancion grabada en un telefono no se reconocia en
+     otro.
+
+     Asi lo hacen los que funcionan: Chromaprint (el de AcoustID) lleva todo a
+     11.025 Hz, dejavu fija 44.100. Los dos FIJAN la frecuencia.
+
+     Se eligio 11.025 porque con ventana de 512 da 21,533 Hz por casilla, que
+     es exactamente lo mismo que 44.100 con ventana de 2048. Asi las canciones
+     ya grabadas siguen valiendo: mismas casillas, misma huella, nadie tiene
+     que volver a grabar nada. Y la ventana dura los mismos 46 ms. */
+  RATE: 11025,
+  BINHZ: 44100 / 2048,   // 21,533 Hz por casilla. NO se toca: las huellas lo llevan dentro.
+  FFT: 512,              // 512 muestras a 11.025 Hz = esos mismos 21,533 Hz
   HOP: 0.0464,        // segundos por frame (~21.6 frames/s)
   MAXBIN: 232,        // ~5 kHz con 44.1 kHz
   BANDS: [4, 12, 24, 48, 96, 160, 232],
@@ -1589,6 +1610,17 @@ const FP = {
   DTMAX: 21,
   PAIR: 2                      // picos del ancla × picos del objetivo
 };
+
+/* Cuantas muestras mira la FFT para que cada casilla siga valiendo lo mismo.
+
+   Normalmente sale 512, porque el muestreo es el que pedimos. Si algun
+   navegador no dejara abrir a 11.025, se busca la potencia de dos mas cercana
+   y la app sigue andando como andaba antes: peor, pero andando. El panel de
+   datos tecnicos lo dice en rojo para que se sepa. */
+function ventanaPara(rate) {
+  const n = Math.pow(2, Math.round(Math.log2(rate / FP.BINHZ)));
+  return Math.max(256, Math.min(32768, n));
+}
 
 function packHash(f1, f2, dt) {
   // f1,f2 en 0..255 (bin >> 1 para que quepan), dt en 0..31
@@ -1789,12 +1821,18 @@ class Listener {
     this.onSaturar = onSaturar;
     this.saturados = 0;
     this.avisado = false;
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    /* A la frecuencia fija, siempre. El navegador se encarga de convertir lo
+       que entregue el microfono, que es justo lo que hace Chromaprint. Si
+       algun navegador no lo aceptara, se abre como se pueda y se sigue: peor,
+       pero andando, y el panel de datos tecnicos lo delata. */
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    try { this.ctx = new Audio({ sampleRate: FP.RATE }); }
+    catch (e) { this.ctx = new Audio(); }
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
     const src = this.ctx.createMediaStreamSource(this.stream);
     this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = FP.FFT;
+    this.analyser.fftSize = ventanaPara(this.ctx.sampleRate);
     this.analyser.smoothingTimeConstant = 0;
     src.connect(this.analyser);
 
@@ -1876,6 +1914,10 @@ class Listener {
      grabo a 44.100 y se escucha a 48.000, las mismas notas caen en casillas
      distintas y no coincide nada. */
   get muestreo() { return this.ctx ? Math.round(this.ctx.sampleRate) : 0; }
+
+  /* Cuantas muestras mira cada vez. Junto al muestreo dan los hercios por
+     casilla, que es lo unico que tiene que coincidir entre dos telefonos. */
+  get ventana() { return this.analyser ? this.analyser.fftSize : 0; }
 
   /* Frames por segundo de verdad. La huella empareja frames a distancias
      FIJAS; si el telefono no llega al ritmo, se saltan frames y con ellos se
@@ -2869,7 +2911,14 @@ function pintarDiagnostico() {
      corresponde cada casilla depende del muestreo, así que una canción
      grabada a 44.100 y escuchada a 48.000 no coincide con nada. */
   filas.push([t("diagRate"), l ? l.muestreo + " Hz" : "—",
-              l && l.muestreo !== 44100]);
+              !!l && l.muestreo !== FP.RATE]);
+
+  /* Lo que de verdad tiene que coincidir entre dos telefonos: cuantos hercios
+     mide cada casilla del espectro. Si este numero es igual en los dos, las
+     huellas hablan el mismo idioma. */
+  filas.push([t("diagBin"),
+              l ? (l.muestreo / l.ventana).toFixed(2) + " Hz" : "—",
+              !!l && Math.abs(l.muestreo / l.ventana - FP.BINHZ) > 0.01]);
 
   /* Las parejas de la huella se hacen a distancias fijas de frames. Si el
      teléfono no llega al ritmo, se saltan frames y se pierden las parejas. */

@@ -2,13 +2,13 @@
    Si esto falla, la app le marca al alumno el tiempo equivocado, que es el
    peor error posible: le ensena mal y encima con seguridad. */
 
-import { cargar } from "./extraer.mjs";
+import { cargar, FUENTE } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual, cerca, azar, resumen } from "./marco.mjs";
 
 const M = await cargar([
   "FP", "packHash", "Fingerprinter", "Matcher",
   "countAt", "nearestOne", "BANDS", "judge",
-  "toB64", "fromB64", "RALO", "huellaRala", "Listener"
+  "toB64", "fromB64", "RALO", "huellaRala", "Listener", "ventanaPara"
 ]);
 
 /* ---------------------------------------------------------------------------
@@ -447,6 +447,79 @@ await prueba("cuando deja de saturar se olvida", () => {
   l.analyser.getFloatTimeDomainData = (a) => a.set(tono(0.1, a.length));
   for (let i = 0; i < 12; i++) l.medir();
   igual(l.saturando, false, "se quedó avisando después de bajar el volumen");
+});
+
+/* ---------------------------------------------------------------------------
+   La misma regla en todos los telefonos
+
+   Aqui estuvo el fallo que costo mas caro. La huella guarda numeros de casilla
+   del espectro, y a que nota corresponde cada casilla depende del muestreo del
+   telefono. Medido en el navegador: los mismos 1000 Hz caen en la casilla 46 a
+   44.100 Hz y en la 43 a 48.000 Hz. Tres casillas, y ya no coincide nada.
+
+   Una cancion grabada en un telefono no se reconocia en otro, y no habia forma
+   de verlo desde fuera: el sonido llegaba limpio, el nivel bien, el microfono
+   perfecto. Simplemente eran dos reglas distintas midiendo lo mismo.
+
+   Asi lo hacen los que funcionan: Chromaprint (AcoustID) lleva todo a 11.025
+   Hz, dejavu fija 44.100. Los dos FIJAN la frecuencia antes de mirar nada.
+--------------------------------------------------------------------------- */
+seccion("La misma regla en todos los telefonos");
+
+await prueba("el muestreo esta fijado, no lo pone el telefono", () => {
+  afirmar(M.FP.RATE > 0, "no hay una frecuencia fija a la que llevar el audio");
+  afirmar(/sampleRate: FP\.RATE/.test(FUENTE),
+    "no se le pide al navegador esa frecuencia: cada telefono usaria la suya");
+});
+
+await prueba("cada casilla mide lo mismo que siempre", () => {
+  /* Esta es la prueba que protege las canciones ya grabadas. Se cambio el
+     muestreo de 44.100 a 11.025, pero tambien la ventana, de 2048 a 512: las
+     dos cuentas dan los mismos 21,533 Hz por casilla. Si alguien tocara una
+     sola de las dos, las huellas viejas dejarian de coincidir y habria que
+     regrabar el catalogo entero. */
+  cerca(M.FP.RATE / M.FP.FFT, M.FP.BINHZ, 0.001,
+    "la casilla ya no mide lo mismo: las canciones grabadas dejan de valer");
+  cerca(M.FP.BINHZ, 44100 / 2048, 0.001,
+    "se cambio el ancho de casilla de siempre");
+});
+
+await prueba("la ventana dura lo mismo que antes", () => {
+  /* 512 muestras a 11.025 Hz son los mismos 46 ms que 2048 a 44.100. Si
+     durara otra cosa, se veria otro trozo de musica en cada golpe. */
+  const antes = 2048 / 44100, ahora = M.FP.FFT / M.FP.RATE;
+  cerca(ahora, antes, 0.0005, "la ventana pasó de " + (antes*1000).toFixed(1) +
+        " ms a " + (ahora*1000).toFixed(1) + " ms");
+});
+
+await prueba("si el navegador no da la frecuencia, se busca la ventana que mas se acerque", () => {
+  igual(M.ventanaPara(11025), 512, "con la frecuencia buena no eligió 512");
+  igual(M.ventanaPara(44100), 2048, "a 44.100 no vuelve a la ventana de siempre");
+  igual(M.ventanaPara(48000), 2048, "a 48.000 eligió una ventana rara");
+  for (const rate of [8000, 11025, 16000, 22050, 32000, 44100, 48000, 96000]) {
+    const n = M.ventanaPara(rate);
+    igual(Math.log2(n) % 1, 0, "la ventana no es potencia de dos con " + rate);
+    afirmar(n >= 256 && n <= 32768, "ventana absurda con " + rate + ": " + n);
+  }
+});
+
+await prueba("las casillas que se miran caben en la huella", () => {
+  /* La huella empaqueta la casilla partida por dos en ocho bits: si se pasara
+     de 511, dos notas distintas acabarian con el mismo numero. */
+  afirmar(M.FP.MAXBIN < 512, "las casillas no caben en la huella");
+  const casillas = M.FP.FFT / 2;
+  afirmar(M.FP.MAXBIN <= casillas,
+    `se miran ${M.FP.MAXBIN} casillas y el espectro solo tiene ${casillas}`);
+  igual(M.FP.BANDS[M.FP.BANDS.length - 1], M.FP.MAXBIN,
+    "las bandas no terminan donde termina lo que se mira");
+});
+
+await prueba("con la frecuencia fija se sigue llegando a los 5 kHz", () => {
+  const techo = M.FP.RATE / 2;
+  const mira = M.FP.MAXBIN * M.FP.BINHZ;
+  afirmar(mira <= techo,
+    `se miran ${Math.round(mira)} Hz y a ${M.FP.RATE} Hz solo hay hasta ${techo}`);
+  afirmar(mira > 4500, "se dejó de mirar la parte alta: solo llega a " + Math.round(mira));
 });
 
 /* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
