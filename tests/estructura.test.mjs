@@ -447,6 +447,81 @@ await prueba("la clave se puede cambiar desde dentro", () => {
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("Una sola cosa que hacer");
+
+/* La pantalla del alumno ensenaba todo a la vez: el selector de modo, la
+   cuenta en blanco, los mandos del juego, parar y vibrar apagados. Una docena
+   de cosas delante y una sola que servia. */
+
+await prueba("al abrir solo se ofrece escuchar", () => {
+  for (const id of ["a-mode", "a-guide", "a-game", "a-stop", "a-vibe"]) {
+    afirmar(new RegExp('id="' + id + '"[^>]*\\shidden').test(SOLO_HTML),
+      id + " se ve antes de que suene nada");
+  }
+  afirmar(!/id="a-start"[^>]*\shidden/.test(SOLO_HTML),
+    "el boton de escuchar arranca escondido: no quedaria nada que tocar");
+});
+
+await prueba("esconder le gana a cualquier display", () => {
+  /* Un boton con hidden que el navegador seguia dibujando porque una regla de
+     mas abajo le ponia display:flex. Paso dos veces. */
+  afirmar(/\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(SOLO_HTML),
+    "sin la regla general, cualquier display:flex vuelve a sacar lo escondido");
+});
+
+await prueba("con el microfono abierto siempre se puede cerrar", () => {
+  /* Si parar dependiera de haber reconocido algo, quien pone una cancion que
+     la app no conoce se queda grabando sin salida. */
+  const f = /function pintarAlumno\(\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(f, "no encuentro pintarAlumno");
+  afirmar(/escuchando\s*=\s*!!student\.listener/.test(f[0]),
+    "parar no mira si el microfono esta abierto");
+  afirmar(/\$\("a-stop"\)\.hidden\s*=\s*!escuchando/.test(f[0]),
+    "parar aparece por otra razon que no es tener el microfono abierto");
+  afirmar(/\$\("a-mode"\)\.hidden\s*=\s*!hay/.test(f[0]),
+    "el selector de modo no espera a que haya cancion");
+});
+
+await prueba("el resultado del juego no se borra al parar", () => {
+  const f = /function pintarAlumno\(\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(/g-result/.test(f[0]),
+    "parar el microfono le borraria a alguien la partida que acaba de terminar");
+});
+
+await prueba("del boton de sonido no queda nada", () => {
+  /* Se quito entero, no solo el boton: un interruptor que no se puede tocar
+     pero sigue en el codigo es una trampa para el que venga despues. */
+  for (const rastro of ["a-voice", "student.voice", "g-sound", "g-mute", "function speak"]) {
+    afirmar(!FUENTE.includes(rastro) && !SOLO_HTML.includes(rastro),
+      "queda un rastro del sonido: " + rastro);
+  }
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("Instalar la app");
+
+await prueba("el boton solo aparece si el navegador deja instalar", () => {
+  /* En iPhone no se puede, y ensenar un boton que no hace nada es peor que no
+     tener boton. */
+  for (const id of ["instalar", "instalar-puerta"]) {
+    afirmar(new RegExp('id="' + id + '"[^>]*\\shidden').test(SOLO_HTML),
+      id + " se ve aunque el navegador no haya dicho que se puede instalar");
+  }
+  afirmar(/addEventListener\("beforeinstallprompt"/.test(FUENTE),
+    "nadie escucha cuando el navegador avisa que se puede instalar");
+  afirmar(/function pintarInstalar\(\)/.test(FUENTE), "el boton no se enciende nunca");
+});
+
+await prueba("el aviso del navegador es de un solo uso y se trata como tal", () => {
+  const f = /async function instalar\(\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(f, "no encuentro la funcion de instalar");
+  afirmar(/invitacion\s*=\s*null/.test(f[0]),
+    "se guarda el aviso para usarlo otra vez, y no se puede");
+  afirmar(f[0].includes("pintarInstalar()"),
+    "el boton se queda puesto prometiendo algo que ya no va a pasar");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("La llave del servidor");
 
 await prueba("la clave del servidor es la publica, no una secreta", () => {

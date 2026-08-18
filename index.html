@@ -130,7 +130,10 @@
   }
   .langsw button[aria-pressed="true"] { background: var(--card2); color: var(--ink); }
 
-  .panel[hidden] { display: none; }
+  /* Esconder tiene que ganarle a cualquier display. Ya paso dos veces: un
+     boton con hidden que el navegador seguia dibujando porque una regla de mas
+     abajo le ponia display:flex. Se arregla una vez y para todos. */
+  [hidden] { display: none !important; }
 
   /* ---------- Bloques ---------- */
   .card {
@@ -588,8 +591,6 @@
     <g id="g-down"><path d="M12 4v11M7.5 11l4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></g>
     <g id="g-up"><path d="M12 20V9M7.5 13L12 8.5 16.5 13"/><path d="M5 4h14"/></g>
     <g id="g-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></g>
-    <g id="g-sound"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6M18.3 6.6a8 8 0 0 1 0 10.8"/></g>
-    <g id="g-mute"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.5l4.5 5M20.5 9.5l-4.5 5"/></g>
     <g id="g-vibe"><rect x="8.5" y="3.5" width="7" height="17" rx="2"/><path d="M4.5 9v6M2 10.5v3M19.5 9v6M22 10.5v3"/></g>
     <g id="g-novibe"><rect x="8.5" y="3.5" width="7" height="17" rx="2"/><path d="M3.5 3.5l17 17"/></g>
     <g id="g-lock"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></g>
@@ -652,6 +653,11 @@
 
       <p class="status" id="gate-status"></p>
     </div>
+
+    <!-- Solo aparece si el navegador dice que se puede instalar. Buscar la
+         opcion en el menu del navegador no sirve: hay telefonos donde ni
+         siquiera esta. -->
+    <button class="ghost" id="instalar-puerta" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-down"/></svg><span data-i18n="install">Instalar la app</span></button>
   </section>
 
   <div class="card" id="acct" hidden>
@@ -836,13 +842,15 @@
       <p class="hint" data-i18n="guideLisWhy">Funciona igual con un parlante o en clase; así es cuando mejor anda.</p>
     </details>
 
-    <div class="seg" id="a-mode">
+    <!-- Nada de esto se ve hasta que suena algo reconocido: elegir entre ver
+         la cuenta y practicar no significa nada mientras no haya canción. -->
+    <div class="seg" id="a-mode" hidden>
       <button data-m="guia" aria-pressed="true" data-i18n="seeCount">Ver la cuenta</button>
       <button data-m="juego" aria-pressed="false" data-i18n="practise">Practicar</button>
     </div>
 
     <!-- --- Modo guía: muestra la cuenta --- -->
-    <div id="a-guide">
+    <div id="a-guide" hidden>
       <div class="display">
         <div class="big" id="a-big">·</div>
         <div class="sub" id="a-sub" data-i18n="notListening">Sin escuchar</div>
@@ -888,11 +896,10 @@
     <div class="card">
       <div class="meter"><i id="a-level"></i></div>
       <button class="primary" id="a-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="listen">Escuchar y reconocer</span></button>
-      <button class="ghost" id="a-stop" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-stop"/></svg><span data-i18n="stop">Parar</span></button>
-      <div class="row">
-        <button class="ghost" id="a-voice">Voz: no</button>
-        <button class="ghost" id="a-vibe">Vibrar: sí</button>
-      </div>
+      <!-- Parar y vibrar no aparecen hasta que hay una canción: antes de eso
+           no hay nada que parar ni nada que vibre. -->
+      <button class="ghost" id="a-stop" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-stop"/></svg><span data-i18n="stop">Parar</span></button>
+      <button class="ghost" id="a-vibe" hidden>Vibrar: sí</button>
       <p class="status" id="a-status" data-i18n="startHint">Pon la canción y dale a escuchar.</p>
     </div>
 
@@ -976,7 +983,6 @@
       <ul class="iconlist">
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="helpIcListen">Escuchar: enciende el micrófono y busca la canción.</span></li>
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-stop"/></svg><span data-i18n="helpIcStop">Parar: suelta el micrófono.</span></li>
-        <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sound"/></svg><span data-i18n="helpIcSound">Sonido: dice el número en voz alta.</span></li>
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-vibe"/></svg><span data-i18n="helpIcVibe">Vibrar: un golpecito en cada UNO. En iPhone todavía no funciona.</span></li>
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-lock"/></svg><span data-i18n="helpIcLock">Candado: esa canción existe pero necesitás suscripción.</span></li>
         <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-target"/></svg><span data-i18n="helpIcOnly">Solo esta: le decís cuál es, por si no la reconoce.</span></li>
@@ -1026,10 +1032,12 @@
         No. Con abrir el link alcanza y funciona todo igual.
       </p>
       <p class="hint" data-i18n="helpInstHow">
-        Si la querés con ícono propio y que ande sin internet: en Android, menú
-        de los tres puntitos e «Instalar aplicación». En iPhone tiene que ser
-        con Safari: botón de compartir y «Añadir a pantalla de inicio».
+        Si la querés con ícono propio y que ande sin internet, tocá el botón de
+        acá abajo. Si no aparece, es que este navegador no deja: en iPhone hay
+        que abrirla con Safari, botón de compartir y «Añadir a pantalla de
+        inicio».
       </p>
+      <button class="ghost" id="instalar" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-down"/></svg><span data-i18n="install">Instalar la app</span></button>
     </div>
 
     <div class="card">
@@ -1087,7 +1095,7 @@ const STR = {
     noSongsYet: "Todavía no hay canciones. Grábalas desde Profesor.",
     noneSaved: "Ninguna guardada.",
     onlyThis: "solo esta", del: "borrar",
-    voice: "Voz", vibrate: "Vibrar",
+    install: "Instalar la app", vibrate: "Vibrar",
     vibeNA: "Vibrar: no disponible",
     vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
     startHint: "Pon la canción y dale a escuchar.",
@@ -1163,7 +1171,6 @@ const STR = {
     helpIconsTitle: "Los botones",
     helpIcListen: "Escuchar: enciende el micrófono y busca la canción.",
     helpIcStop: "Parar: suelta el micrófono.",
-    helpIcSound: "Sonido: dice el número en voz alta.",
     helpIcVibe: "Vibrar: un golpecito en cada UNO. En iPhone todavía no funciona.",
     helpIcLock: "Candado: esa canción existe pero necesitás suscripción.",
     helpIcOnly: "Solo esta: le decís cuál es, por si no la reconoce.",
@@ -1179,7 +1186,7 @@ const STR = {
     helpPrivScores: "Tus puntajes son tuyos: nadie más los ve, ni el profesor. De las canciones se comparte el título y quién las grabó.",
     helpInstTitle: "¿Hace falta instalarla?",
     helpInstBody: "No. Con abrir el link alcanza y funciona todo igual.",
-    helpInstHow: "Si la querés con ícono propio y que ande sin internet: en Android, menú de los tres puntitos e «Instalar aplicación». En iPhone tiene que ser con Safari: botón de compartir y «Añadir a pantalla de inicio».",
+    helpInstHow: "Si la querés con ícono propio y que ande sin internet, tocá el botón de acá abajo. Si no aparece, es que este navegador no deja: en iPhone hay que abrirla con Safari, botón de compartir y «Añadir a pantalla de inicio».",
     helpTroubleTitle: "Si algo no anda",
     helpQ1: "No reconoce la canción",
     helpA1: "Acercá el teléfono, subí un poco el volumen y esperá diez segundos. Si dice que nadie la grabó, hay que grabarla desde Profesor.",
@@ -1300,7 +1307,7 @@ const STR = {
     noSongsYet: "No songs yet. Record them from the Teacher tab.",
     noneSaved: "None saved.",
     onlyThis: "this one", del: "delete",
-    voice: "Sound", vibrate: "Vibrate",
+    install: "Install the app", vibrate: "Vibrate",
     vibeNA: "Vibrate: unavailable",
     vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
     startHint: "Put the song on and press listen.",
@@ -1376,7 +1383,6 @@ const STR = {
     helpIconsTitle: "The buttons",
     helpIcListen: "Listen: turns on the microphone and looks for the song.",
     helpIcStop: "Stop: releases the microphone.",
-    helpIcSound: "Sound: says the number out loud.",
     helpIcVibe: "Vibrate: a tap on every ONE. Not available on iPhone yet.",
     helpIcLock: "Padlock: that song exists but needs a subscription.",
     helpIcOnly: "Only this one: you tell it which song, in case it can't tell.",
@@ -1392,7 +1398,7 @@ const STR = {
     helpPrivScores: "Your scores are yours: nobody else sees them, not even the teacher. What is shared about a song is its title and who recorded it.",
     helpInstTitle: "Do I have to install it?",
     helpInstBody: "No. Opening the link is enough and everything works the same.",
-    helpInstHow: "If you want it with its own icon and working offline: on Android, the three-dot menu and “Install app”. On iPhone it has to be Safari: the share button and “Add to Home Screen”.",
+    helpInstHow: "If you want it with its own icon and working offline, tap the button below. If it is not there, this browser does not allow it: on iPhone you have to open it in Safari, share button and “Add to Home Screen”.",
     helpTroubleTitle: "If something doesn't work",
     helpQ1: "It doesn't recognise the song",
     helpA1: "Move the phone closer, turn the volume up a little and wait ten seconds. If it says nobody recorded it, it has to be recorded from Teacher.",
@@ -2634,7 +2640,7 @@ $("p-file").addEventListener("change", async (e) => {
    ========================================================================= */
 const student = {
   listener: null, fp: null, song: null, offset: 0, syncAt: 0,
-  voice: false, vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null,
+  vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null,
   /* searchFrom: momento en que empezo la busqueda ACTUAL. No es lo mismo que el
      tiempo total escuchando: al perder una cancion la busqueda vuelve a empezar,
      y los mensajes tienen que volver a empezar con ella.
@@ -2647,12 +2653,10 @@ const student = {
    nada, lo desactivamos y explicamos por qué. */
 const CAN_VIBRATE = typeof navigator.vibrate === "function";
 
-/* Los dos interruptores se dibujan en un solo sitio.
-   Antes cada uno se escribía en tres lugares distintos, y dos de ellos tenían
-   el texto en español a mano: al tocarlos con la app en inglés volvían al
-   castellano. Además decían "Sonido: no", que no deja claro si está apagado o
-   si al tocarlo lo apagás. Ahora el icono muestra el estado y el botón se
-   enciende cuando está activo. */
+/* El interruptor se dibuja en un solo sitio.
+   Antes se escribía en tres lugares distintos, y dos de ellos tenían el texto
+   en español a mano: al tocarlo con la app en inglés volvía al castellano.
+   Ahora el icono muestra el estado y el botón se enciende cuando está activo. */
 function pintarInterruptores() {
   const poner = (id, activo, iconOn, iconOff, etiqueta) => {
     const b = $(id);
@@ -2664,8 +2668,6 @@ function pintarInterruptores() {
     b.setAttribute("aria-pressed", String(activo));
     b.classList.toggle("on", activo);
   };
-
-  poner("a-voice", student.voice, "sound", "mute", t("voice"));
 
   if (CAN_VIBRATE) {
     poner("a-vibe", student.vibe, "vibe", "novibe", t("vibrate"));
@@ -2681,12 +2683,8 @@ function pintarInterruptores() {
 function initVibe() {
   student.vibe = CAN_VIBRATE;
   pintarInterruptores();
+  pintarAlumno();
 }
-
-$("a-voice").addEventListener("click", () => {
-  student.voice = !student.voice;
-  pintarInterruptores();
-});
 
 $("a-vibe").addEventListener("click", () => {
   if (!CAN_VIBRATE) return;
@@ -2696,9 +2694,35 @@ $("a-vibe").addEventListener("click", () => {
 
 const buzz = (ms) => { if (student.vibe && CAN_VIBRATE) navigator.vibrate(ms); };
 
+/* ---------- Los dos momentos de la pantalla del alumno ----------
+
+   Antes se veía todo a la vez: el selector de modo, la cuenta en blanco, los
+   mandos del juego, parar y vibrar apagados… todo esperando a una canción que
+   aún no sonaba. Quien abría la app por primera vez tenía una docena de cosas
+   delante y una sola que servía.
+
+   Ahora hay una sola cosa que hacer —escuchar— y lo demás aparece cuando hay
+   algo que contar. */
+function pintarAlumno() {
+  /* Mientras el micrófono esté abierto tiene que haber cómo cerrarlo, aunque
+     todavía no haya reconocido nada: si no, quedaría grabando sin salida. */
+  const escuchando = !!student.listener;
+  $("a-start").hidden = escuchando;
+  $("a-stop").hidden = !escuchando;
+
+  /* El resultado de una partida se queda a la vista aunque se pare: parar el
+     micrófono no es motivo para borrarle a nadie lo que acaba de sacar. */
+  const hay = student.everFound || !$("g-result").hidden;
+  $("a-mode").hidden = !hay;
+  $("a-guide").hidden = !hay || game.on;
+  $("a-game").hidden = !hay || !game.on;
+  $("a-vibe").hidden = !hay;
+}
+
 $("a-start").addEventListener("click", async () => {
   if (!songs.length) { setA(t("noSongs"), "err"); return; }
 
+  $("g-result").hidden = true;      // empieza otra escucha: el resultado viejo sobra
   student.fp = new Fingerprinter();
   student.song = null;
   student.lastIdx = -1;
@@ -2717,8 +2741,7 @@ $("a-start").addEventListener("click", async () => {
     return;
   }
 
-  $("a-start").disabled = true;
-  $("a-stop").disabled = false;
+  pintarAlumno();
   setA(t("searching"));
 });
 
@@ -2729,8 +2752,8 @@ function stopStudent() {
   student.song = null;
   student.locked = null;
   student.forced = null;
-  $("a-start").disabled = false;
-  $("a-stop").disabled = true;
+  student.everFound = false;
+  pintarAlumno();
   $("a-big").textContent = "·";
   $("a-big").className = "big";
   $("a-sub").textContent = "Sin escuchar";
@@ -2855,6 +2878,9 @@ function tryMatch(elapsed) {
     game.offset = student.offset;
   }
 
+  /* Primera cancion reconocida: aqui es donde la pantalla se abre. */
+  if (first) pintarAlumno();
+
   if (first || cambio) {
     buildBeats(song.rhythm);
     student.lastIdx = -1;
@@ -2903,20 +2929,7 @@ function paintStudent() {
     beatCells.forEach((cell, i) => cell.classList.toggle("on", i === c.index));
 
     buzz(isOne(c.index) ? 60 : 15);
-    if (student.voice) speak(labels[c.index], isOne(c.index));
   }
-}
-
-/* Voz: un tono corto por cuenta (hablar números va con retraso en el móvil) */
-function speak(label, one) {
-  const ctx = student.listener && student.listener.ctx;
-  if (!ctx) return;
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.frequency.value = one ? 1320 : (label === "TAP" ? 660 : 880);
-  g.gain.setValueAtTime(one ? 0.3 : 0.14, ctx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-  o.connect(g); g.connect(ctx.destination);
-  o.start(); o.stop(ctx.currentTime + 0.07);
 }
 
 function setA(msg, kind) {
@@ -2954,8 +2967,7 @@ $("a-mode").addEventListener("click", (e) => {
 
 function setGameMode(on) {
   game.on = on;
-  $("a-guide").hidden = on;
-  $("a-game").hidden = !on;
+  pintarAlumno();
   if (on) {
     resetGame();
     setA(game.song ? t("gameReady") : t("gameWait"));
@@ -4168,6 +4180,48 @@ $("langsw").addEventListener("click", (e) => {
   localStorage.setItem("lang", lang);
   applyLang();
 });
+
+/* =========================================================================
+   Instalar la app
+   =========================================================================
+
+   Le deciamos a la gente que fuera al menu del navegador y buscara «Instalar
+   aplicacion». En algunos telefonos esa opcion sencillamente no esta, y quien
+   la busca y no la encuentra abandona.
+
+   El navegador avisa a la pagina cuando la app se puede instalar. Ese aviso se
+   guarda y se ensena un boton nuestro, donde la persona ya esta mirando. Si el
+   navegador no avisa —el iPhone no avisa nunca— el boton no aparece y la Ayuda
+   explica el camino de Safari, que es el unico que no tiene arreglo. */
+let invitacion = null;
+
+function pintarInstalar() {
+  for (const id of ["instalar", "instalar-puerta"]) $(id).hidden = !invitacion;
+}
+
+addEventListener("beforeinstallprompt", (e) => {
+  /* Sin esto Chrome saca su propia barrita abajo cuando le parece. Preferimos
+     un boton que este siempre en el mismo sitio y no tape nada. */
+  e.preventDefault();
+  invitacion = e;
+  pintarInstalar();
+});
+
+addEventListener("appinstalled", () => { invitacion = null; pintarInstalar(); });
+
+async function instalar() {
+  if (!invitacion) return;
+  const aviso = invitacion;
+  /* El aviso es de un solo uso: aunque diga que no, ya no se puede repetir, y
+     dejar el boton puesto seria prometer algo que no va a pasar. */
+  invitacion = null;
+  pintarInstalar();
+  aviso.prompt();
+  await aviso.userChoice;
+}
+
+$("instalar").addEventListener("click", instalar);
+$("instalar-puerta").addEventListener("click", instalar);
 
 /* Registrar el trabajador que permite abrirla sin internet. Si falla, la app
    funciona igual: solo pierde el arranque sin conexión. */

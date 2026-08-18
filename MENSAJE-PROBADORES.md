@@ -24,10 +24,9 @@ Cambiá lo que esté entre corchetes.
 >
 > **Nothing to install** — just open the link and it works. If you'd rather
 > have it as a proper app with its own icon (and working without internet),
-> you can install it from that same link:
-> - **Android:** open the link in Chrome → three-dot menu → *Install app*.
-> - **iPhone:** open the link in **Safari** (Chrome won't do it) → the share
->   button → *Add to Home Screen*.
+> there's an **Install the app** button on the first screen. Tap it and that's
+> it. If you don't see the button, your browser doesn't allow it — on iPhone,
+> open the link in **Safari**, then the share button → *Add to Home Screen*.
 >
 > Two things before you start:
 >
@@ -84,11 +83,10 @@ Cambiá lo que esté entre corchetes.
 > **El link: https://feeltheone.app**
 >
 > **No hay que instalar nada** — abrís el link y funciona. Si la querés como
-> app con su ícono (y que ande sin internet), se instala desde ese mismo link:
-> - **Android:** abrí el link en Chrome → menú de los tres puntitos →
->   *Instalar aplicación*.
-> - **iPhone:** abrí el link en **Safari** (con Chrome no se puede) → botón de
->   compartir → *Añadir a pantalla de inicio*.
+> app con su ícono (y que ande sin internet), en la primera pantalla hay un
+> botón **Instalar la app**. Lo tocás y listo. Si no aparece, es que tu
+> navegador no deja: en iPhone, abrí el link con **Safari** y usá el botón de
+> compartir → *Añadir a pantalla de inicio*.
 >
 > Dos cosas antes de empezar:
 >
