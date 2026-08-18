@@ -417,6 +417,9 @@
   /* ---------- Medidores ---------- */
   .meter { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
   .meter > i { display: block; height: 100%; width: 0%; background: var(--accent2); }
+  /* Saturando: la barra cambia de color. Es el unico sitio donde se ve que el
+     problema es el microfono y no la cancion. */
+  .meter > i.sat { background: var(--accent); }
 
   /* ---------- Lista ---------- */
   .song {
@@ -1096,6 +1099,7 @@ const STR = {
     noneSaved: "Ninguna guardada.",
     onlyThis: "solo esta", del: "borrar",
     install: "Instalar la app", vibrate: "Vibrar",
+    micSat: "El micrófono está saturando: bajá el volumen de la música o alejá el teléfono. Con la señal recortada no puede reconocer nada.",
     vibeNA: "Vibrar: no disponible",
     vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
     startHint: "Pon la canción y dale a escuchar.",
@@ -1308,6 +1312,7 @@ const STR = {
     noneSaved: "None saved.",
     onlyThis: "this one", del: "delete",
     install: "Install the app", vibrate: "Vibrate",
+    micSat: "The microphone is overloading: turn the music down or move the phone away. With a clipped signal it cannot recognise anything.",
     vibeNA: "Vibrate: unavailable",
     vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
     startHint: "Put the song on and press listen.",
@@ -1724,10 +1729,16 @@ class Matcher {
 class Listener {
   constructor() { this.ctx = null; this.stream = null; this.analyser = null; this.running = false; }
 
-  async start(onFrame, onLevel) {
+  async start(onFrame, onLevel, onSaturar) {
+    /* La ganancia automática empieza apagada porque deforma un poco el sonido
+       y la huella sale más limpia sin ella. Si el micrófono resulta ser de los
+       que saturan, se enciende sobre la marcha: ver domarGanancia. */
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     });
+    this.onSaturar = onSaturar;
+    this.saturados = 0;
+    this.domada = false;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
@@ -1738,6 +1749,7 @@ class Listener {
     src.connect(this.analyser);
 
     this.spec = new Float32Array(this.analyser.frequencyBinCount);
+    this.onda = new Float32Array(this.analyser.fftSize);
     this.t0 = this.ctx.currentTime;
     this.frame = -1;
     this.running = true;
@@ -1750,12 +1762,60 @@ class Listener {
       if (f === this.frame) return;
       this.frame = f;
       this.analyser.getFloatFrequencyData(this.spec);
-      let e = 0;
-      for (let i = 2; i < 80; i++) e += Math.max(0, this.spec[i] + 100);
-      if (onLevel) onLevel(Math.min(1, e / 2200));
+      if (onLevel) onLevel(this.medir(), this.saturando);
       onFrame(this.spec, f, elapsed);
     };
     requestAnimationFrame(tick);
+  }
+
+  /* Cuánta señal está entrando, de verdad.
+
+     La barra de antes sumaba decibelios de los graves y dividía por un número
+     elegido a mano en UN teléfono. Se llenaba del todo con música a volumen
+     normal en cualquier otro, así que no medía el nivel: era una luz de "hay
+     sonido". Y encima escondía justo lo que había que ver.
+
+     Ahora se mira la onda: el pico de la señal, de 0 a 1. Un 1 clavado
+     significa que el micrófono está recortando la onda por arriba, y eso sí
+     rompe el reconocimiento: inventa armónicos que la música no tenía. */
+  medir() {
+    this.analyser.getFloatTimeDomainData(this.onda);
+    let pico = 0;
+    for (let i = 0; i < this.onda.length; i++) {
+      const v = Math.abs(this.onda[i]);
+      if (v > pico) pico = v;
+    }
+
+    /* Se cuenta la racha, no el instante: un platillo puede tocar el techo un
+       frame suelto sin que pase nada. Lo que estropea es estar arriba siempre.
+       Y baja de a dos, para que en cuanto deje de saturar se olvide. */
+    if (pico > 0.985) this.saturados++;
+    else this.saturados = Math.max(0, this.saturados - 2);
+    this.saturando = this.saturados > 8;
+    if (this.saturados > 30) this.domarGanancia();
+
+    // En decibelios, que es como se oye: -60 dB vacía, 0 dB llena.
+    const db = 20 * Math.log10(Math.max(pico, 1e-4));
+    return Math.max(0, Math.min(1, (db + 60) / 60));
+  }
+
+  /* El micrófono viene demasiado caliente para lo que suena. Contra una onda
+     ya recortada no hay arreglo posible: la información se perdió antes de
+     llegar aquí. Lo único que sirve es que entre menos señal, así que se le
+     pide al teléfono que module él la ganancia, que es lo que sabe hacer.
+
+     Una sola vez: si con la ganancia automática sigue saturando, insistir no
+     va a cambiar nada y hay que bajar el volumen de la música. */
+  async domarGanancia() {
+    if (this.domada) return;
+    this.domada = true;
+    const pista = this.stream && this.stream.getAudioTracks()[0];
+    try {
+      if (pista && pista.applyConstraints) {
+        await pista.applyConstraints({ autoGainControl: true });
+      }
+    } catch (e) { /* hay navegadores que no dejan: queda el aviso al usuario */ }
+    if (this.onSaturar) this.onSaturar();
   }
 
   get time() { return this.ctx ? this.ctx.currentTime - this.t0 : 0; }
@@ -2106,7 +2166,14 @@ $("p-start").addEventListener("click", async () => {
   try {
     await teacher.listener.start(
       (spec, frame) => teacher.fp.push(spec, frame),
-      (lvl) => { $("p-level").style.width = (lvl * 100) + "%"; }
+      (lvl, saturando) => {
+        const barra = $("p-level");
+        barra.style.width = (lvl * 100) + "%";
+        barra.classList.toggle("sat", saturando);
+      },
+      /* Grabar saturado es peor que escuchar saturado: la canción queda mal
+         para todo el grupo, y nadie sabe por qué no engancha. */
+      () => setP(t("micSat"), "err")
     );
   } catch (e) {
     setP(t("micFail") + e.name, "err");
@@ -2733,9 +2800,15 @@ $("a-start").addEventListener("click", async () => {
   student.listener = new Listener();
 
   try {
-    await student.listener.start(onStudentFrame, (lvl) => {
-      $("a-level").style.width = (lvl * 100) + "%";
-    });
+    await student.listener.start(
+      onStudentFrame,
+      (lvl, saturando) => {
+        const barra = $("a-level");
+        barra.style.width = (lvl * 100) + "%";
+        barra.classList.toggle("sat", saturando);
+      },
+      () => setA(t("micSat"), "err")
+    );
   } catch (e) {
     setA(t("micFail") + e.name, "err");
     return;

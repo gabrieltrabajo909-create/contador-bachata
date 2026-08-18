@@ -8,7 +8,7 @@ import { seccion, prueba, afirmar, igual, cerca, azar, resumen } from "./marco.m
 const M = await cargar([
   "FP", "packHash", "Fingerprinter", "Matcher",
   "countAt", "nearestOne", "BANDS", "judge",
-  "toB64", "fromB64", "RALO", "huellaRala"
+  "toB64", "fromB64", "RALO", "huellaRala", "Listener"
 ]);
 
 /* ---------------------------------------------------------------------------
@@ -369,6 +369,84 @@ await prueba("el silencio tampoco cuela con la búsqueda dirigida", () => {
   const mudo = Array.from({ length: 200 }, () => new Float32Array(FPMAX).fill(-120));
   const q = huellar(mudo);
   igual(m.match(q.keys, q.times, "A"), null, "reconoció algo en el silencio");
+});
+
+
+/* ---------------------------------------------------------------------------
+   La barra del micrófono
+
+   Gabriel probó la app en un teléfono más barato: la barra se llenaba del todo
+   al instante y no reconocía nada. Tenía razón en el diagnóstico. La barra
+   sumaba decibelios de los graves y dividía por un número elegido a mano en UN
+   teléfono; medido después, con sonido de banda ancha ya marcaba el máximo a
+   -18 dB, cinco veces por debajo de donde el micrófono empieza a recortar. O
+   sea que no medía el nivel: era una luz de "hay sonido", y encima tapaba
+   justo lo que había que ver.
+
+   Ahora mira el pico de la onda, que es lo que de verdad satura.
+--------------------------------------------------------------------------- */
+seccion("La barra del micrófono");
+
+/* Un medidor de mentira, para poder probar sin micrófono. */
+function medidor(muestras) {
+  const l = Object.create(M.Listener.prototype);
+  l.onda = new Float32Array(muestras.length);
+  l.analyser = { getFloatTimeDomainData: (a) => a.set(muestras) };
+  l.saturados = 0;
+  l.domada = true;          // que no intente tocar un micrófono que no existe
+  return l;
+}
+
+const tono = (pico, n = 512) =>
+  Float32Array.from({ length: n }, (_, i) => pico * Math.sin(i * 0.3));
+
+await prueba("más señal, más barra", () => {
+  const l = medidor(tono(0.5));
+  let anterior = -1;
+  for (const pico of [0.001, 0.01, 0.05, 0.2, 0.5, 0.95]) {
+    l.analyser.getFloatTimeDomainData = (a) => a.set(tono(pico, a.length));
+    const v = l.medir();
+    afirmar(v > anterior, `con pico ${pico} la barra no subió (${v.toFixed(2)})`);
+    afirmar(v >= 0 && v <= 1, "la barra se salió de la escala: " + v);
+    anterior = v;
+  }
+});
+
+await prueba("un nivel bueno no llena la barra", () => {
+  /* -18 dB es una grabación sana. Si eso ya marcara el máximo, la barra
+     volvería a no servir para nada, que es de donde venimos. */
+  const l = medidor(tono(0.125));
+  const v = l.medir();
+  afirmar(v < 0.85, "un nivel sano marca " + Math.round(v * 100) + "%, casi el tope");
+  afirmar(v > 0.4, "un nivel sano marca solo " + Math.round(v * 100) + "%");
+  igual(l.saturando, false, "dice que satura con la señal a un octavo del tope");
+});
+
+await prueba("a fondo de escala avisa que satura", () => {
+  const l = medidor(tono(1));
+  for (let i = 0; i < 12; i++) l.medir();
+  igual(l.saturando, true, "el micrófono recorta y no se entera");
+});
+
+await prueba("un golpe suelto no cuenta como saturar", () => {
+  /* Un platillo puede tocar el techo un frame y no pasa nada. Lo que estropea
+     la huella es estar arriba todo el rato. Si avisara al primer pico, el
+     aviso saldría en cada canción y dejaría de leerse. */
+  const l = medidor(tono(0.2));
+  for (let i = 0; i < 20; i++) {
+    l.analyser.getFloatTimeDomainData = (a) => a.set(tono(i === 10 ? 1 : 0.2, a.length));
+    l.medir();
+    igual(l.saturando, false, "se asustó por un pico suelto en el frame " + i);
+  }
+});
+
+await prueba("cuando deja de saturar se olvida", () => {
+  const l = medidor(tono(1));
+  for (let i = 0; i < 12; i++) l.medir();
+  igual(l.saturando, true, "no llegó a saturar, la prueba no vale");
+  l.analyser.getFloatTimeDomainData = (a) => a.set(tono(0.1, a.length));
+  for (let i = 0; i < 12; i++) l.medir();
+  igual(l.saturando, false, "se quedó avisando después de bajar el volumen");
 });
 
 /* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
