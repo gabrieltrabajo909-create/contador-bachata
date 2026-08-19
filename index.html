@@ -1577,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.15.0";
+const VERSION = "2.16.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1725,24 +1725,47 @@ const OBRERO = `
 class Trozos extends AudioWorkletProcessor {
   constructor(o) {
     super();
-    this.tam = o.processorOptions.tam;     // muestras que mira cada frame
-    this.paso = o.processorOptions.paso;   // muestras entre un frame y el siguiente
+    const p = o.processorOptions;
+    this.tam = p.tam;        // muestras que mira cada frame, ya convertidas
+    this.paso = p.paso;      // muestras entre un frame y el siguiente
+    this.razon = p.razon;    // muestras que entran por cada una que sale
     this.buf = new Float32Array(this.tam);
-    this.n = 0;                            // cuanto hay guardado en la ventana
-    this.desde = 0;                        // muestras desde el ultimo envio
+    this.n = 0;              // cuanto hay guardado en la ventana
+    this.desde = 0;          // muestras desde el ultimo envio
+    this.pos = 0;            // por donde va leyendo, con decimales
+    this.ultima = 0;         // la ultima muestra del bloque anterior
   }
-  process(entradas) {
-    const canal = entradas[0] && entradas[0][0];
-    if (!canal) return true;
-    for (let i = 0; i < canal.length; i++) {
-      // ventana corrediza: entra la nueva, sale la mas vieja
-      if (this.n === this.tam) { this.buf.copyWithin(0, 1); this.buf[this.tam - 1] = canal[i]; }
-      else this.buf[this.n++] = canal[i];
-      if (++this.desde >= this.paso && this.n === this.tam) {
-        this.desde = 0;
-        this.port.postMessage(this.buf.slice());
-      }
+
+  /* Mete una muestra ya convertida en la ventana corrediza y, cuando toca,
+     manda la ventana entera. */
+  empujar(v) {
+    if (this.n === this.tam) { this.buf.copyWithin(0, 1); this.buf[this.tam - 1] = v; }
+    else this.buf[this.n++] = v;
+    if (++this.desde >= this.paso && this.n === this.tam) {
+      this.desde = 0;
+      this.port.postMessage(this.buf.slice());
     }
+  }
+
+  process(entradas) {
+    const c = entradas[0] && entradas[0][0];
+    if (!c) return true;
+    const n = c.length;
+    /* Se convierte a la frecuencia del catalogo aqui mismo, muestra a muestra.
+       Se avanza de a razon y se lee entre dos muestras vecinas, que es como
+       se saca el valor que habria habido en ese instante.
+       El cruce entre bloques se cubre con la ultima muestra del anterior: sin
+       eso se perderia una muestra cada 128, y esas costuras se notan. */
+    while (this.pos + 1 < n) {
+      const k = Math.floor(this.pos);
+      const f = this.pos - k;
+      const a = k < 0 ? this.ultima : c[k];
+      const b = c[k + 1];
+      this.empujar(a * (1 - f) + b * f);
+      this.pos += this.razon;
+    }
+    this.pos -= n;
+    this.ultima = c[n - 1];
     return true;
   }
 }
@@ -1975,12 +1998,16 @@ class Listener {
     }
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
-    /* La ventana en muestras, para que cada casilla siga midiendo 21,53 Hz
-       pase lo que pase con la frecuencia. Y el paso en muestras: los mismos
-       46,4 ms de siempre, que es cada cuanto avanza un frame. Van separados a
-       proposito: el paso lo marca el reloj, no el tamano de la ventana. */
-    const TAM = ventanaPara(this.ctx.sampleRate);
-    const PASO = Math.round(FP.HOP * this.ctx.sampleRate);
+    /* La ventana y el paso, SIEMPRE en la cuadricula del catalogo. El audio se
+       convierte a esa cuadricula dentro del obrero, asi que aqui ya no importa
+       a que frecuencia trabaje el aparato. */
+    const TAM = FP.FFT;
+    const PASO = Math.round(FP.HOP * FP.RATE);
+    const RAZON = this.ctx.sampleRate / FP.RATE;
+
+    /* Para la vuelta atras -sin hilo de audio no hay donde convertir- se usa
+       la del aparato y la ventana que mas se le acerque. */
+    const TAM_VIEJO = ventanaPara(this.ctx.sampleRate);
 
     const src = this.ctx.createMediaStreamSource(this.stream);
     this.tam = TAM;
@@ -2013,7 +2040,7 @@ class Listener {
       await this.ctx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
       this.nodo = new AudioWorkletNode(this.ctx, "trozos", {
-        processorOptions: { tam: TAM, paso: PASO }
+        processorOptions: { tam: TAM, paso: PASO, razon: RAZON }
       });
       this.nodo.port.onmessage = (e) => this.recibir(e.data);
       /* Se conecta la entrada al nodo y el nodo a ningun sitio: queremos leer
@@ -2029,12 +2056,15 @@ class Listener {
     /* Vuelta atras, por si algun navegador no tiene el hilo de audio: se
        pregunta desde aqui, como antes. Anda peor y el panel lo dice, pero
        anda. */
+    this.tam = TAM_VIEJO;
     this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = ventanaPara(this.ctx.sampleRate);
+    this.analyser.fftSize = TAM_VIEJO;
     this.analyser.smoothingTimeConstant = 0;
     src.connect(this.analyser);
     this.onda = new Float32Array(this.analyser.fftSize);
     this.spec = new Float32Array(this.analyser.frequencyBinCount);
+    this.re = new Float64Array(TAM_VIEJO);
+    this.im = new Float64Array(TAM_VIEJO);
     this.frame = -1;
 
     const tick = () => {
@@ -2122,7 +2152,14 @@ class Listener {
      frecuencia corresponde cada casilla depende de esto. Si una cancion se
      grabo a 44.100 y se escucha a 48.000, las mismas notas caen en casillas
      distintas y no coincide nada. */
-  get muestreo() { return this.ctx ? Math.round(this.ctx.sampleRate) : 0; }
+  /* La frecuencia con la que se mide la huella. Con el hilo de audio es
+     siempre la del catalogo, porque el obrero convierte lo que le den. Sin el,
+     es la del aparato y la app solo reconoce lo grabado en ese mismo telefono:
+     por eso el panel lo pinta en rojo. */
+  get muestreo() {
+    if (!this.ctx) return 0;
+    return this.porElAudio ? FP.RATE : Math.round(this.ctx.sampleRate);
+  }
 
   /* Cuantas muestras mira cada vez. Junto al muestreo dan los hercios por
      casilla, que es lo unico que tiene que coincidir entre dos telefonos. */

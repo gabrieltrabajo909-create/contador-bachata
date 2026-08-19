@@ -662,17 +662,118 @@ await prueba("el volumen mueve todo el espectro por igual, no los picos", () => 
     "la diferencia en decibelios no es la que toca");
 });
 
-await prueba("el obrero del hilo de audio no pierde ni una muestra", () => {
-  /* Se lee el programita que corre en el hilo del audio y se comprueba lo
-     unico que importa: que recorra TODAS las muestras que le entran y mande
-     bloques enteros. Si se saltara alguna, la huella saldria coja otra vez. */
-  afirmar(/for \(let i = 0; i < canal\.length; i\+\+\)/.test(M.OBRERO),
-    "el obrero no recorre todas las muestras que le llegan");
-  afirmar(/this\.n === this\.tam/.test(M.OBRERO),
-    "el obrero no manda bloques del tamano que toca");
+/* ---------------------------------------------------------------------------
+   El obrero, corriendo de verdad
+
+   Aqui esta la pieza que hace que la app sirva para VEINTE telefonos y no para
+   uno. Los profesores van a grabar con teléfonos de 44.100, de 48.000, de lo
+   que sea; los alumnos van a escuchar con otros distintos. Si cada uno mide
+   con su regla, nada se reconoce entre si: eso costo que el telefono de prueba
+   no funcionara nunca.
+
+   El obrero convierte lo que le den a la frecuencia del catalogo. Estas
+   pruebas lo hacen correr de verdad, no leen su texto: se le da un tono
+   conocido a una frecuencia y se comprueba que sale a la otra, sin costuras y
+   sin perder muestras en el cruce entre bloques.
+--------------------------------------------------------------------------- */
+
+/* Se le montan alrededor las dos cosas que el navegador le da y Node no. */
+function montarObrero(razon, tam, paso) {
+  let Clase = null;
+  const registrar = (nombre, c) => { Clase = c; };
+  const Base = class { constructor() { this.port = { postMessage: null }; } };
+  new Function("AudioWorkletProcessor", "registerProcessor", M.OBRERO)(Base, registrar);
+  afirmar(Clase, "el obrero no se registro");
+  const o = new Clase({ processorOptions: { tam, paso, razon } });
+  const salidas = [];
+  o.port.postMessage = (b) => salidas.push(b);
+  return { o, salidas };
+}
+
+await prueba("el obrero convierte a la frecuencia del catalogo", () => {
+  /* Un aparato de 44.100 entregando 44.100 muestras (un segundo). A la salida
+     tienen que aparecer las ventanas que tocan a 48.000. */
+  const DE = 44100, A = M.FP.RATE, tam = M.FP.FFT, paso = Math.round(M.FP.HOP * A);
+  const { o, salidas } = montarObrero(DE / A, tam, paso);
+  const bloque = new Float32Array(128);
+  let fase = 0;
+  for (let b = 0; b < Math.floor(DE / 128); b++) {
+    for (let i = 0; i < 128; i++) { bloque[i] = Math.sin(2 * Math.PI * fase); fase += 1000 / DE; }
+    o.process([[bloque]]);
+  }
+  /* Un segundo de audio son A muestras convertidas; a una ventana cada `paso`,
+     salen A/paso ventanas. Se admite una de margen por los bordes. */
+  const esperadas = Math.floor(A / paso);
+  afirmar(Math.abs(salidas.length - esperadas) <= 1,
+    `salieron ${salidas.length} ventanas y tenian que salir ${esperadas}`);
+  for (const v of salidas) igual(v.length, tam, "una ventana salio de otro tamano");
+});
+
+await prueba("el tono sale donde tiene que salir despues de convertir", () => {
+  /* La prueba de verdad: se mete un tono de 1000 Hz muestreado a 44.100 y, tras
+     convertir, tiene que caer en la casilla que le toca a 1000 Hz en la
+     cuadricula del catalogo. Si la conversion estuviera mal, el tono se
+     correria de casilla y ninguna cancion coincidiria: exactamente el fallo que
+     dejaba fuera al telefono de prueba. */
+  const DE = 44100, A = M.FP.RATE, tam = M.FP.FFT, paso = Math.round(M.FP.HOP * A);
+  const { o, salidas } = montarObrero(DE / A, tam, paso);
+  const bloque = new Float32Array(128);
+  let fase = 0;
+  for (let b = 0; b < 700; b++) {
+    for (let i = 0; i < 128; i++) { bloque[i] = Math.sin(2 * Math.PI * fase); fase += 1000 / DE; }
+    o.process([[bloque]]);
+  }
+  afirmar(salidas.length > 2, "no salio ninguna ventana");
+  const spec = new Float32Array(tam / 2);
+  M.espectroDe(salidas[salidas.length - 1], new Float64Array(tam), new Float64Array(tam), spec);
+  let mejor = -Infinity, donde = -1;
+  for (let i = 0; i < tam / 2; i++) if (spec[i] > mejor) { mejor = spec[i]; donde = i; }
+  const debia = Math.round(1000 / M.FP.BINHZ);
+  afirmar(Math.abs(donde - debia) <= 1,
+    `1000 Hz cayo en la casilla ${donde} y en esta cuadricula le toca la ${debia}`);
+});
+
+await prueba("sin conversion que hacer, no toca nada", () => {
+  /* Cuando el aparato ya trabaja en la cuadricula del catalogo, la razon es 1 y
+     las muestras tienen que salir tal cual entraron. */
+  const tam = 64, paso = 64;
+  const { o, salidas } = montarObrero(1, tam, paso);
+  const bloque = new Float32Array(128);
+  for (let i = 0; i < 128; i++) bloque[i] = i / 128;
+  o.process([[bloque]]);
+  o.process([[bloque]]);
+  afirmar(salidas.length >= 2, "no salio nada");
+  const v = salidas[0];
+  for (let i = 0; i < tam; i++) {
+    cerca(v[i], bloque[i], 1e-6, "la muestra " + i + " cambio sin hacer falta");
+  }
+});
+
+await prueba("el cruce entre bloques no deja huecos", () => {
+  /* El navegador entrega el audio de a 128 muestras. Si en cada costura se
+     perdiera o repitiera una, serian 170 costuras por segundo: un chirrido
+     constante metido en la huella. Se comprueba con una rampa, donde cualquier
+     salto se ve. */
+  const tam = 256, paso = 256;
+  const { o, salidas } = montarObrero(1, tam, paso);
+  const bloque = new Float32Array(128);
+  let v = 0;
+  for (let b = 0; b < 8; b++) {
+    for (let i = 0; i < 128; i++) bloque[i] = v++;
+    o.process([[bloque]]);
+  }
+  afirmar(salidas.length >= 2, "no salieron ventanas");
+  const s = salidas[1];
+  for (let i = 1; i < s.length; i++) {
+    cerca(s[i] - s[i - 1], 1, 1e-6,
+      "hay un salto en la muestra " + i + ": se perdio o se repitio audio");
+  }
+});
+
+await prueba("el obrero no toca nada que en el hilo del audio no exista", () => {
+  afirmar(!/console\.|document|window|localStorage/.test(M.OBRERO),
+    "el obrero usa cosas que en el hilo del audio no existen");
   afirmar(/return true/.test(M.OBRERO), "el obrero se apaga solo");
-  afirmar(!/console\.|document|window/.test(M.OBRERO),
-    "el obrero toca cosas que en el hilo del audio no existen");
 });
 
 /* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba

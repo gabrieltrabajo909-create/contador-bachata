@@ -12,7 +12,7 @@
 /* El nombre lleva la version dentro a proposito: al cambiarla, este deposito
  * pasa a ser otro, se baja todo de nuevo y el viejo se borra. Con un nombre
  * fijo, una copia mala se quedaba pegada sin manera de echarla. */
-const CACHE = "cuentas-2.15.0";
+const CACHE = "cuentas-2.16.0";
 const COPIA = [
   "./",
   "./index.html",
