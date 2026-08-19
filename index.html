@@ -934,6 +934,11 @@
       <summary><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-target"/></svg><span data-i18n="diagTitle">Si no reconoce: datos técnicos</span></summary>
       <p class="hint" data-i18n="diagHelp">Poné la música, tocá «Escuchar» y abrí esto sin salir de la pantalla. Mandame lo que dice.</p>
       <div class="diag" id="diag"></div>
+
+      <!-- La prueba la hace el teléfono, no la persona. Nadie tiene que
+           interpretar diez números: dice si está sano o qué falló. -->
+      <button class="ghost" id="diag-probar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-target"/></svg><span data-i18n="selfTest">Comprobar este teléfono</span></button>
+      <div class="diag" id="diag-prueba"></div>
     </details>
   </section>
 
@@ -1127,6 +1132,12 @@ const STR = {
     diagPeak: "Nivel de entrada", diagHashes: "Huellas comparadas",
     diagMatch: "Mejor coincidencia", diagNothing: "nada todavía",
     diagStands: "Cuánto destaca", diagSecond: "Contra la segunda",
+    selfTest: "Comprobar este teléfono", selfThread: "Hilo de audio",
+    selfYes: "sí", selfNo: "no", selfFallback: "no (usa el de respaldo)",
+    selfCross: "Reconoce lo grabado en otra frecuencia",
+    selfInvents: "Inventa canciones que no están",
+    selfResult: "Resultado", selfHealthy: "este teléfono está sano",
+    selfBroken: "algo falla, mandá esta foto",
     vibeNA: "Vibrar: no disponible",
     vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
     startHint: "Pon la canción y dale a escuchar.",
@@ -1347,6 +1358,12 @@ const STR = {
     diagPeak: "Input level", diagHashes: "Prints compared",
     diagMatch: "Best match", diagNothing: "nothing yet",
     diagStands: "How much it stands out", diagSecond: "Against runner-up",
+    selfTest: "Check this phone", selfThread: "Audio thread",
+    selfYes: "yes", selfNo: "no", selfFallback: "no (using the fallback)",
+    selfCross: "Recognises what was recorded at another rate",
+    selfInvents: "Invents songs that are not there",
+    selfResult: "Result", selfHealthy: "this phone is healthy",
+    selfBroken: "something is wrong, send this photo",
     vibeNA: "Vibrate: unavailable",
     vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
     startHint: "Put the song on and press listen.",
@@ -1577,7 +1594,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.19.0";
+const VERSION = "2.20.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -3223,6 +3240,155 @@ function pintarAlumno() {
   $("a-game").hidden = !hay || !game.on;
   $("a-vibe").hidden = !hay;
 }
+
+/* ---------- Que el teléfono se compruebe solo ----------
+
+   El problema de fondo de estos días no fue el código: fue que para saber si
+   algo andaba había que pedirle a alguien que probara en su teléfono y contara
+   lo que veía. Con veinte personas y veinte teléfonos eso no escala, y encima
+   obliga a interpretar números a quien no tiene por qué.
+
+   Así que el teléfono se lo comprueba a sí mismo. Se fabrica una canción, se
+   la "graba" con la cadena entera —la de verdad, la misma que usa el micrófono—
+   y se la "escucha" desde OTRA frecuencia, que es exactamente el caso que
+   estuvo roto. Sin micrófono, en unos segundos, y el aparato contesta sano o
+   dice qué falló. */
+
+function musiquita(semilla) {
+  let s = semilla;
+  const azar = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  /* Suficientes acordes para que la cancion NO se repita durante toda la
+     prueba. Con pocos, se parece a si misma cada pocos segundos, y una
+     cancion que se parece a si misma confunde al reconocedor: la prueba
+     suspenderia a un telefono sano. Me paso, y por eso esta escrito aqui. */
+  const acordes = Array.from({ length: 90 }, () =>
+    Array.from({ length: 4 }, () => 110 * Math.pow(2, Math.floor(azar() * 24) / 12)));
+  /* Todo por debajo de 4 kHz: por encima, cada frecuencia de muestreo pliega
+     distinto y la prueba mediría su propio error en vez del de la app. */
+  const golpe = [180, 420, 900, 1900, 3300].map((f, i) => [f, 0.3 / (i + 1)]);
+  return (t) => {
+    const a = acordes[Math.floor(t * 2) % acordes.length];
+    let v = 0;
+    for (const f of a) v += Math.sin(2 * Math.PI * f * t) * 0.3 + Math.sin(2 * Math.PI * f * 2 * t) * 0.12;
+    const d = t % 0.5;
+    if (d < 0.08) for (const [f, g] of golpe) v += g * Math.exp(-d * 45) * Math.sin(2 * Math.PI * f * t);
+    return v * 0.2;
+  };
+}
+
+/* Pasa un trozo de musica por la cadena de captura, a la frecuencia que se le
+   diga, y devuelve las huellas. Con hilo de audio si lo hay; si no, con el
+   mismo obrero montado aqui, que es lo que hace la app de verdad. */
+async function pasarPorLaCadena(fn, rate, desde, seg, desfases, urlObrero) {
+  const TAM = FP.FFT, PASO = (FP.HOP * FP.RATE) / desfases, RAZON = rate / FP.RATE;
+  const largo = Math.round(seg * rate);
+  const ventanas = [];
+
+  if (urlObrero) {
+    const ctx = new OfflineAudioContext(1, largo, rate);
+    await ctx.audioWorklet.addModule(urlObrero);
+    const buf = ctx.createBuffer(1, largo, rate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < largo; i++) d[i] = fn(desde + i / rate);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const nodo = new AudioWorkletNode(ctx, "trozos", {
+      processorOptions: { tam: TAM, paso: PASO, razon: RAZON }
+    });
+    nodo.port.onmessage = (e) => ventanas.push(e.data);
+    src.connect(nodo);
+    src.start();
+    await ctx.startRendering();
+    // Los ultimos avisos llegan despues de terminar de dibujar el sonido
+    await new Promise(r => setTimeout(r, 80));
+  } else {
+    const o = obreroEnCasa({ tam: TAM, paso: PASO, razon: RAZON }, (b) => ventanas.push(b));
+    const bloque = new Float32Array(128);
+    for (let i = 0; i + 128 <= largo; i += 128) {
+      for (let k = 0; k < 128; k++) bloque[k] = fn(desde + (i + k) / rate);
+      o.process([[bloque]]);
+    }
+  }
+
+  const re = new Float64Array(TAM), im = new Float64Array(TAM);
+  const spec = new Float32Array(TAM / 2);
+  const fps = Array.from({ length: desfases }, () => new Fingerprinter());
+  ventanas.forEach((b, v) => {
+    espectroDe(b, re, im, spec);
+    fps[v % desfases].push(spec, Math.floor(v / desfases));
+  });
+  return { huellas: fps.map(f => f.result()), ventanas: ventanas.length };
+}
+
+async function comprobarReconocedor() {
+  const caja = $("diag-prueba");
+  const boton = $("diag-probar");
+  boton.disabled = true;
+  caja.textContent = "";
+  const linea = (nombre, valor, mal) => {
+    const n = document.createElement("b"); n.textContent = nombre;
+    const v = document.createElement("span"); v.textContent = valor;
+    if (mal) v.className = "mal";
+    caja.append(n, v);
+  };
+
+  let url = null;
+  try {
+    /* Primero, lo que decide todo lo demas: ¿este navegador tiene hilo de
+       audio? Sin el se sigue por el camino de respaldo, que convierte igual
+       pero puede saltarse frames si el telefono se atasca. */
+    let hilo = false;
+    try {
+      url = URL.createObjectURL(new Blob([OBRERO], { type: "application/javascript" }));
+      const probe = new OfflineAudioContext(1, 256, 48000);
+      await probe.audioWorklet.addModule(url);
+      hilo = true;
+    } catch (e) { hilo = false; }
+    linea(t("selfThread"), t(hilo ? "selfYes" : "selfFallback"), false);
+
+    /* La prueba de verdad: grabar a una frecuencia y reconocer desde otra.
+       Es el caso que estuvo roto y el que ocurre en cuanto dos personas usan
+       teléfonos distintos. */
+    const cancs = [1, 2, 3].map(k => ({ id: "p" + k, fn: musiquita(k * 13) }));
+    const m = new Matcher();
+    const GRABA = 48000, OYE = 44100;
+    for (const c of cancs) {
+      const r = await pasarPorLaCadena(c.fn, GRABA, 0, 34, 1, hilo ? url : null);
+      m.add({ id: c.id, fp: r.huellas[0] });
+    }
+    let aciertos = 0;
+    /* Se escuchan 20 segundos, que es lo que junta la app cuando le cuesta.
+       Con menos, un aparato sano da 1 de 2 y la prueba diria que esta roto:
+       una prueba que asusta sin motivo es peor que no tenerla. */
+    for (const desde of [2.31, 9.77]) {
+      const r = await pasarPorLaCadena(cancs[1].fn, OYE, desde, 20, FP.SUBS, hilo ? url : null);
+      let mejor = null;
+      for (const q of r.huellas) {
+        const x = m.match(q.keys, q.times);
+        if (x && (!mejor || x.score > mejor.score)) mejor = x;
+      }
+      if (mejor && mejor.songId === "p2") aciertos++;
+    }
+    linea(t("selfCross"), aciertos + "/2", aciertos < 2);
+
+    /* Y que no invente: una cancion que no esta guardada tiene que dejarla
+       pasar en silencio. Reconocer de mas es peor que no reconocer. */
+    const r = await pasarPorLaCadena(musiquita(999), OYE, 3.5, 20, FP.SUBS, hilo ? url : null);
+    let invento = false;
+    for (const q of r.huellas) if (m.match(q.keys, q.times)) invento = true;
+    linea(t("selfInvents"), t(invento ? "selfYes" : "selfNo"), invento);
+
+    const sano = aciertos === 2 && !invento;
+    linea(t("selfResult"), t(sano ? "selfHealthy" : "selfBroken"), !sano);
+  } catch (e) {
+    linea(t("selfResult"), String(e.message || e), true);
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+    boton.disabled = false;
+  }
+}
+
+$("diag-probar").addEventListener("click", comprobarReconocedor);
 
 /* ---------- Datos técnicos ----------
 

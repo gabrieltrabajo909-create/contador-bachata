@@ -594,6 +594,47 @@ await prueba("del microfono solo se pide el permiso y el apagado", () => {
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("El telefono se comprueba solo");
+
+/* El problema de fondo de estos dias no fue el codigo: fue que para saber si
+   algo andaba habia que pedirle a alguien que probara en su telefono y contara
+   lo que veia. Con veinte personas y veinte teléfonos eso no escala, y encima
+   obliga a interpretar numeros a quien no tiene por que. */
+
+await prueba("hay un boton que comprueba el telefono", () => {
+  afirmar(/id="diag-probar"/.test(SOLO_HTML), "no hay boton de comprobacion");
+  afirmar(/id="diag-prueba"/.test(SOLO_HTML), "no hay donde poner el resultado");
+  afirmar(/\$\("diag-probar"\)\.addEventListener/.test(FUENTE),
+    "el boton no hace nada");
+});
+
+await prueba("la comprobacion prueba lo que estuvo roto", () => {
+  /* Grabar a una frecuencia y reconocer desde OTRA: ese fue el fallo. Una
+     comprobacion que solo mirara la misma frecuencia habria dado verde
+     mientras la app estaba rota. */
+  const f = /async function comprobarReconocedor\(\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(f, "no encuentro la comprobacion");
+  afirmar(/GRABA = 48000, OYE = 44100/.test(f[0]),
+    "la comprobacion no graba en una frecuencia y escucha en otra");
+  afirmar(/selfInvents/.test(f[0]),
+    "no comprueba que no invente canciones que no estan");
+  afirmar(/hilo/.test(f[0]), "no comprueba si hay hilo de audio");
+});
+
+await prueba("la cancion de prueba no se repite a si misma", () => {
+  /* Con pocos acordes la cancion se parece a si misma cada pocos segundos, y
+     eso confunde al reconocedor: la comprobacion suspenderia a un telefono
+     sano. Paso, con 12 acordes. Una prueba que asusta sin motivo es peor que
+     no tenerla. */
+  const f = /function musiquita\(semilla\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(f, "no encuentro la cancion de prueba");
+  const n = /Array\.from\(\{ length: (\d+) \}, \(\) =>\s*\n?\s*Array\.from\(\{ length: 4 \}/.exec(f[0]);
+  afirmar(n, "no encuentro cuantos acordes tiene la cancion de prueba");
+  afirmar(Number(n[1]) >= 70,
+    "la cancion de prueba se repite: solo tiene " + n[1] + " acordes");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("La version a la vista");
 
 /* La app se guarda en el telefono para abrirse sin internet, asi que la
