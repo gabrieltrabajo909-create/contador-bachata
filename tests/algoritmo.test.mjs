@@ -9,7 +9,7 @@ const M = await cargar([
   "FP", "packHash", "Fingerprinter", "Matcher",
   "countAt", "nearestOne", "BANDS", "judge",
   "toB64", "fromB64", "RALO", "huellaRala", "Listener", "ventanaPara",
-  "fftEnSitio", "espectroDe", "VENTANA", "OBRERO"
+  "fftEnSitio", "espectroDe", "OBRERO", "ventanas", "ventanaDe"
 ]);
 
 /* ---------------------------------------------------------------------------
@@ -467,30 +467,44 @@ await prueba("cuando deja de saturar se olvida", () => {
 --------------------------------------------------------------------------- */
 seccion("La misma regla en todos los telefonos");
 
-await prueba("el muestreo esta fijado, no lo pone el telefono", () => {
-  afirmar(M.FP.RATE > 0, "no hay una frecuencia fija a la que llevar el audio");
-  afirmar(/sampleRate: FP\.RATE/.test(FUENTE),
-    "no se le pide al navegador esa frecuencia: cada telefono usaria la suya");
+await prueba("no se le cambia la frecuencia al aparato", () => {
+  /* Se probo a forzar 11.025 Hz como hace Chromaprint. La idea era buena -que
+     todos los telefonos midan igual- pero rompio algo peor: las canciones ya
+     grabadas se midieron en la cuadricula del aparato que las grabo, y al
+     cambiar la cuadricula dejaron de coincidir con nada.
+
+     Se dijo entonces que no habia que regrabar porque 11.025 con ventana de
+     512 da el mismo ancho de casilla que 44.100 con 2048. Cierto, pero solo
+     si el aparato ES de 44.100. El de Gabriel no lo era, y sus seis canciones
+     quedaron fuera de juego de un dia para otro.
+
+     Fijar la frecuencia sigue siendo lo correcto para que un telefono
+     reconozca lo que grabo otro. Pero es un cambio que obliga a rehacer el
+     catalogo, y eso se decide ANTES y se avisa, no se descubre despues. */
+  afirmar(!/sampleRate:\s*FP\.RATE/.test(FUENTE),
+    "se vuelve a forzar la frecuencia: eso deja fuera a las canciones ya grabadas");
 });
 
-await prueba("cada casilla mide lo mismo que siempre", () => {
-  /* Esta es la prueba que protege las canciones ya grabadas. Se cambio el
-     muestreo de 44.100 a 11.025, pero tambien la ventana, de 2048 a 512: las
-     dos cuentas dan los mismos 21,533 Hz por casilla. Si alguien tocara una
-     sola de las dos, las huellas viejas dejarian de coincidir y habria que
-     regrabar el catalogo entero. */
-  cerca(M.FP.RATE / M.FP.FFT, M.FP.BINHZ, 0.001,
-    "la casilla ya no mide lo mismo: las canciones grabadas dejan de valer");
-  cerca(M.FP.BINHZ, 44100 / 2048, 0.001,
-    "se cambio el ancho de casilla de siempre");
+await prueba("cada casilla mide lo mismo sea cual sea el aparato", () => {
+  /* Lo que tiene que coincidir entre quien grabo y quien escucha no es la
+     frecuencia: es cuantos hercios mide cada casilla del espectro. Por eso la
+     ventana se elige a partir de la frecuencia que haya. */
+  for (const rate of [11025, 22050, 44100, 48000, 96000]) {
+    const ancho = rate / M.ventanaPara(rate);
+    const error = Math.abs(ancho - M.FP.BINHZ) / M.FP.BINHZ;
+    afirmar(error < 0.12,
+      `a ${rate} Hz la casilla mide ${ancho.toFixed(2)} Hz y deberia medir ${M.FP.BINHZ.toFixed(2)}`);
+  }
+  cerca(44100 / M.ventanaPara(44100), M.FP.BINHZ, 0.001,
+    "a 44.100 no sale el ancho de casilla de siempre");
 });
 
-await prueba("la ventana dura lo mismo que antes", () => {
-  /* 512 muestras a 11.025 Hz son los mismos 46 ms que 2048 a 44.100. Si
-     durara otra cosa, se veria otro trozo de musica en cada golpe. */
-  const antes = 2048 / 44100, ahora = M.FP.FFT / M.FP.RATE;
-  cerca(ahora, antes, 0.0005, "la ventana pasó de " + (antes*1000).toFixed(1) +
-        " ms a " + (ahora*1000).toFixed(1) + " ms");
+await prueba("el paso entre frames es el que llevan dentro las canciones", () => {
+  /* Las canciones guardadas tienen sus frames contados con este numero. Si se
+     cambiara, los frames de quien escucha avanzarian a otro ritmo que los de
+     quien grabo, y las parejas ya no caerian a la misma distancia. */
+  cerca(M.FP.HOP, 0.0464, 1e-9,
+    "se cambio el paso entre frames: las canciones guardadas dejan de valer");
 });
 
 await prueba("si el navegador no da la frecuencia, se busca la ventana que mas se acerque", () => {
@@ -588,14 +602,15 @@ await prueba("la ventana es la misma que aplica el navegador", () => {
      moverian y las huellas viejas dejarian de coincidir. Comprobado en el
      navegador contra su AnalyserNode: -19,58 / -25,60 / -33,56 dB, identicos. */
   const N = M.FP.FFT;
-  igual(M.VENTANA.length, N, "la ventana no mide lo que la transformada");
+  const VENTANA = M.ventanaDe(N);
+  igual(VENTANA.length, N, "la ventana no mide lo que la transformada");
   for (const i of [0, 1, 37, N / 2, N - 1]) {
     const esperado = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / N)
                           + 0.08 * Math.cos(4 * Math.PI * i / N);
-    cerca(M.VENTANA[i], esperado, 1e-6, "la ventana no es Blackman en " + i);
+    cerca(VENTANA[i], esperado, 1e-6, "la ventana no es Blackman en " + i);
   }
-  cerca(M.VENTANA[N / 2], 1, 0.001, "la ventana no vale 1 en el centro");
-  afirmar(M.VENTANA[0] < 0.01, "la ventana no cierra en los extremos");
+  cerca(VENTANA[N / 2], 1, 0.001, "la ventana no vale 1 en el centro");
+  afirmar(VENTANA[0] < 0.01, "la ventana no cierra en los extremos");
 });
 
 await prueba("el silencio no inventa picos ni numeros imposibles", () => {

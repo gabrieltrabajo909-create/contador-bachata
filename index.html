@@ -1122,7 +1122,7 @@ const STR = {
     micSat: "El micrófono está saturando: bajá el volumen de la música o alejá el teléfono. Con la señal recortada no puede reconocer nada.",
     diagTitle: "Si no reconoce: datos técnicos",
     diagHelp: "Poné la música, tocá «Escuchar» y abrí esto sin salir de la pantalla. Mandame lo que dice.",
-    diagRate: "Muestreo del micrófono", diagBin: "Hz por casilla", diagFps: "Frames por segundo",
+    diagRate: "Muestreo del micrófono", diagNative: "Muestreo del aparato", diagBin: "Hz por casilla", diagFps: "Frames por segundo",
     diagVia: "Entra por", diagViaAudio: "hilo de audio", diagViaPantalla: "la pantalla (peor)",
     diagPeak: "Nivel de entrada", diagHashes: "Huellas comparadas",
     diagMatch: "Mejor coincidencia", diagNothing: "nada todavía",
@@ -1342,7 +1342,7 @@ const STR = {
     micSat: "The microphone is overloading: turn the music down or move the phone away. With a clipped signal it cannot recognise anything.",
     diagTitle: "If it does not recognise: technical data",
     diagHelp: "Put the music on, tap “Listen” and open this without leaving the screen. Send me what it says.",
-    diagRate: "Microphone sample rate", diagBin: "Hz per bin", diagFps: "Frames per second",
+    diagRate: "Microphone sample rate", diagNative: "Device sample rate", diagBin: "Hz per bin", diagFps: "Frames per second",
     diagVia: "Comes in via", diagViaAudio: "audio thread", diagViaPantalla: "the screen (worse)",
     diagPeak: "Input level", diagHashes: "Prints compared",
     diagMatch: "Best match", diagNothing: "nothing yet",
@@ -1577,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.13.1";
+const VERSION = "2.14.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1606,10 +1606,9 @@ const FP = {
   RATE: 11025,
   BINHZ: 44100 / 2048,   // 21,533 Hz por casilla. NO se toca: las huellas lo llevan dentro.
   FFT: 512,              // 512 muestras a 11.025 Hz = esos mismos 21,533 Hz
-  /* Segundos por frame. Sale de la cuenta, no de un numero redondeado: son
-     exactamente las muestras de una ventana a la frecuencia fija, asi que el
-     numero de frame y el tiempo real dicen siempre lo mismo. */
-  get HOP() { return this.FFT / this.RATE; },   // 0,04644 s = ~21,5 frames/s
+  /* Segundos por frame. Este numero NO se toca: las canciones guardadas
+     llevan sus frames contados con el, y cambiarlo las deja fuera de juego. */
+  HOP: 0.0464,        // ~21,6 frames por segundo
   MAXBIN: 232,        // ~5 kHz con 44.1 kHz
   BANDS: [4, 12, 24, 48, 96, 160, 232],
   PEAKS: 3,                    // picos por frame
@@ -1645,14 +1644,18 @@ function ventanaPara(rate) {
 /* La misma ventana que aplica el navegador antes de transformar (Blackman).
    Si se cambiara por otra, los picos se moverian y las huellas viejas
    dejarian de coincidir. */
-const VENTANA = (() => {
-  const N = FP.FFT, w = new Float32Array(N);
+const ventanas = new Map();
+function ventanaDe(N) {
+  let w = ventanas.get(N);
+  if (w) return w;
+  w = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     w[i] = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / N)
                 + 0.08 * Math.cos(4 * Math.PI * i / N);
   }
+  ventanas.set(N, w);
   return w;
-})();
+}
 
 /* Transformada rapida de Fourier, en el sitio. Es el algoritmo de siempre
    (Cooley-Tukey); lo unico que hay que cuidar es que N sea potencia de dos. */
@@ -1688,7 +1691,8 @@ function fftEnSitio(re, im) {
 /* De un trozo de onda al espectro en decibelios, exactamente como lo entrega
    el navegador: ventana Blackman, transformada, magnitud partida por N. */
 function espectroDe(bloque, re, im, spec) {
-  const N = FP.FFT;
+  const N = bloque.length;
+  const VENTANA = ventanaDe(N);
   for (let i = 0; i < N; i++) { re[i] = bloque[i] * VENTANA[i]; im[i] = 0; }
   fftEnSitio(re, im);
   for (let i = 0; i < N / 2; i++) {
@@ -1705,16 +1709,23 @@ const OBRERO = `
 class Trozos extends AudioWorkletProcessor {
   constructor(o) {
     super();
-    this.tam = o.processorOptions.tam;
+    this.tam = o.processorOptions.tam;     // muestras que mira cada frame
+    this.paso = o.processorOptions.paso;   // muestras entre un frame y el siguiente
     this.buf = new Float32Array(this.tam);
-    this.n = 0;
+    this.n = 0;                            // cuanto hay guardado en la ventana
+    this.desde = 0;                        // muestras desde el ultimo envio
   }
   process(entradas) {
     const canal = entradas[0] && entradas[0][0];
     if (!canal) return true;
     for (let i = 0; i < canal.length; i++) {
-      this.buf[this.n++] = canal[i];
-      if (this.n === this.tam) { this.port.postMessage(this.buf.slice()); this.n = 0; }
+      // ventana corrediza: entra la nueva, sale la mas vieja
+      if (this.n === this.tam) { this.buf.copyWithin(0, 1); this.buf[this.tam - 1] = canal[i]; }
+      else this.buf[this.n++] = canal[i];
+      if (++this.desde >= this.paso && this.n === this.tam) {
+        this.desde = 0;
+        this.port.postMessage(this.buf.slice());
+      }
     }
     return true;
   }
@@ -1922,19 +1933,33 @@ class Listener {
     this.onSaturar = onSaturar;
     this.saturados = 0;
     this.avisado = false;
-    /* A la frecuencia fija, siempre. El navegador se encarga de convertir lo
-       que entregue el microfono, que es justo lo que hace Chromaprint. Si
-       algun navegador no lo aceptara, se abre como se pueda y se sigue: peor,
-       pero andando, y el panel de datos tecnicos lo delata. */
+    /* La frecuencia del aparato, la que sea.
+
+       Se probo a forzarla a 11.025 como hace Chromaprint, y era buena idea
+       para que todos los telefonos midieran igual. Pero rompio algo peor: las
+       canciones ya grabadas se midieron en la cuadricula del aparato que las
+       grabo, y al cambiar la cuadricula dejaron de coincidir con nada. Yo dije
+       que no habia que regrabar, y me equivoque: eso solo valia si el aparato
+       fuera de 44.100.
+
+       Fijar la frecuencia sigue siendo lo correcto, pero es un cambio que
+       obliga a rehacer el catalogo, y eso se decide antes, no despues. */
     const Audio = window.AudioContext || window.webkitAudioContext;
-    try { this.ctx = new Audio({ sampleRate: FP.RATE }); }
-    catch (e) { this.ctx = new Audio(); }
+    this.ctx = new Audio();
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
+    /* La ventana en muestras, para que cada casilla siga midiendo 21,53 Hz
+       pase lo que pase con la frecuencia. Y el paso en muestras: los mismos
+       46,4 ms de siempre, que es cada cuanto avanza un frame. Van separados a
+       proposito: el paso lo marca el reloj, no el tamano de la ventana. */
+    const TAM = ventanaPara(this.ctx.sampleRate);
+    const PASO = Math.round(FP.HOP * this.ctx.sampleRate);
+
     const src = this.ctx.createMediaStreamSource(this.stream);
-    this.spec = new Float32Array(FP.FFT / 2);
-    this.re = new Float64Array(FP.FFT);
-    this.im = new Float64Array(FP.FFT);
+    this.tam = TAM;
+    this.spec = new Float32Array(TAM / 2);
+    this.re = new Float64Array(TAM);
+    this.im = new Float64Array(TAM);
     this.t0 = this.ctx.currentTime;
     this.frames = 0;
     this.running = true;
@@ -1961,7 +1986,7 @@ class Listener {
       await this.ctx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
       this.nodo = new AudioWorkletNode(this.ctx, "trozos", {
-        processorOptions: { tam: FP.FFT }
+        processorOptions: { tam: TAM, paso: PASO }
       });
       this.nodo.port.onmessage = (e) => this.recibir(e.data);
       /* Se conecta la entrada al nodo y el nodo a ningun sitio: queremos leer
@@ -2074,7 +2099,7 @@ class Listener {
 
   /* Cuantas muestras mira cada vez. Junto al muestreo dan los hercios por
      casilla, que es lo unico que tiene que coincidir entre dos telefonos. */
-  get ventana() { return this.analyser ? this.analyser.fftSize : FP.FFT; }
+  get ventana() { return this.analyser ? this.analyser.fftSize : (this.tam || FP.FFT); }
 
   /* Frames por segundo de verdad. La huella empareja frames a distancias
      FIJAS; si el telefono no llega al ritmo, se saltan frames y con ellos se
@@ -3059,6 +3084,20 @@ function pintarAlumno() {
 
    Los cuatro números son los cuatro sitios donde esto se puede romper, y cada
    uno se pone en rojo cuando se sale de lo razonable. */
+/* A que frecuencia trabaja este aparato cuando nadie le pide nada.
+
+   Importa porque las canciones YA GRABADAS se midieron en esa cuadricula: si
+   el aparato es de 48.000, quedaron con casillas de 23,44 Hz, y ahora que la
+   app escucha a 11.025 (casillas de 21,53) no pueden coincidir con nada. Seria
+   yo quien las invalido al fijar la frecuencia. Se mide una vez, al abrir, sin
+   tocar el microfono. */
+let muestreoDelAparato = 0;
+try {
+  const c = new (window.AudioContext || window.webkitAudioContext)();
+  muestreoDelAparato = Math.round(c.sampleRate);
+  c.close();
+} catch (e) { /* si no se puede, se queda en 0 y el panel pone una raya */ }
+
 function pintarDiagnostico() {
   const caja = $("diag");
   if (!caja) return;
@@ -3069,8 +3108,13 @@ function pintarDiagnostico() {
   /* La huella guarda números de casilla del espectro. A qué frecuencia
      corresponde cada casilla depende del muestreo, así que una canción
      grabada a 44.100 y escuchada a 48.000 no coincide con nada. */
-  filas.push([t("diagRate"), l ? l.muestreo + " Hz" : "—",
-              !!l && l.muestreo !== FP.RATE]);
+  filas.push([t("diagRate"), l ? l.muestreo + " Hz" : "—", false]);
+
+  /* La cuadricula en la que quedaron las canciones ya grabadas. Si el aparato
+     no es de 44.100, no coinciden con la que se usa ahora y hay que rehacerlas. */
+  filas.push([t("diagNative"),
+              muestreoDelAparato ? muestreoDelAparato + " Hz" : "—",
+              muestreoDelAparato !== 0 && muestreoDelAparato !== 44100]);
 
   /* Lo que de verdad tiene que coincidir entre dos telefonos: cuantos hercios
      mide cada casilla del espectro. Si este numero es igual en los dos, las
@@ -4651,7 +4695,7 @@ if ("serviceWorker" in navigator) {
 
 /* Expuesto para poder probar el algoritmo desde la consola sin micrófono. */
 window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, packHash,
-                     espectroDe, fftEnSitio, VENTANA };
+                     espectroDe, fftEnSitio, ventanaDe };
 
 /* =========================================================================
    Arranque
