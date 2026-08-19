@@ -467,22 +467,39 @@ await prueba("cuando deja de saturar se olvida", () => {
 --------------------------------------------------------------------------- */
 seccion("La misma regla en todos los telefonos");
 
-await prueba("no se le cambia la frecuencia al aparato", () => {
-  /* Se probo a forzar 11.025 Hz como hace Chromaprint. La idea era buena -que
-     todos los telefonos midan igual- pero rompio algo peor: las canciones ya
-     grabadas se midieron en la cuadricula del aparato que las grabo, y al
-     cambiar la cuadricula dejaron de coincidir con nada.
+await prueba("se normaliza a la cuadricula que YA tiene el catalogo", () => {
+  /* Fijar la frecuencia es lo correcto: si cada telefono mide con su regla,
+     una cancion grabada en uno no se reconoce en otro. Eso costo que el
+     telefono barato no funcionara nunca.
 
-     Se dijo entonces que no habia que regrabar porque 11.025 con ventana de
-     512 da el mismo ancho de casilla que 44.100 con 2048. Cierto, pero solo
-     si el aparato ES de 44.100. El de Gabriel no lo era, y sus seis canciones
-     quedaron fuera de juego de un dia para otro.
+     Pero el numero al que se fija NO es libre. Se probo 11.025 Hz, que es lo
+     que usa Chromaprint, y fue un desastre: las canciones ya grabadas estaban
+     medidas en la cuadricula del aparato que las grabo (48.000 Hz, casillas de
+     23,44 Hz) y quedaron fuera de juego. El telefono de Gabriel, que
+     funcionaba, dejo de funcionar.
 
-     Fijar la frecuencia sigue siendo lo correcto para que un telefono
-     reconozca lo que grabo otro. Pero es un cambio que obliga a rehacer el
-     catalogo, y eso se decide ANTES y se avisa, no se descubre despues. */
-  afirmar(!/sampleRate:\s*FP\.RATE/.test(FUENTE),
-    "se vuelve a forzar la frecuencia: eso deja fuera a las canciones ya grabadas");
+     Al normalizar se normaliza a lo que YA EXISTE. Por eso 48.000: es donde
+     esta el catalogo. Cambiar este numero tira a la basura todo lo grabado, y
+     esta prueba esta aqui para que quien lo intente se entere antes. */
+  igual(M.FP.RATE, 48000, "se cambio la frecuencia: el catalogo entero deja de valer");
+  igual(M.FP.FFT, 2048, "se cambio la ventana: el catalogo entero deja de valer");
+  cerca(M.FP.RATE / M.FP.FFT, M.FP.BINHZ, 1e-9, "la casilla no mide lo que dice");
+  cerca(M.FP.BINHZ, 23.4375, 1e-6,
+    "las canciones grabadas tienen casillas de 23,4375 Hz y esto dice otra cosa");
+  afirmar(/sampleRate: FP\.RATE/.test(FUENTE),
+    "no se le pide esa frecuencia al navegador: cada telefono volveria a su regla");
+});
+
+await prueba("si el navegador no da esa frecuencia, se sigue igual", () => {
+  /* Nunca peor que no arrancar: se usa la del aparato y el panel lo dice en
+     rojo. Reconocera solo lo grabado en ese mismo telefono, que es como
+     estaba antes. */
+  const clase = /class Listener \{[\s\S]*?\n  \}/.exec(FUENTE);
+  afirmar(clase, "no encuentro la clase que escucha");
+  afirmar(/catch \(e\) \{\s*this\.ctx = new Audio\(\);/.test(FUENTE),
+    "si el navegador rechaza la frecuencia, la app se cae en vez de seguir");
+  afirmar(/!== FP\.RATE\) \{[\s\S]{0,120}new Audio\(\)/.test(FUENTE),
+    "no se comprueba que el navegador haya dado de verdad la frecuencia pedida");
 });
 
 await prueba("cada casilla mide lo mismo sea cual sea el aparato", () => {
@@ -495,8 +512,8 @@ await prueba("cada casilla mide lo mismo sea cual sea el aparato", () => {
     afirmar(error < 0.12,
       `a ${rate} Hz la casilla mide ${ancho.toFixed(2)} Hz y deberia medir ${M.FP.BINHZ.toFixed(2)}`);
   }
-  cerca(44100 / M.ventanaPara(44100), M.FP.BINHZ, 0.001,
-    "a 44.100 no sale el ancho de casilla de siempre");
+  cerca(M.FP.RATE / M.ventanaPara(M.FP.RATE), M.FP.BINHZ, 1e-9,
+    "a la frecuencia del catalogo no sale el ancho de casilla del catalogo");
 });
 
 await prueba("el paso entre frames es el que llevan dentro las canciones", () => {

@@ -1577,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.14.0";
+const VERSION = "2.15.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1586,7 +1586,23 @@ const FP = {
   VERSION: 1,
 
   /* A cuantas muestras por segundo se lleva TODO el audio, venga el telefono
-     como venga. Esta es la pieza que faltaba.
+     como venga. Y por que 48.000 y no otro numero.
+
+     PRIMERA VERSION, equivocada: se fijo 11.025 Hz porque es lo que hace
+     Chromaprint. La idea de fijar era correcta; el numero, no. Las canciones
+     ya grabadas se midieron en la cuadricula del aparato que las grabo -el de
+     Gabriel, de 48.000, con casillas de 23,44 Hz- y al medir en otra
+     cuadricula dejaron de coincidir con nada. Su telefono, que funcionaba,
+     dejo de funcionar de un dia para otro por culpa de ese cambio.
+
+     AHORA: se fija la cuadricula QUE YA TIENE EL CATALOGO. 48.000 con ventana
+     de 2048 son esas mismas casillas de 23,44 Hz. El telefono de Gabriel ya
+     esta ahi y no nota nada; a uno de 44.100 se le pide 48.000 y el navegador
+     convierte. Todos miden igual, todos se reconocen entre si, y nadie tiene
+     que volver a grabar nada.
+
+     La leccion: al normalizar, se normaliza a lo que ya existe. Elegir el
+     numero "bonito" tira a la basura todo lo guardado.
 
      La huella guarda numeros de casilla del espectro. A que nota corresponde
      cada casilla depende del muestreo, asi que dos telefonos con muestreos
@@ -1603,9 +1619,9 @@ const FP = {
      es exactamente lo mismo que 44.100 con ventana de 2048. Asi las canciones
      ya grabadas siguen valiendo: mismas casillas, misma huella, nadie tiene
      que volver a grabar nada. Y la ventana dura los mismos 46 ms. */
-  RATE: 11025,
-  BINHZ: 44100 / 2048,   // 21,533 Hz por casilla. NO se toca: las huellas lo llevan dentro.
-  FFT: 512,              // 512 muestras a 11.025 Hz = esos mismos 21,533 Hz
+  RATE: 48000,
+  FFT: 2048,
+  BINHZ: 48000 / 2048,   // 23,4375 Hz por casilla. NO se toca: las huellas lo llevan dentro.
   /* Segundos por frame. Este numero NO se toca: las canciones guardadas
      llevan sus frames contados con el, y cambiarlo las deja fuera de juego. */
   HOP: 0.0464,        // ~21,6 frames por segundo
@@ -1945,7 +1961,18 @@ class Listener {
        Fijar la frecuencia sigue siendo lo correcto, pero es un cambio que
        obliga a rehacer el catalogo, y eso se decide antes, no despues. */
     const Audio = window.AudioContext || window.webkitAudioContext;
-    this.ctx = new Audio();
+    /* Se pide la cuadricula del catalogo. Si el navegador no la da, se sigue
+       con la del aparato: peor -solo reconocera lo grabado aqui mismo- pero
+       nunca peor que no arrancar. El panel lo dice en rojo. */
+    try {
+      this.ctx = new Audio({ sampleRate: FP.RATE });
+      if (Math.round(this.ctx.sampleRate) !== FP.RATE) {
+        this.ctx.close();
+        this.ctx = new Audio();
+      }
+    } catch (e) {
+      this.ctx = new Audio();
+    }
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
     /* La ventana en muestras, para que cada casilla siga midiendo 21,53 Hz
@@ -3108,13 +3135,15 @@ function pintarDiagnostico() {
   /* La huella guarda números de casilla del espectro. A qué frecuencia
      corresponde cada casilla depende del muestreo, así que una canción
      grabada a 44.100 y escuchada a 48.000 no coincide con nada. */
-  filas.push([t("diagRate"), l ? l.muestreo + " Hz" : "—", false]);
+  filas.push([t("diagRate"), l ? l.muestreo + " Hz" : "—",
+              !!l && l.muestreo !== FP.RATE]);
 
   /* La cuadricula en la que quedaron las canciones ya grabadas. Si el aparato
      no es de 44.100, no coinciden con la que se usa ahora y hay que rehacerlas. */
+  /* El del aparato ya no importa: se convierte a la cuadricula del catalogo.
+     Se deja a la vista porque es el dato que destapo todo esto. */
   filas.push([t("diagNative"),
-              muestreoDelAparato ? muestreoDelAparato + " Hz" : "—",
-              muestreoDelAparato !== 0 && muestreoDelAparato !== 44100]);
+              muestreoDelAparato ? muestreoDelAparato + " Hz" : "—", false]);
 
   /* Lo que de verdad tiene que coincidir entre dos telefonos: cuantos hercios
      mide cada casilla del espectro. Si este numero es igual en los dos, las
