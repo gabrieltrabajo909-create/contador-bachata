@@ -535,13 +535,31 @@ await prueba("capturar audio no depende de que se dibuje la pantalla", () => {
     "el audio vuelve a colgar del dibujo de la pantalla");
 });
 
-await prueba("el reloj se apaga al soltar el microfono", () => {
-  /* Un temporizador que sigue corriendo despues de parar gasta bateria y, peor,
-     sigue leyendo un microfono que ya se cerro. */
-  const clase = /class Listener \{[\s\S]*?\n\}\n/.exec(FUENTE);
-  afirmar(clase, "no encuentro la clase que escucha");
-  afirmar(/setInterval/.test(clase[0]), "no hay reloj propio para el audio");
-  afirmar(/clearInterval/.test(clase[0]), "el reloj no se apaga nunca");
+await prueba("al parar se sueltan los dos caminos del audio", () => {
+  /* Hay dos formas de capturar: el hilo del audio, y el nodo de respaldo para
+     navegadores que no lo tienen. Las dos siguen trabajando -y leyendo el
+     microfono- si nadie las desconecta. */
+  const parar = /\n  stop\(\) \{[\s\S]*?\n  \}/.exec(FUENTE);
+  afirmar(parar, "no encuentro donde se para");
+  for (const [que, aviso] of [
+    ["this.nodo", "el nodo del hilo de audio se queda enchufado"],
+    ["this.proceso", "el nodo de respaldo se queda enchufado"],
+    ["getTracks", "no se suelta el microfono"]
+  ]) {
+    afirmar(parar[0].includes(que), aviso);
+  }
+});
+
+await prueba("los dos caminos usan el mismo convertidor", () => {
+  /* Dos copias del mismo calculo acaban diferenciandose, y entonces un
+     telefono reconoce lo que otro no, sin que nadie sepa por que. El de
+     respaldo monta LA MISMA clase que corre en el hilo del audio. */
+  afirmar(/function obreroEnCasa\(/.test(FUENTE),
+    "el camino de respaldo no reutiliza el obrero");
+  afirmar(/obreroEnCasa\(\{ tam: TAM, paso: PASO, razon: RAZON \}/.test(FUENTE),
+    "el camino de respaldo no convierte con los mismos numeros");
+  const copias = (FUENTE.match(/this\.pos \+= this\.razon/g) || []).length;
+  igual(copias, 1, "hay mas de una copia del que convierte la frecuencia");
 });
 
 /* ------------------------------------------------------------------------ */

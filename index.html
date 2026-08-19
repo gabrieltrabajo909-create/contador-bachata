@@ -1577,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.18.0";
+const VERSION = "2.19.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1793,6 +1793,23 @@ class Trozos extends AudioWorkletProcessor {
 }
 registerProcessor("trozos", Trozos);
 `;
+
+/* El mismo obrero de arriba, pero corriendo aqui en vez de en el hilo del
+   audio. Se usa cuando el navegador no tiene hilo de audio, y en las pruebas.
+
+   Se monta la clase tal cual, con las dos cosas que el navegador le pone
+   alrededor puestas a mano. Asi no hay dos copias del que convierte: una sola
+   pieza, probada una vez, usada en los dos caminos. Dos copias del mismo
+   calculo acaban diferenciandose, y ese es el fallo que nadie encuentra. */
+function obreroEnCasa(opciones, alLlegar) {
+  let Clase = null;
+  const Base = class { constructor() { this.port = { postMessage: null }; } };
+  new Function("AudioWorkletProcessor", "registerProcessor", OBRERO)(
+    Base, (nombre, c) => { Clase = c; });
+  const o = new Clase({ processorOptions: opciones });
+  o.port.postMessage = alLlegar;
+  return o;
+}
 
 function packHash(f1, f2, dt) {
   // f1,f2 en 0..255 (bin >> 1 para que quepan), dt en 0..31
@@ -2076,10 +2093,6 @@ class Listener {
     const PASO = (FP.HOP * FP.RATE) / this.desfases;
     const RAZON = this.ctx.sampleRate / FP.RATE;
 
-    /* Para la vuelta atras -sin hilo de audio no hay donde convertir- se usa
-       la del aparato y la ventana que mas se le acerque. */
-    const TAM_VIEJO = ventanaPara(this.ctx.sampleRate);
-
     const src = this.ctx.createMediaStreamSource(this.stream);
     this.tam = TAM;
     this.spec = new Float32Array(TAM / 2);
@@ -2124,32 +2137,33 @@ class Listener {
     this.porElAudio = porElAudio;
     if (porElAudio) return;
 
-    /* Vuelta atras, por si algun navegador no tiene el hilo de audio: se
-       pregunta desde aqui, como antes. Anda peor y el panel lo dice, pero
-       anda. */
-    this.tam = TAM_VIEJO;
-    this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = TAM_VIEJO;
-    this.analyser.smoothingTimeConstant = 0;
-    src.connect(this.analyser);
-    this.onda = new Float32Array(this.analyser.fftSize);
-    this.spec = new Float32Array(this.analyser.frequencyBinCount);
-    this.re = new Float64Array(TAM_VIEJO);
-    this.im = new Float64Array(TAM_VIEJO);
-    this.frame = -1;
+    /* Vuelta atras para navegadores sin hilo de audio -algun iPhone viejo-.
 
-    const tick = () => {
+       Aqui habia otra cosa: se le preguntaba el espectro al navegador y no se
+       convertia la frecuencia. Ese telefono acababa midiendo con su propia
+       regla, asi que solo reconocia lo que el mismo hubiera grabado y nada de
+       lo que grabaran los demas. Un agujero justo en lo que hay que garantizar.
+
+       Ahora se le da EL MISMO obrero, montado aqui en vez de en el hilo del
+       audio. Convierte igual, mide igual y reconoce lo mismo; lo unico que
+       pierde es la garantia de no saltarse frames si el telefono se atasca. */
+    if (!this.ctx.createScriptProcessor) throw new Error("sin captura de audio");
+
+    const obrero = obreroEnCasa({ tam: TAM, paso: PASO, razon: RAZON },
+                                (b) => this.recibir(b));
+    this.proceso = this.ctx.createScriptProcessor(1024, 1, 1);
+    this.proceso.onaudioprocess = (e) => {
       if (!this.running) return;
-      const elapsed = this.ctx.currentTime - this.t0;
-      const f = Math.floor(elapsed / FP.HOP);
-      if (f === this.frame) return;
-      this.frame = f;
-      this.frames++;
-      this.analyser.getFloatFrequencyData(this.spec);
-      if (this.onLevel) this.onLevel(this.medir(), this.saturando);
-      this.onFrame(this.spec, f, elapsed);
+      obrero.process([[e.inputBuffer.getChannelData(0)]]);
     };
-    this.reloj = setInterval(tick, 10);
+    /* Este nodo solo trabaja si esta enchufado a la salida, pero enchufar el
+       microfono al altavoz es un acople inmediato. Se enchufa a traves de un
+       volumen en cero: trabaja y no suena. */
+    this.mudo = this.ctx.createGain();
+    this.mudo.gain.value = 0;
+    src.connect(this.proceso);
+    this.proceso.connect(this.mudo);
+    this.mudo.connect(this.ctx.destination);
   }
 
   /* Llego un bloque de muestras del hilo del audio. Aqui ya no hay reloj que
@@ -2175,12 +2189,7 @@ class Listener {
      Ahora se mira la onda: el pico de la señal, de 0 a 1. Un 1 clavado
      significa que el micrófono está recortando la onda por arriba, y eso sí
      rompe el reconocimiento: inventa armónicos que la música no tenía. */
-  medir() {
-    this.analyser.getFloatTimeDomainData(this.onda);
-    return this.medirBloque(this.onda);
-  }
-
-  /* Lo mismo, pero sobre el bloque que ya tenemos en la mano. */
+  /* Cuanta senal entra, medida sobre el bloque que acaba de llegar. */
   medirBloque(bloque) {
     let pico = 0;
     for (let i = 0; i < bloque.length; i++) {
@@ -2230,13 +2239,13 @@ class Listener {
      es la del aparato y la app solo reconoce lo grabado en ese mismo telefono:
      por eso el panel lo pinta en rojo. */
   get muestreo() {
-    if (!this.ctx) return 0;
-    return this.porElAudio ? FP.RATE : Math.round(this.ctx.sampleRate);
+    /* Siempre la del catalogo: los dos caminos convierten. */
+    return this.ctx ? FP.RATE : 0;
   }
 
   /* Cuantas muestras mira cada vez. Junto al muestreo dan los hercios por
      casilla, que es lo unico que tiene que coincidir entre dos telefonos. */
-  get ventana() { return this.analyser ? this.analyser.fftSize : (this.tam || FP.FFT); }
+  get ventana() { return this.tam || FP.FFT; }
 
   /* Frames por segundo de verdad. La huella empareja frames a distancias
      FIJAS; si el telefono no llega al ritmo, se saltan frames y con ellos se
@@ -2248,6 +2257,8 @@ class Listener {
     this.running = false;
     if (this.reloj) { clearInterval(this.reloj); this.reloj = null; }
     if (this.nodo) { this.nodo.port.onmessage = null; this.nodo.disconnect(); this.nodo = null; }
+    if (this.proceso) { this.proceso.onaudioprocess = null; this.proceso.disconnect(); this.proceso = null; }
+    if (this.mudo) { this.mudo.disconnect(); this.mudo = null; }
     if (this.stream) this.stream.getTracks().forEach(pista => pista.stop());
     if (this.ctx) this.ctx.close();
     this.ctx = null; this.stream = null;

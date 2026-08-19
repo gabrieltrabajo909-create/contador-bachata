@@ -389,12 +389,10 @@ await prueba("el silencio tampoco cuela con la búsqueda dirigida", () => {
 seccion("La barra del micrófono");
 
 /* Un medidor de mentira, para poder probar sin micrófono. */
-function medidor(muestras) {
+function medidor() {
   const l = Object.create(M.Listener.prototype);
-  l.onda = new Float32Array(muestras.length);
-  l.analyser = { getFloatTimeDomainData: (a) => a.set(muestras) };
   l.saturados = 0;
-  l.domada = true;          // que no intente tocar un micrófono que no existe
+  l.avisado = true;         // que no intente avisar a nadie que no existe
   return l;
 }
 
@@ -402,11 +400,10 @@ const tono = (pico, n = 512) =>
   Float32Array.from({ length: n }, (_, i) => pico * Math.sin(i * 0.3));
 
 await prueba("más señal, más barra", () => {
-  const l = medidor(tono(0.5));
+  const l = medidor();
   let anterior = -1;
   for (const pico of [0.001, 0.01, 0.05, 0.2, 0.5, 0.95]) {
-    l.analyser.getFloatTimeDomainData = (a) => a.set(tono(pico, a.length));
-    const v = l.medir();
+    const v = l.medirBloque(tono(pico));
     afirmar(v > anterior, `con pico ${pico} la barra no subió (${v.toFixed(2)})`);
     afirmar(v >= 0 && v <= 1, "la barra se salió de la escala: " + v);
     anterior = v;
@@ -416,16 +413,16 @@ await prueba("más señal, más barra", () => {
 await prueba("un nivel bueno no llena la barra", () => {
   /* -18 dB es una grabación sana. Si eso ya marcara el máximo, la barra
      volvería a no servir para nada, que es de donde venimos. */
-  const l = medidor(tono(0.125));
-  const v = l.medir();
+  const l = medidor();
+  const v = l.medirBloque(tono(0.125));
   afirmar(v < 0.85, "un nivel sano marca " + Math.round(v * 100) + "%, casi el tope");
   afirmar(v > 0.4, "un nivel sano marca solo " + Math.round(v * 100) + "%");
   igual(l.saturando, false, "dice que satura con la señal a un octavo del tope");
 });
 
 await prueba("a fondo de escala avisa que satura", () => {
-  const l = medidor(tono(1));
-  for (let i = 0; i < 12; i++) l.medir();
+  const l = medidor();
+  for (let i = 0; i < 12; i++) l.medirBloque(tono(1));
   igual(l.saturando, true, "el micrófono recorta y no se entera");
 });
 
@@ -433,20 +430,18 @@ await prueba("un golpe suelto no cuenta como saturar", () => {
   /* Un platillo puede tocar el techo un frame y no pasa nada. Lo que estropea
      la huella es estar arriba todo el rato. Si avisara al primer pico, el
      aviso saldría en cada canción y dejaría de leerse. */
-  const l = medidor(tono(0.2));
+  const l = medidor();
   for (let i = 0; i < 20; i++) {
-    l.analyser.getFloatTimeDomainData = (a) => a.set(tono(i === 10 ? 1 : 0.2, a.length));
-    l.medir();
+    l.medirBloque(tono(i === 10 ? 1 : 0.2));
     igual(l.saturando, false, "se asustó por un pico suelto en el frame " + i);
   }
 });
 
 await prueba("cuando deja de saturar se olvida", () => {
-  const l = medidor(tono(1));
-  for (let i = 0; i < 12; i++) l.medir();
+  const l = medidor();
+  for (let i = 0; i < 12; i++) l.medirBloque(tono(1));
   igual(l.saturando, true, "no llegó a saturar, la prueba no vale");
-  l.analyser.getFloatTimeDomainData = (a) => a.set(tono(0.1, a.length));
-  for (let i = 0; i < 12; i++) l.medir();
+  for (let i = 0; i < 12; i++) l.medirBloque(tono(0.1));
   igual(l.saturando, false, "se quedó avisando después de bajar el volumen");
 });
 
