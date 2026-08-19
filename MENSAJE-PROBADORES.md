@@ -28,6 +28,12 @@ Cambiá lo que esté entre corchetes.
 > it. If you don't see the button, your browser doesn't allow it — on iPhone,
 > open the link in **Safari**, then the share button → *Add to Home Screen*.
 >
+> **First, one 15-second check.** Phones differ a lot inside, so the app can
+> test itself on yours: open the **Student** tab, scroll to the bottom, open
+> *If it does not recognise: technical data* and tap **Check this phone**. It
+> should say *this phone is healthy*. If it says anything else, send me a
+> screenshot — that tells me more than any description.
+>
 > Two things before you start:
 >
 > 1. It will ask permission for the **microphone**. Say yes — that's how it
@@ -87,6 +93,13 @@ Cambiá lo que esté entre corchetes.
 > botón **Instalar la app**. Lo tocás y listo. Si no aparece, es que tu
 > navegador no deja: en iPhone, abrí el link con **Safari** y usá el botón de
 > compartir → *Añadir a pantalla de inicio*.
+>
+> **Primero, una comprobación de 15 segundos.** Los teléfonos son muy
+> distintos por dentro, así que la app se prueba sola en el tuyo: entrá a la
+> pestaña **Alumno**, bajá del todo, abrí *Si no reconoce: datos técnicos* y
+> tocá **Comprobar este teléfono**. Tiene que decir *este teléfono está sano*.
+> Si dice otra cosa, mandame una foto: eso me dice más que cualquier
+> explicación.
 >
 > Dos cosas antes de empezar:
 >
