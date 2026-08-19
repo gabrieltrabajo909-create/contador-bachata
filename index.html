@@ -1577,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.16.0";
+const VERSION = "2.17.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1621,6 +1621,25 @@ const FP = {
      que volver a grabar nada. Y la ventana dura los mismos 46 ms. */
   RATE: 48000,
   FFT: 2048,
+
+  /* En cuantos desfases se escucha a la vez.
+
+     El profesor corta la cancion en trozos de 46 ms; el alumno empieza a
+     escuchar en cualquier instante, y casi nunca cae justo en un corte. Cuando
+     no cae, los trozos que compara son otros y la huella no coincide, por
+     limpio que sea el audio. Medido en el banco: reconocia el 22% de las
+     veces.
+
+     La cura es escuchar en varios desfases a la vez y quedarse con el que mas
+     coincida. Con dos sube al 56%, con tres al 67%, y de ahi no sube mas: por
+     eso tres y no seis, que solo costaria bateria.
+
+     Esto NO cambia nada de lo guardado: cada desfase avanza al mismo paso de
+     siempre, solo empieza un poco despues. Nadie regraba nada.
+
+     Al grabar se usa uno solo: la grabacion es la referencia, no tiene con que
+     desalinearse. */
+  SUBS: 3,
   BINHZ: 48000 / 2048,   // 23,4375 Hz por casilla. NO se toca: las huellas lo llevan dentro.
   /* Segundos por frame. Este numero NO se toca: las canciones guardadas
      llevan sus frames contados con el, y cambiarlo las deja fuera de juego. */
@@ -1742,7 +1761,10 @@ class Trozos extends AudioWorkletProcessor {
     if (this.n === this.tam) { this.buf.copyWithin(0, 1); this.buf[this.tam - 1] = v; }
     else this.buf[this.n++] = v;
     if (++this.desde >= this.paso && this.n === this.tam) {
-      this.desde = 0;
+      /* Se resta el paso en vez de poner a cero: el paso puede tener decimales
+         -al partirlo entre los desfases- y poner a cero iria acumulando error
+         hasta descuadrar la cuenta. */
+      this.desde -= this.paso;
       this.port.postMessage(this.buf.slice());
     }
   }
@@ -1934,13 +1956,35 @@ class Matcher {
     if (!best) { this.ultimo = null; return null; }
 
     const MINIMO = this.minimo;   // votos absolutos: sin esto no hay evidencia
-    const SOBRESALE = 7;          // desviaciones por encima del monton
+    /* Cuanto tiene que destacar el desfase ganador sobre el monton.
+
+       Estaba en 7 y era demasiado duro: rechazaba coincidencias con tres mil
+       votos y la segunda candidata aplastada, solo porque este numero daba
+       5,9 en vez de 7. Es una medida estadistica, y en musica repetitiva
+       -bachata y salsa lo son- el monton sube y la medida baja aunque la
+       coincidencia sea perfecta.
+
+       Calibrado midiendo las dos cosas que importan, con 72 intentos de
+       canciones guardadas y 54 de canciones que NO estan en el catalogo:
+
+         exigir   reconoce   inventa (dice conocer lo que no)
+            5,5     63/72       3/54   <- aqui ya empieza a inventar
+            6       57/72       0/54   <- un escalon por encima del fallo
+            7       39/72       0/54   <- lo que habia
+
+       Se elige 6: el mayor reconocimiento con cero invenciones, y un escalon
+       de margen sobre el punto donde empieza a fallar. Bajar mas gana poco y
+       empieza a decir que conoce canciones que nadie grabo, que es el error
+       que no se puede cometer: le marcaria al alumno el tiempo de otra
+       cancion. */
+    const SOBRESALE = 6;
     const ENTRE_CANCIONES = 1.6;  // margen sobre la segunda candidata
 
     /* Lo ultimo que se miro, se acepte o no. Sin esto, "no reconozco" es una
        pared: no se sabe si falta evidencia, si sobra ruido, o si hay dos
        canciones peleando. Con esto, quien prueba la app puede leer por que. */
     this.ultimo = {
+      cual: best.songId, desfase: best.offsetFrames,
       votos: best.score, hacenFalta: MINIMO,
       sobresale: best.sobresale, pideSobresalir: SOBRESALE,
       segunda: segundaCancion, pideSobreLaSegunda: ENTRE_CANCIONES * Math.max(segundaCancion, 1)
@@ -1962,7 +2006,7 @@ class Matcher {
 class Listener {
   constructor() { this.ctx = null; this.stream = null; this.analyser = null; this.running = false; }
 
-  async start(onFrame, onLevel, onSaturar) {
+  async start(onFrame, onLevel, onSaturar, desfases) {
     /* La ganancia automática, apagada: deforma el sonido y la huella sale más
        limpia sin ella. Y una vez abierta la captura, estos ajustes no se
        vuelven a tocar: cambiarlos en caliente reinicia el micrófono. */
@@ -1972,6 +2016,7 @@ class Listener {
     this.onSaturar = onSaturar;
     this.saturados = 0;
     this.avisado = false;
+    this.desfases = desfases || 1;
     /* La frecuencia del aparato, la que sea.
 
        Se probo a forzarla a 11.025 como hace Chromaprint, y era buena idea
@@ -2002,7 +2047,11 @@ class Listener {
        convierte a esa cuadricula dentro del obrero, asi que aqui ya no importa
        a que frecuencia trabaje el aparato. */
     const TAM = FP.FFT;
-    const PASO = Math.round(FP.HOP * FP.RATE);
+    /* El paso de cada desfase es el de siempre; lo que se acorta es cada cuanto
+       manda el obrero, para que las ventanas caigan repartidas entre los
+       desfases. Con tres desfases manda tres veces mas seguido, y cada tercera
+       ventana pertenece al mismo desfase. */
+    const PASO = (FP.HOP * FP.RATE) / this.desfases;
     const RAZON = this.ctx.sampleRate / FP.RATE;
 
     /* Para la vuelta atras -sin hilo de audio no hay donde convertir- se usa
@@ -2086,10 +2135,12 @@ class Listener {
      pierde ninguno, ese numero es exacto por construccion. */
   recibir(bloque) {
     if (!this.running) return;
-    const f = this.frames++;
+    const v = this.frames++;              // ventanas recibidas, todas juntas
+    const cual = v % this.desfases;       // a que desfase pertenece esta
+    const f = Math.floor(v / this.desfases);   // su numero dentro de ese desfase
     if (this.onLevel) this.onLevel(this.medirBloque(bloque), this.saturando);
     espectroDe(bloque, this.re, this.im, this.spec);
-    this.onFrame(this.spec, f, f * FP.HOP);
+    this.onFrame(this.spec, f, f * FP.HOP, cual);
   }
 
   /* Cuánta señal está entrando, de verdad.
@@ -2169,7 +2220,7 @@ class Listener {
      FIJAS; si el telefono no llega al ritmo, se saltan frames y con ellos se
      pierden casi todas las parejas. Un telefono lento falla por aqui sin que
      nada parezca roto. */
-  get ritmo() { const t = this.time; return t > 1 ? this.frames / t : 0; }
+  get ritmo() { const t = this.time; return t > 1 ? this.frames / t / (this.desfases || 1) : 0; }
 
   stop() {
     this.running = false;
@@ -3237,7 +3288,7 @@ $("a-start").addEventListener("click", async () => {
   if (!songs.length) { setA(t("noSongs"), "err"); return; }
 
   $("g-result").hidden = true;      // empieza otra escucha: el resultado viejo sobra
-  student.fp = new Fingerprinter();
+  student.fp = Array.from({ length: FP.SUBS }, () => new Fingerprinter());
   student.song = null;
   student.lastIdx = -1;
   student.lastMatchTry = 0;
@@ -3255,7 +3306,8 @@ $("a-start").addEventListener("click", async () => {
         barra.style.width = (lvl * 100) + "%";
         barra.classList.toggle("sat", saturando);
       },
-      () => setA(t("micSat"), "err")
+      () => setA(t("micSat"), "err"),
+      FP.SUBS
     );
   } catch (e) {
     setA(t("micFail") + e.name, "err");
@@ -3286,8 +3338,8 @@ function stopStudent() {
   beatCells.forEach(c => c.classList.remove("on"));
 }
 
-function onStudentFrame(spec, frame, elapsed) {
-  student.fp.push(spec, frame);
+function onStudentFrame(spec, frame, elapsed, cual) {
+  student.fp[cual || 0].push(spec, frame);
 
   // Reconocer al principio, y luego revalidar cada 10 s para corregir deriva
   const need = student.song ? 5 : 3.5;
@@ -3324,7 +3376,6 @@ function mensajeDeBusqueda(buscando, yaEncontroAlgo, hayBloqueadas) {
 
 function tryMatch(elapsed) {
   student.matching = true;
-  const { keys, times } = student.fp.result();
   /* Cuanto audio se mira. Normalmente los ultimos 6 s, que es de sobra y
      mantiene la busqueda barata. Pero si lleva un rato sin encontrar nada, se
      agranda la ventana hasta 12 s: mas audio es mas evidencia, y no aumenta el
@@ -3332,13 +3383,28 @@ function tryMatch(elapsed) {
   const buscandoDesde = elapsed - student.searchFrom;
   const ventana = buscandoDesde > 14 ? 12 : buscandoDesde > 7 ? 9 : 6;
   const minFrame = Math.max(0, Math.floor((elapsed - ventana) / FP.HOP));
-  const qk = [], qt = [];
-  for (let i = 0; i < keys.length; i++) {
-    if (times[i] >= minFrame) { qk.push(keys[i]); qt.push(times[i]); }
-  }
 
-  student.huellas = qk.length;
-  const res = matcher.match(qk, qt, student.forced || undefined);
+  /* Se busca en los tres desfases y gana el que mas coincida. El alumno casi
+     nunca empieza a escuchar justo donde el profesor cortaba los trozos, y el
+     desfase que acierte es el que reconoce. El criterio para aceptar no se
+     toca: cada desfase pasa los mismos filtros que pasaria solo. */
+  let res = null, huellas = 0, ultimo = null;
+  for (const fp of student.fp) {
+    const { keys, times } = fp.result();
+    const qk = [], qt = [];
+    for (let i = 0; i < keys.length; i++) {
+      if (times[i] >= minFrame) { qk.push(keys[i]); qt.push(times[i]); }
+    }
+    huellas += qk.length;
+    const r = matcher.match(qk, qt, student.forced || undefined);
+    if (r && (!res || r.score > res.score)) res = r;
+    /* Para el panel se guarda el intento que mas cerca estuvo, no el ultimo:
+       si no, se veria el numero de un desfase que ni siquiera era el bueno. */
+    const u = matcher.ultimo;
+    if (u && (!ultimo || u.votos > ultimo.votos)) ultimo = u;
+  }
+  matcher.ultimo = ultimo;
+  student.huellas = huellas;
   student.matching = false;
   if (!res) {
     /* El mensaje cambia con el tiempo que lleva escuchando. Repetir "todavia

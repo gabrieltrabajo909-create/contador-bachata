@@ -776,6 +776,133 @@ await prueba("el obrero no toca nada que en el hilo del audio no exista", () => 
   afirmar(/return true/.test(M.OBRERO), "el obrero se apaga solo");
 });
 
+/* ---------------------------------------------------------------------------
+   Un telefono graba, otro escucha
+
+   El encargo de Gabriel, palabra por palabra: los profesores van a grabar con
+   teléfonos distintos y los alumnos van a escuchar con otros distintos, y
+   tiene que andar para todos.
+
+   Esta prueba monta la cadena entera -el obrero del hilo de audio convirtiendo
+   la frecuencia, el espectro, la huella, los desfases y el reconocedor- y hace
+   grabar a un telefono y escuchar a otro. Es lenta comparada con las demas y
+   vale lo que cuesta: es la unica que cubre el fallo que tuvo la app rota tres
+   dias, y ningun trozo por separado lo habria detectado.
+--------------------------------------------------------------------------- */
+seccion("Un telefono graba, otro escucha");
+
+const TAM_T = M.FP.FFT;
+const reT = new Float64Array(TAM_T), imT = new Float64Array(TAM_T);
+const specT = new Float32Array(TAM_T / 2);
+
+function obrero(razon, paso) {
+  let C = null;
+  const Base = class { constructor() { this.port = { postMessage: null }; } };
+  new Function("AudioWorkletProcessor", "registerProcessor", M.OBRERO)(Base, (n, c) => { C = c; });
+  const o = new C({ processorOptions: { tam: TAM_T, paso, razon } });
+  const out = [];
+  o.port.postMessage = b => out.push(b);
+  return { o, out };
+}
+
+/* La musica existe en el aire; cada telefono la muestrea a SU frecuencia.
+   Todo por debajo de 4 kHz: por encima cada frecuencia pliega distinto, y eso
+   seria un fallo del banco de pruebas, no de la app. Ya me paso. */
+function enElAire(semilla) {
+  let s = semilla;
+  const azar = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const ac = Array.from({ length: 16 }, () =>
+    Array.from({ length: 4 }, () => 110 * Math.pow(2, Math.floor(azar() * 24) / 12)));
+  const golpe = [180, 420, 900, 1900, 3300].map((f, i) => [f, 0.3 / (i + 1)]);
+  return (tt) => {
+    const a = ac[Math.floor(tt * 2) % ac.length];
+    let v = 0;
+    for (const f of a) v += Math.sin(2 * Math.PI * f * tt) * 0.3 + Math.sin(2 * Math.PI * f * 2 * tt) * 0.12;
+    const d = tt % 0.5;
+    if (d < 0.08) for (const [f, g] of golpe) v += g * Math.exp(-d * 45) * Math.sin(2 * Math.PI * f * tt);
+    return v * 0.2;
+  };
+}
+
+function oir(fn, rate, desde, seg, desfases) {
+  const paso = (M.FP.HOP * M.FP.RATE) / desfases;
+  const { o, out } = obrero(rate / M.FP.RATE, paso);
+  const bloque = new Float32Array(128);
+  const total = Math.round(seg * rate);
+  let i = 0;
+  while (i < total) {
+    for (let k = 0; k < 128; k++, i++) bloque[k] = fn(desde + i / rate);
+    o.process([[bloque]]);
+  }
+  const fps = Array.from({ length: desfases }, () => new M.Fingerprinter());
+  out.forEach((b, v) => {
+    M.espectroDe(b, reT, imT, specT);
+    fps[v % desfases].push(specT, Math.floor(v / desfases));
+  });
+  return fps.map(f => f.result());
+}
+
+function buscar(m, fn, rate, desde) {
+  let mejor = null;
+  for (const q of oir(fn, rate, desde, 4, M.FP.SUBS)) {
+    const r = m.match(q.keys, q.times);
+    if (r && (!mejor || r.score > mejor.score)) mejor = r;
+  }
+  return mejor;
+}
+
+await prueba("lo grabado en un telefono se reconoce en otro", () => {
+  /* Aqui estuvo el fallo que costo tres dias. El telefono de Gabriel graba a
+     48.000 y el de prueba escucha a 44.100: antes eran dos reglas distintas
+     midiendo lo mismo y no coincidia nada, con el microfono perfecto. */
+  for (const [graba, escucha] of [[48000, 44100], [44100, 48000], [22050, 48000]]) {
+    const cancs = [1, 2, 3].map(k => ({ id: "c" + k, fn: enElAire(k * 13) }));
+    const m = new M.Matcher();
+    for (const c of cancs) m.add({ id: c.id, fp: oir(c.fn, graba, 0, 12, 1)[0] });
+    const r = buscar(m, cancs[1].fn, escucha, 5.13);
+    afirmar(r && r.songId === "c2",
+      `grabado a ${graba} y escuchado a ${escucha}: ` +
+      (r ? "dijo que era " + r.songId : "no lo reconocio"));
+  }
+});
+
+await prueba("la frecuencia de quien graba deja de importar", () => {
+  /* La huella de la misma musica tiene que salir igual la grabe el telefono
+     que la grabe. Si no, cada profesor crearia un catalogo que solo el puede
+     usar. */
+  const fn = enElAire(77);
+  const huellas = [22050, 44100, 48000].map(r => oir(fn, r, 0, 6, 1)[0]);
+  const cuantas = huellas.map(h => h.keys.length);
+  for (const n of cuantas) {
+    afirmar(Math.abs(n - cuantas[0]) <= cuantas[0] * 0.1,
+      "salen huellas de tamanos muy distintos segun la frecuencia: " + cuantas.join(", "));
+  }
+});
+
+await prueba("no dice conocer una cancion que nadie grabo", () => {
+  /* El error que no se puede cometer: marcarle al alumno el tiempo de otra
+     cancion. Vale mucho mas callarse. */
+  const cancs = [1, 2, 3, 4].map(k => ({ id: "c" + k, fn: enElAire(k * 13) }));
+  const m = new M.Matcher();
+  for (const c of cancs) m.add({ id: c.id, fp: oir(c.fn, 48000, 0, 12, 1)[0] });
+  for (const semilla of [101, 202, 303]) {
+    const r = buscar(m, enElAire(semilla), 44100, 4.4);
+    igual(r, null, "invento que conocia una cancion que no esta en el catalogo");
+  }
+});
+
+await prueba("el limite de destacar deja margen sobre donde empieza a inventar", () => {
+  /* Calibrado con 72 intentos de canciones guardadas y 54 de canciones que no
+     estan: a 5,5 ya inventaba 3 veces; a 6 y a 7, ninguna. Estaba en 7 y
+     rechazaba coincidencias con tres mil votos. Se bajo a 6: un escalon por
+     encima del punto donde empieza a fallar. */
+  const S = /const SOBRESALE = ([\d.]+)/.exec(FUENTE);
+  afirmar(S, "no encuentro el limite de destacar");
+  const v = Number(S[1]);
+  afirmar(v >= 6, "por debajo de 6 la app empieza a decir que conoce lo que no");
+  afirmar(v <= 7, "por encima de 7 rechaza coincidencias buenisimas");
+});
+
 /* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
    diciendo que todo habia ido bien: correr.sh no tenia como enterarse y
    remataba con "Todo en orden". Una prueba que falla sin que nadie se entere
