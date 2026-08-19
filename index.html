@@ -1126,6 +1126,7 @@ const STR = {
     diagVia: "Entra por", diagViaAudio: "hilo de audio", diagViaPantalla: "la pantalla (peor)",
     diagPeak: "Nivel de entrada", diagHashes: "Huellas comparadas",
     diagMatch: "Mejor coincidencia", diagNothing: "nada todavía",
+    diagStands: "Cuánto destaca", diagSecond: "Contra la segunda",
     vibeNA: "Vibrar: no disponible",
     vibeNAHint: "Este navegador no permite vibrar. En iPhone no existe la función.",
     startHint: "Pon la canción y dale a escuchar.",
@@ -1345,6 +1346,7 @@ const STR = {
     diagVia: "Comes in via", diagViaAudio: "audio thread", diagViaPantalla: "the screen (worse)",
     diagPeak: "Input level", diagHashes: "Prints compared",
     diagMatch: "Best match", diagNothing: "nothing yet",
+    diagStands: "How much it stands out", diagSecond: "Against runner-up",
     vibeNA: "Vibrate: unavailable",
     vibeNAHint: "This browser can't vibrate. On iPhone the feature doesn't exist.",
     startHint: "Put the song on and press listen.",
@@ -1575,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.13.0";
+const VERSION = "2.13.1";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1890,7 +1892,8 @@ class Matcher {
        canciones peleando. Con esto, quien prueba la app puede leer por que. */
     this.ultimo = {
       votos: best.score, hacenFalta: MINIMO,
-      sobresale: best.sobresale, segunda: segundaCancion
+      sobresale: best.sobresale, pideSobresalir: SOBRESALE,
+      segunda: segundaCancion, pideSobreLaSegunda: ENTRE_CANCIONES * Math.max(segundaCancion, 1)
     };
 
     if (best.score < MINIMO) return null;
@@ -3099,6 +3102,17 @@ function pintarDiagnostico() {
   filas.push([t("diagMatch"),
               m ? m.votos + " / " + m.hacenFalta : t("diagNothing"),
               !!m && m.votos < m.hacenFalta]);
+
+  /* Pasar el minimo de votos no basta: hay dos filtros mas, y hasta ahora no
+     se veian. Con la captura ya arreglada y 50 votos sobre 25, el rechazo
+     tenia que venir de alguno de estos dos, y el panel no lo decia. */
+  filas.push([t("diagStands"),
+              m ? m.sobresale.toFixed(1) + " / " + m.pideSobresalir : "—",
+              !!m && m.sobresale < m.pideSobresalir]);
+
+  filas.push([t("diagSecond"),
+              m ? m.votos + " / " + Math.round(m.pideSobreLaSegunda) : "—",
+              !!m && m.votos < m.pideSobreLaSegunda]);
 
   caja.textContent = "";
   for (const [nombre, valor, mal] of filas) {
