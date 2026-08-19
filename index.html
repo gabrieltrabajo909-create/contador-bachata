@@ -1577,7 +1577,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.17.0";
+const VERSION = "2.18.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -1846,6 +1846,28 @@ class Fingerprinter {
 
   result() {
     return { keys: Uint32Array.from(this.keys), times: Uint16Array.from(this.times) };
+  }
+
+  /* Tirar las huellas que ya no se van a mirar.
+
+     La busqueda mira como mucho los ultimos 20 segundos, pero aqui se guardaba
+     todo desde que se toco Escuchar. En una clase de media hora eso son cientos
+     de miles de huellas, copiadas enteras en cada busqueda, y ahora por
+     triplicado al escuchar en tres desfases. Justo el trabajo que no pueden
+     hacer los telefonos mas flojos, que son los que ya venian sufriendo.
+
+     Ojo con cortar por delante y ya: los tiempos NO entran en orden estricto.
+     Cada frame se empareja con varios anteriores a distancias distintas -3, 6,
+     10, 15 y 21 frames-, asi que dentro de cada frame los tiempos van al reves.
+     Cortar por el primero que pasa el corte dejaba huellas mas viejas metidas
+     mas adelante. Lo encontro una prueba, no yo. */
+  podar(desdeFrame) {
+    const k = [], t = [];
+    for (let i = 0; i < this.times.length; i++) {
+      if (this.times[i] >= desdeFrame) { k.push(this.keys[i]); t.push(this.times[i]); }
+    }
+    this.keys = k;
+    this.times = t;
   }
 }
 
@@ -3381,15 +3403,33 @@ function tryMatch(elapsed) {
      agranda la ventana hasta 12 s: mas audio es mas evidencia, y no aumenta el
      riesgo de equivocarse porque el criterio para aceptar no se toca. */
   const buscandoDesde = elapsed - student.searchFrom;
-  const ventana = buscandoDesde > 14 ? 12 : buscandoDesde > 7 ? 9 : 6;
+  /* Cuanto mas audio, mas evidencia. Medido, con el profesor grabando en un
+     telefono y el alumno escuchando en otro, arrancando en doce puntos feos:
+
+       escuchando 4 s ->  3 de 12      escuchando 16 s -> 11 de 12
+       escuchando 6 s ->  5 de 12      escuchando 20 s -> 12 de 12
+       escuchando 12 s -> 8 de 12      escuchando 25 s -> 12 de 12
+
+     Antes se paraba en 12 s. Se estira hasta 20, que es donde deja de mejorar.
+     Y no se vuelve mas confiada por ello: con canciones que NO estan en el
+     catalogo, inventa 0 de 6 con 12 s, con 20 y con 25. El criterio para
+     aceptar es el mismo; lo unico que cambia es cuanta prueba se junta. */
+  const ventana = buscandoDesde > 22 ? 20
+                : buscandoDesde > 14 ? 14
+                : buscandoDesde > 7 ? 9 : 6;
   const minFrame = Math.max(0, Math.floor((elapsed - ventana) / FP.HOP));
 
   /* Se busca en los tres desfases y gana el que mas coincida. El alumno casi
      nunca empieza a escuchar justo donde el profesor cortaba los trozos, y el
      desfase que acierte es el que reconoce. El criterio para aceptar no se
      toca: cada desfase pasa los mismos filtros que pasaria solo. */
+  /* Se poda con margen sobre la ventana mas larga: si se cortara justo, al
+     crecer la ventana faltaria el audio que se acaba de tirar. */
+  const podarBajo = Math.max(0, Math.floor((elapsed - 26) / FP.HOP));
+
   let res = null, huellas = 0, ultimo = null;
   for (const fp of student.fp) {
+    fp.podar(podarBajo);
     const { keys, times } = fp.result();
     const qk = [], qt = [];
     for (let i = 0; i < keys.length; i++) {

@@ -891,6 +891,53 @@ await prueba("no dice conocer una cancion que nadie grabo", () => {
   }
 });
 
+await prueba("se escucha hasta 20 s antes de rendirse", () => {
+  /* Medido, grabando en un telefono y escuchando en otro desde doce puntos:
+     con 4 s reconoce 3 de 12; con 12 s, 8; con 16 s, 11; con 20 s, 12 de 12.
+     Y con canciones que NO estan en el catalogo inventa 0 de 6 con 12, con 20
+     y con 25 segundos: juntar mas prueba no la vuelve mas confiada, porque el
+     criterio para aceptar no se toca. */
+  const f = /const ventana = ([\s\S]*?);/.exec(FUENTE);
+  afirmar(f, "no encuentro la escalera de ventanas");
+  const numeros = (f[1].match(/\d+/g) || []).map(Number);
+  afirmar(Math.max(...numeros) >= 20,
+    "se rinde antes de los 20 s, que es donde deja de mejorar");
+});
+
+await prueba("no se guardan huellas que ya no se van a mirar", () => {
+  /* Se guardaba todo desde que se tocaba Escuchar y se copiaba entero en cada
+     busqueda; con tres desfases, por triplicado. En una clase larga eso es
+     mucho trabajo inutil, y justo en los telefonos que menos pueden. */
+  afirmar(/podar\(/.test(FUENTE), "nada tira las huellas viejas");
+  /* Y que NO se corte por delante sin mirar: los tiempos no entran en orden
+     estricto, porque cada frame se empareja con varios anteriores a distancias
+     distintas. Cortar por el primero que pasa el corte dejaba huellas viejas
+     escondidas mas adelante; lo encontro la comprobacion de abajo. */
+  const p = /podar\(desdeFrame\)[\s\S]*?\n  \}/.exec(FUENTE);
+  afirmar(p, "no encuentro la poda");
+  afirmar(!/splice\(0,/.test(p[0]),
+    "la poda vuelve a cortar por delante, y los tiempos no vienen ordenados");
+  const fp = new M.Fingerprinter();
+  for (let f = 0; f < 200; f++) fp.push(Float32Array.from({length: M.FP.FFT/2}, (_, i) => -60 + (i % 7)), f);
+  const antes = fp.result().keys.length;
+  fp.podar(150);
+  const despues = fp.result().keys.length;
+  afirmar(despues < antes, "podar no quito nada");
+  const { times } = fp.result();
+  for (const t of times) afirmar(t >= 150, "quedaron huellas mas viejas que el corte");
+});
+
+await prueba("podar no toca lo que todavia se mira", () => {
+  const fp = new M.Fingerprinter();
+  const espectro = (n) => Float32Array.from({length: M.FP.FFT/2}, (_, i) => -60 + ((i * n) % 11));
+  for (let f = 0; f < 200; f++) fp.push(espectro(f), f);
+  const enteras = fp.result();
+  const quedan = [...enteras.times].filter(t => t >= 100).length;
+  fp.podar(100);
+  igual(fp.result().times.length, quedan,
+    "podar se llevo huellas que la busqueda todavia necesitaba");
+});
+
 await prueba("el limite de destacar deja margen sobre donde empieza a inventar", () => {
   /* Calibrado con 72 intentos de canciones guardadas y 54 de canciones que no
      estan: a 5,5 ya inventaba 3 veces; a 6 y a 7, ninguna. Estaba en 7 y
