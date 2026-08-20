@@ -677,29 +677,44 @@
     <h2 data-i18n="settings">Ajustes</h2>
 
     <div id="acct-in" hidden>
-      <div class="who"><span class="dot-on"></span><b id="ac-who"></b></div>
-
-      <label for="ac-name" data-i18n="teacherName">Tu nombre de profesor</label>
-      <p class="hint" data-i18n="teacherNameHelp">Es con el que te van a ver tus alumnos. Tiene que ser único: si dos profesores se llaman igual, nadie distingue quién grabó qué.</p>
-      <div class="row">
-        <input type="text" id="ac-name" maxlength="40" placeholder="Gabriel L." data-i18n-ph="phTeacherName">
-        <button class="ghost" id="ac-name-save" data-i18n="save2">Guardar</button>
+      <!-- Dos grupos: lo que define quien sos, y lo demas. Antes estaba todo
+           en una lista y para cambiar la contraseña habia que pasar por
+           delante de la suscripcion. -->
+      <div class="seg" id="ajustes-que">
+        <button data-g="cuenta" aria-pressed="true" data-i18n="settingsAccount">Tu cuenta</button>
+        <button data-g="app" aria-pressed="false" data-i18n="settingsApp">La app</button>
       </div>
-      <p class="status" id="ac-name-msg"></p>
 
-      <!-- Cambiar la clave sin tener que pedirse un correo a uno mismo. -->
-      <label for="ac-chpass" data-i18n="changePass">Cambiar la contraseña</label>
-      <div class="row">
+      <div id="ajustes-cuenta">
+        <div class="who"><span class="dot-on"></span><b id="ac-who"></b></div>
+
+        <label for="ac-name" data-i18n="teacherName">Tu nombre de profesor</label>
+        <p class="hint" data-i18n="teacherNameHelp">Es con el que te van a ver tus alumnos. Tiene que ser único: si dos profesores se llaman igual, nadie distingue quién grabó qué.</p>
+        <div class="row">
+          <input type="text" id="ac-name" maxlength="40" placeholder="Gabriel L." data-i18n-ph="phTeacherName">
+          <button class="ghost" id="ac-name-save" data-i18n="save2">Guardar</button>
+        </div>
+        <p class="status" id="ac-name-msg"></p>
+
+        <!-- Dos veces, porque no se ve lo que se escribe: una errata en una
+             contraseña que no se repite deja a alguien fuera de su cuenta y
+             de sus canciones, y solo se entera al volver a entrar. -->
+        <label for="ac-chpass" data-i18n="changePass">Cambiar la contraseña</label>
         <input type="password" id="ac-chpass" placeholder="Contraseña nueva" data-i18n-ph="phNewPass" autocomplete="new-password">
-        <button class="ghost" id="ac-chpass-save" data-i18n="save2">Guardar</button>
-      </div>
-      <p class="status" id="ac-chpass-msg"></p>
+        <input type="password" id="ac-chpass2" placeholder="Repetila" data-i18n-ph="phNewPass2" autocomplete="new-password">
+        <button class="ghost" id="ac-chpass-save" data-i18n="savePass">Guardar contraseña</button>
+        <p class="status" id="ac-chpass-msg"></p>
 
-      <div class="subline"><span id="ac-sub">—</span></div>
-      <button class="ghost" id="ac-subbtn" data-i18n="subOn">Suscribirme (prueba)</button>
-      <div class="row">
-        <button class="primary" id="ac-sync"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sync"/></svg><span data-i18n="sync">Sincronizar</span></button>
         <button class="ghost" id="ac-out"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-exit"/></svg><span data-i18n="signOut">Salir</span></button>
+      </div>
+
+      <div id="ajustes-app" hidden>
+        <div class="subline"><span id="ac-sub">—</span></div>
+        <button class="ghost" id="ac-subbtn" data-i18n="subOn">Suscribirme (prueba)</button>
+
+        <!-- Sincroniza sola en cuanto hace falta; esto es para mirarlo. -->
+        <p class="hint" data-i18n="syncAutoHint">Se sincroniza sola al abrir la app, al grabar una canción y al ponerte a escuchar. Este botón es por si querés forzarlo.</p>
+        <button class="primary" id="ac-sync"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sync"/></svg><span data-i18n="sync">Sincronizar</span></button>
       </div>
     </div>
 
@@ -1169,7 +1184,10 @@ const STR = {
     bpmApprox: "{0} BPM aprox.", remove: "quitar",
     revInfo: "{0} golpes · {1} BPM · {2} grabados · {3}",
     phSong: "Propuesta indecente", phArtist: "Romeo Santos",
-    settings: "Ajustes", signIn: "Entrar", signUp: "Crear cuenta", signOut: "Salir",
+    settings: "Ajustes",
+    settingsAccount: "Tu cuenta", settingsApp: "La app",
+    phNewPass2: "Repetila", passMismatch: "Las dos contraseñas no son iguales.",
+    syncAutoHint: "Se sincroniza sola al abrir la app, al grabar una canción y al ponerte a escuchar. Este botón es por si querés forzarlo.", signIn: "Entrar", signUp: "Crear cuenta", signOut: "Salir",
     gateClaim: "Encontrá el UNO en la bachata y la salsa. Poné la música y la app te dice en qué tiempo va.",
     gateWhy: "Hace falta una cuenta para que tus canciones y tus puntajes no se pierdan si cambiás de teléfono.",
     changePass: "Cambiar la contraseña",
@@ -1395,7 +1413,10 @@ const STR = {
     bpmApprox: "~{0} BPM", remove: "remove",
     revInfo: "{0} taps · {1} BPM · {2} recorded · {3}",
     phSong: "Propuesta indecente", phArtist: "Romeo Santos",
-    settings: "Settings", signIn: "Sign in", signUp: "Create account", signOut: "Sign out",
+    settings: "Settings",
+    settingsAccount: "Your account", settingsApp: "The app",
+    phNewPass2: "Type it again", passMismatch: "The two passwords are not the same.",
+    syncAutoHint: "It syncs by itself when you open the app, when you record a song and when you start listening. This button is if you want to force it.", signIn: "Sign in", signUp: "Create account", signOut: "Sign out",
     gateClaim: "Find the ONE in bachata and salsa. Put the music on and the app tells you which beat you're on.",
     gateWhy: "You need an account so your songs and your scores don't vanish when you change phone.",
     changePass: "Change your password",
@@ -1594,7 +1615,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.20.0";
+const VERSION = "2.21.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -2873,6 +2894,10 @@ $("p-save").addEventListener("click", async () => {
   await reload();
   resetTeacher();
   setP(t("saved") + song.title, "ok");
+  /* Esto es lo que de verdad no se puede perder: acaba de grabarse una
+     cancion y hasta que suba no la tiene nadie mas. Va sin espera y sin
+     limite de tiempo entre sincronizaciones. */
+  sincronizarSolo(true);
 });
 
 function resetTeacher() {
@@ -3484,6 +3509,11 @@ function pintarDiagnostico() {
 }
 
 $("a-start").addEventListener("click", async () => {
+  /* Se busca lo nuevo antes de escuchar, sin esperarlo: si un profesor acaba
+     de subir una cancion, el alumno la tendra en unos segundos sin haber
+     tocado nada. Y si no hay internet, no pasa nada: se escucha igual. */
+  sincronizarSolo();
+
   if (!songs.length) { setA(t("noSongs"), "err"); return; }
 
   $("g-result").hidden = true;      // empieza otra escucha: el resultado viejo sobra
@@ -4480,6 +4510,18 @@ async function guardarNombre() {
   }
 }
 
+/* Los dos grupos de ajustes. Lo que define quien sos por un lado, y lo demas
+   por otro: para cambiar la contraseña ya no hay que pasar por delante de la
+   suscripcion. */
+$("ajustes-que").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-g]");
+  if (!b) return;
+  for (const x of $("ajustes-que").children) x.setAttribute("aria-pressed", x === b);
+  const cuenta = b.dataset.g === "cuenta";
+  $("ajustes-cuenta").hidden = !cuenta;
+  $("ajustes-app").hidden = cuenta;
+});
+
 $("ac-name-save").addEventListener("click", guardarNombre);
 $("ac-name").addEventListener("keydown", (e) => { if (e.key === "Enter") guardarNombre(); });
 
@@ -4778,10 +4820,45 @@ async function doAuth(kind) {
   }
 }
 
+/* ---------- Sincronizar sin que nadie lo pida ----------
+
+   Tener que acordarse de tocar un boton despues de grabar es una forma segura
+   de perder canciones: quien graba y cierra la app se queda con el trabajo en
+   el telefono y nadie mas lo ve. Asi que se sincroniza sola en los momentos
+   en que de verdad hace falta.
+
+   Tres reglas, y las tres importan mas que la sincronizacion en si:
+
+   - NO bloquea. Se lanza y la app sigue. Nadie espera a que termine.
+   - NO interrumpe. Si falla -sin internet, servidor caido- se calla. La app
+     funciona igual sin nube, y un cartel de error a mitad de una clase es
+     peor que no haber sincronizado.
+   - NO se repite sin motivo. Salvo cuando se acaba de grabar algo, que
+     entonces corre igual: eso es justo lo que no se puede perder. */
+let sincronizando = false;
+let ultimaSync = 0;
+
+async function sincronizarSolo(urgente) {
+  if (!cloud.session || sincronizando) return;
+  const ahora = Date.now();
+  if (!urgente && ahora - ultimaSync < 30000) return;
+  sincronizando = true;
+  ultimaSync = ahora;
+  try {
+    await syncNow();
+  } catch (e) {
+    /* En silencio a proposito. Quien quiera ver que pasa tiene el boton. */
+  } finally {
+    sincronizando = false;
+  }
+}
+
 async function doSync() {
   if (!cloud.session) return;
+  if (sincronizando) return;
   setAc(t("syncing"));
   $("ac-sync").disabled = true;
+  sincronizando = true;
   try {
     const n = await syncNow();
     setAc(t("synced", n.songs, n.scores) + (n.rotas ? " " + t("someBroken", n.rotas) : ""), "ok");
@@ -4790,6 +4867,8 @@ async function doSync() {
     // El error crudo del servidor es un volcado de JSON ilegible
     setAc(/row-level security|42501/.test(m) ? t("syncDenied") : t("syncFail") + m, "err");
   } finally {
+    sincronizando = false;
+    ultimaSync = Date.now();
     $("ac-sync").disabled = false;
   }
 }
@@ -4843,14 +4922,21 @@ $("ac-savepass").addEventListener("click", async () => {
    uno mismo, que es un rodeo absurdo para quien ya entro. */
 $("ac-chpass-save").addEventListener("click", async () => {
   const pass = $("ac-chpass").value;
+  const otra = $("ac-chpass2").value;
   const msg = $("ac-chpass-msg");
-  if (pass.length < 6) { msg.textContent = t("passTooShort"); msg.className = "status err"; return; }
+  const mal = (clave) => { msg.textContent = t(clave); msg.className = "status err"; };
+  if (pass.length < 6) { mal("passTooShort"); return; }
+  /* Las dos tienen que coincidir. No se ve lo que se escribe, y una errata
+     aqui deja a alguien fuera de su cuenta y de sus canciones sin enterarse
+     hasta la proxima vez que quiera entrar. */
+  if (pass !== otra) { mal("passMismatch"); $("ac-chpass2").focus(); return; }
 
   $("ac-chpass-save").disabled = true;
   msg.textContent = ""; msg.className = "status";
   try {
     await cloud.setPassword(pass);
     $("ac-chpass").value = "";
+    $("ac-chpass2").value = "";
     msg.textContent = t("passChanged"); msg.className = "status ok";
   } catch (e) {
     msg.textContent = t("passFailed") + String(e.message || e);
@@ -5080,6 +5166,8 @@ window.__cuentas = { Fingerprinter, Matcher, countAt, nearestOne, judge, FP, pac
     } catch (e) { /* sin conexion, se queda como estaba */ }
     renderAccount();
     avisarNombre();
+    /* Y se busca lo que haya nuevo, sin esperar: la app ya esta usable. */
+    sincronizarSolo(true);
   }
 })();
 

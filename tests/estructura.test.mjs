@@ -594,6 +594,89 @@ await prueba("del microfono solo se pide el permiso y el apagado", () => {
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("Sincronizar sin que nadie lo pida");
+
+/* Tener que acordarse de tocar un boton despues de grabar es una forma segura
+   de perder canciones: quien graba y cierra la app se queda con el trabajo en
+   el telefono y nadie mas lo ve. */
+
+await prueba("se sincroniza en los momentos que importan", () => {
+  for (const [donde, marca] of [
+    ["al arrancar la app", /avisarNombre\(\);\s*\n[\s\S]{0,120}sincronizarSolo\(true\)/],
+    ["al guardar una cancion", /setP\(t\("saved"\)[\s\S]{0,220}sincronizarSolo\(true\)/],
+    ["al ponerse a escuchar", /\$\("a-start"\)\.addEventListener[\s\S]{0,400}sincronizarSolo\(\)/]
+  ]) {
+    afirmar(marca.test(FUENTE), "no se sincroniza " + donde);
+  }
+});
+
+await prueba("la sincronizacion automatica no bloquea nada", () => {
+  /* Si alguna de estas llamadas se esperara, tocar Escuchar se quedaria
+     colgado hasta que conteste el servidor. Con mala cobertura, eso son
+     segundos mirando una pantalla muerta en mitad de una clase. */
+  const esperadas = [...FUENTE.matchAll(/await sincronizarSolo/g)];
+  igual(esperadas.length, 0,
+    "hay " + esperadas.length + " sitios donde la app espera a la sincronizacion");
+});
+
+await prueba("si falla se calla", () => {
+  /* La app funciona sin nube. Un cartel de error a mitad de una clase, por
+     algo que la persona no pidio y no puede arreglar, es peor que no haber
+     sincronizado. */
+  const f = /async function sincronizarSolo\(urgente\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(f, "no encuentro la sincronizacion automatica");
+  afirmar(/catch \(e\) \{/.test(f[0]), "un fallo de red tira la app");
+  afirmar(!/setAc\(|setP\(|setA\(|alert\(/.test(f[0]),
+    "la sincronizacion automatica interrumpe con carteles");
+});
+
+await prueba("no se pisa consigo misma ni con el boton", () => {
+  const f = /async function sincronizarSolo\(urgente\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(/sincronizando/.test(f[0]), "dos sincronizaciones pueden correr a la vez");
+  const manual = /async function doSync\(\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(/sincronizando/.test(manual[0]),
+    "el boton manual puede arrancar encima de una automatica");
+});
+
+await prueba("lo recien grabado no espera al reloj", () => {
+  /* Hay un limite de una sincronizacion cada tanto para no molestar al
+     servidor, pero acabar de grabar tiene que saltarselo: hasta que suba, esa
+     cancion no la tiene nadie mas. */
+  const f = /async function sincronizarSolo\(urgente\)[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(/if \(!urgente && /.test(f[0]),
+    "el limite de tiempo se aplica tambien a lo que acaba de grabarse");
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("Los ajustes, en dos grupos");
+
+await prueba("lo de la cuenta esta junto y lo demas aparte", () => {
+  const cuenta = /<div id="ajustes-cuenta">([\s\S]*?)\n      <\/div>/.exec(SOLO_HTML);
+  const app = /<div id="ajustes-app"[^>]*>([\s\S]*?)\n      <\/div>/.exec(SOLO_HTML);
+  afirmar(cuenta, "no encuentro el grupo de la cuenta");
+  afirmar(app, "no encuentro el grupo de la app");
+  for (const id of ["ac-name", "ac-chpass", "ac-who", "ac-out"]) {
+    afirmar(cuenta[1].includes('id="' + id + '"'), id + " deberia estar en Tu cuenta");
+  }
+  for (const id of ["ac-subbtn", "ac-sync"]) {
+    afirmar(app[1].includes('id="' + id + '"'), id + " no deberia estar en Tu cuenta");
+  }
+});
+
+await prueba("la contrasena se pide dos veces", () => {
+  /* No se ve lo que se escribe. Una errata en una contraseña que no se repite
+     deja a alguien fuera de su cuenta y de sus canciones, y solo se entera al
+     volver a entrar. */
+  afirmar(/id="ac-chpass2"/.test(SOLO_HTML), "solo se pide una vez");
+  const f = /\$\("ac-chpass-save"\)\.addEventListener[\s\S]*?\n\}\);/.exec(FUENTE);
+  afirmar(f, "no encuentro el guardado de la contraseña");
+  afirmar(/pass !== otra/.test(f[0]), "no se comprueba que las dos coincidan");
+  afirmar(/passMismatch/.test(f[0]), "no se avisa cuando no coinciden");
+  const orden = f[0].indexOf("pass !== otra") < f[0].indexOf("setPassword");
+  afirmar(orden, "se cambia la contraseña antes de comprobar que coincidan");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("El telefono se comprueba solo");
 
 /* El problema de fondo de estos dias no fue el codigo: fue que para saber si
