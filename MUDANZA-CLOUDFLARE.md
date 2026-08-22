@@ -1,5 +1,22 @@
 # Mudanza de GitHub Pages a Cloudflare Pages
 
+> **Decidido el 22 de agosto de 2026: no se hizo, y con razon.**
+>
+> La mudanza servia para UNA sola cosa: poder tener el repositorio privado,
+> porque GitHub Pages gratis obliga a que sea publico. Y un repositorio privado
+> no esconde la app: el codigo se lo baja cualquiera que entre a la web, porque
+> asi funciona cualquier pagina. Solo esconderia las pruebas, el esquema de la
+> base y el historial de cambios, que no valen la mudanza.
+>
+> Lo que de verdad hacia falta -que la gente reciba las versiones nuevas sin
+> tener que abrir la app dos veces- se arreglo en el service worker y funciona
+> igual en GitHub Pages. Eso ya esta hecho.
+>
+> Los pasos quedan escritos por si algun dia hace falta mudarse de verdad: por
+> precio, por velocidad, o porque GitHub cambie las reglas.
+
+---
+
 Lo que hace falta que hagas vos, en orden. Yo no puedo crear cuentas ni dar
 permisos en tu nombre; el resto ya está preparado en el repositorio.
 

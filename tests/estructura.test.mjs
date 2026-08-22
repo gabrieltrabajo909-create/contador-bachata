@@ -759,10 +759,14 @@ await prueba("no se espera a la red eternamente", () => {
     "esperar " + ms + " ms esta mal: o enseña lo viejo, o deja la pantalla muerta");
 });
 
-await prueba("el servidor no deja servir una pagina vieja sin preguntar", () => {
-  /* La otra mitad. Si el navegador tiene permiso para usar su copia sin
-     preguntar, el service worker ni llega a pedirla. Antes eran diez minutos
-     de permiso, y publicar un arreglo no bastaba para que la gente lo viera. */
+await prueba("las cabeceras preparadas piden que se pregunte siempre", () => {
+  /* OJO con lo que prueba esto: _headers HOY NO RIGE. Lo leerian Cloudflare o
+     Netlify; GitHub Pages, donde vive la app, lo ignora. Lo que arregla el
+     problema hoy es el service worker pidiendo la pagina con "reload".
+
+     Se comprueba igual para que el archivo no envejezca mal: si algun dia se
+     muda de sitio, tiene que estar bien escrito, y nadie se va a acordar de
+     revisarlo ese dia. */
   for (const ruta of ["/index.html", "/sw.js"]) {
     const bloque = new RegExp(ruta.replace(/[/.]/g, "\\$&") + "\\s*\\n\\s*Cache-Control: ([^\\n]+)");
     const m = bloque.exec(CABECERAS);

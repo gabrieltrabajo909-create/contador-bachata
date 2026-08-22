@@ -1,4 +1,13 @@
-# Como tiene que guardar cada cosa el navegador. Lo lee Cloudflare Pages.
+# Como tiene que guardar cada cosa el navegador.
+#
+# OJO: hoy esto NO ESTA EN USO. Lo leen Cloudflare Pages y Netlify; GitHub
+# Pages, que es donde vive la app, lo ignora por completo y sirve todo con
+# permiso de diez minutos, sin manera de cambiarlo.
+#
+# Se deja escrito por dos motivos: porque el dia que se mude de sitio esto ya
+# esta pensado, y porque explica que hace falta. Lo que SI arregla el problema
+# hoy es el service worker, que pide la pagina con "reload" y asi se salta el
+# almacen del navegador aunque el servidor le haya dado permiso para guardarla.
 #
 # Esto es la otra mitad de que la gente reciba las versiones nuevas. El
 # programa que hace que la app abra sin internet ya pide la pagina a la red
