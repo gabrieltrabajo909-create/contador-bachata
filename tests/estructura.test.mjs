@@ -718,6 +718,104 @@ await prueba("la cancion de prueba no se repite a si misma", () => {
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("Que la gente reciba las versiones nuevas");
+
+/* Durante dias hubo que decirle a la gente "abrila dos veces". Nadie recuerda
+   eso, y mientras tanto nadie sabia que version estaba probando cada uno: se
+   discutio sobre codigo que no era el que corria. Eran dos cosas a la vez, y
+   las dos estan aqui. */
+
+const SW = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+const CABECERAS = readFileSync(new URL("../_headers", import.meta.url), "utf8");
+
+await prueba("la app se pide a la red antes que a la copia guardada", () => {
+  /* La pagina ES el programa: si hay version nueva tiene que llegar hoy. Los
+     iconos pueden salir de la copia, que no cambian y hacen que abra rapido. */
+  afirmar(/function esLaApp\(/.test(SW), "no distingue la app de los archivos sueltos");
+  afirmar(/primeroLaRed/.test(SW), "no hay forma de pedir primero a la red");
+  const decide = /esLaApp\(req, url\) \? (\w+)\(req\) : (\w+)\(req\)/.exec(SW);
+  afirmar(decide, "no encuentro donde se decide");
+  igual(decide[1], "primeroLaRed", "la app sale de la copia: se veria la version vieja");
+  igual(decide[2], "primeroLaCopia", "los iconos se piden a la red y la app abre lenta");
+});
+
+await prueba("sin internet la app abre igual", () => {
+  /* Medio motivo de que exista el service worker. Pedir primero a la red no
+     puede significar quedarse en blanco cuando no hay red. */
+  const f = /async function primeroLaRed\(req\)[\s\S]*?\n\}/.exec(SW);
+  afirmar(f, "no encuentro como se pide a la red");
+  afirmar(/caches\.match\(req\)/.test(f[0]), "no se busca la copia guardada");
+  afirmar(/if \(guardada\) return guardada/.test(f[0]),
+    "si falla la red no se cae en la copia: pantalla en blanco sin señal");
+  afirmar(/ESPERA/.test(f[0]),
+    "se espera a la red sin limite: con mala señal la app no abre nunca");
+});
+
+await prueba("no se espera a la red eternamente", () => {
+  const e = /const ESPERA = (\d+)/.exec(SW);
+  afirmar(e, "no hay limite de espera");
+  const ms = Number(e[1]);
+  afirmar(ms >= 1000 && ms <= 5000,
+    "esperar " + ms + " ms esta mal: o enseña lo viejo, o deja la pantalla muerta");
+});
+
+await prueba("el servidor no deja servir una pagina vieja sin preguntar", () => {
+  /* La otra mitad. Si el navegador tiene permiso para usar su copia sin
+     preguntar, el service worker ni llega a pedirla. Antes eran diez minutos
+     de permiso, y publicar un arreglo no bastaba para que la gente lo viera. */
+  for (const ruta of ["/index.html", "/sw.js"]) {
+    const bloque = new RegExp(ruta.replace(/[/.]/g, "\\$&") + "\\s*\\n\\s*Cache-Control: ([^\\n]+)");
+    const m = bloque.exec(CABECERAS);
+    afirmar(m, "no se dice como guardar " + ruta);
+    afirmar(/no-cache|no-store|max-age=0/.test(m[1]),
+      ruta + " se puede servir viejo sin preguntar: " + m[1]);
+  }
+});
+
+await prueba("los iconos si se guardan, que si no la app abre lenta", () => {
+  const m = /icono-192\.png\s*\n\s*Cache-Control: ([^\n]+)/.exec(CABECERAS);
+  afirmar(m, "no se dice como guardar los iconos");
+  afirmar(/max-age=\d{4,}/.test(m[1]), "los iconos se piden cada vez: " + m[1]);
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("Lo que se publica y lo que no");
+
+await prueba("se publica la app entera y nada mas", () => {
+  /* El repositorio tiene pruebas, el esquema de la base y notas. Nada de eso
+     es secreto, pero tampoco tiene por que estar colgado en internet. */
+  const guion = readFileSync(new URL("../construir.sh", import.meta.url), "utf8");
+  const lista = /ARCHIVOS=\(([\s\S]*?)\)/.exec(guion);
+  afirmar(lista, "no encuentro la lista de lo que se publica");
+  const publicados = lista[1].split("\n")
+    .map(l => l.replace(/#.*/, "").trim()).filter(Boolean);
+
+  for (const hace_falta of ["index.html", "sw.js", "manifest.webmanifest", "_headers"]) {
+    afirmar(publicados.includes(hace_falta),
+      "no se publica " + hace_falta + ", y la app no anda sin eso");
+  }
+
+  /* Y todo lo que la app pide por su nombre tiene que estar en la lista, o se
+     publica una app a la que le falta un pedazo. */
+  const pedidos = new Set();
+  for (const m of HTML.matchAll(/(?:src|href)="\.?\/?([\w.-]+\.(?:png|webmanifest|js))"/g)) {
+    pedidos.add(m[1]);
+  }
+  const manifiesto = JSON.parse(
+    readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8"));
+  for (const i of manifiesto.icons) pedidos.add(i.src.replace(/^\.?\//, ""));
+  for (const m of SW.matchAll(/"\.\/([\w.-]+\.(?:png|html|webmanifest))"/g)) pedidos.add(m[1]);
+
+  const faltan = [...pedidos].filter(f => !publicados.includes(f));
+  afirmar(!faltan.length, "la app pide archivos que no se publican: " + faltan.join(", "));
+
+  for (const prohibido of ["tests", "db", "CLAUDE.md", "servidor.py", ".claves"]) {
+    afirmar(!publicados.some(f => f.includes(prohibido)),
+      "se estaria publicando algo que no toca: " + prohibido);
+  }
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("La version a la vista");
 
 /* La app se guarda en el telefono para abrirse sin internet, asi que la

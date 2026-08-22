@@ -1,2 +1,5 @@
 # Contraseñas de las cuentas de prueba. Nunca al repositorio: es público.
 tests/.claves.json
+
+# La carpeta que arma construir.sh para publicar. Se rehace sola.
+public/

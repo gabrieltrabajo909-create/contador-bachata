@@ -1,0 +1,45 @@
+# Como tiene que guardar cada cosa el navegador. Lo lee Cloudflare Pages.
+#
+# Esto es la otra mitad de que la gente reciba las versiones nuevas. El
+# programa que hace que la app abra sin internet ya pide la pagina a la red
+# primero, pero si el navegador tiene permiso para servir una copia vieja sin
+# preguntar, ese esfuerzo no sirve de nada: nadie llega a pedirla.
+#
+# Antes la pagina se servia con permiso para diez minutos. Publicar un arreglo
+# y que alguien siguiera viendo lo de antes no era un misterio: estaba escrito
+# aqui.
+
+# La app y el programa que la instala: preguntar SIEMPRE si hay algo nuevo.
+#
+# "no-cache" no quiere decir "no guardes": quiere decir "guarda, pero pregunta
+# antes de usarlo". El navegador manda la marca de lo que tiene y el servidor
+# le contesta "sigue igual" sin reenviar nada. Es barato y siempre correcto.
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Los iconos no cambian nunca. Que se guarden una semana y no se pregunte mas:
+# es lo que hace que la app abra al instante.
+/icono-64.png
+  Cache-Control: public, max-age=604800
+/icono-192.png
+  Cache-Control: public, max-age=604800
+/icono-512.png
+  Cache-Control: public, max-age=604800
+/icono-512-recortable.png
+  Cache-Control: public, max-age=604800
+
+# Y unas cuantas cosas que no cuestan nada y cierran puertas.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), camera=(), payment=()
