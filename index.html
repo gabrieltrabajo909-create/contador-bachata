@@ -451,6 +451,8 @@
   .song button.solo-ic.peligro { color: var(--accent); }
   .song button.chip { padding: 6px 10px; font-size: .72rem; }
   .song button.chip.on { color: var(--accent2); border-color: var(--accent2); }
+  /* Solo mientras esta esperando el segundo toque para borrar */
+  .song button.chip.peligro { color: #ff8a70; border-color: #6b2a22; }
   .song .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .song .m { font-size: 0.76rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* La firma, en su propia linea y con el ancho entero para ella: antes iba
@@ -981,7 +983,7 @@
   <section class="panel" id="panel-admin" role="tabpanel" hidden>
     <div class="card">
       <h2 data-i18n="adminTitle">Qué es gratis y qué no</h2>
-      <p class="hint" data-i18n="adminHelp">Las gratis son el escaparate: cualquiera las usa sin pagar. El resto pide suscripción.</p>
+      <p class="hint" data-i18n="adminHelp">Las canciones nuevas entran gratis. Acá podés cambiar eso, y quitar del catálogo lo que no debería estar.</p>
       <div id="adm-list"></div>
       <p class="status" id="adm-status"></p>
     </div>
@@ -1305,12 +1307,14 @@ const STR = {
     nameFailed: "No se pudo guardar: ",
     tabAdmin: "Catálogo",
     adminTitle: "Qué es gratis y qué no",
-    adminHelp: "Las gratis son el escaparate: cualquiera las usa sin pagar. El resto pide suscripción.",
+    adminHelp: "Las canciones nuevas entran gratis. Acá podés cambiar eso, y quitar del catálogo lo que no debería estar.",
     adminCount: "{0} gratis de {1}.",
     someBroken: "({0} no se pudieron leer)",
     isFree: "gratis ✓", makeFree: "hacer gratis",
     nowFree: "«{0}» ahora es gratis para todos.",
     nowPaid: "«{0}» ahora requiere suscripción.",
+    admDel: "quitar", admDelSure: "¿seguro?",
+    admDeleted: "«{0}» ya no está en el catálogo.",
     voteN: "{0} estrellas", noVotes: "sin votos",
     voted: "Votaste {0} estrellas.", voteFailed: "No se pudo votar: ",
     voteNeedsAccount: "Entrá con tu cuenta para poder votar.",
@@ -1541,12 +1545,14 @@ const STR = {
     nameFailed: "Couldn't save it: ",
     tabAdmin: "Catalogue",
     adminTitle: "What's free and what isn't",
-    adminHelp: "The free ones are the shop window: anyone can use them. The rest need a subscription.",
+    adminHelp: "New songs come in free. Here you can change that, and remove anything that should not be in the catalogue.",
     adminCount: "{0} free out of {1}.",
     someBroken: "({0} couldn\u2019t be read)",
     isFree: "free ✓", makeFree: "make free",
     nowFree: "\u201c{0}\u201d is now free for everyone.",
     nowPaid: "\u201c{0}\u201d now needs a subscription.",
+    admDel: "remove", admDelSure: "sure?",
+    admDeleted: "\u201c{0}\u201d is no longer in the catalogue.",
     voteN: "{0} stars", noVotes: "no votes yet",
     voted: "You gave it {0} stars.", voteFailed: "Couldn't save your vote: ",
     voteNeedsAccount: "Sign in to vote.",
@@ -1654,7 +1660,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.24.0";
+const VERSION = "2.25.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -2940,6 +2946,11 @@ $("p-save").addEventListener("click", async () => {
     duration: teacher.duration,
     createdAt: Date.now(),
     fpv: FP.VERSION,
+    /* Lo mismo que el valor por defecto del servidor. No se sube -si es gratis
+       o no lo decide el administrador- pero sin esta linea la cancion recien
+       grabada se veria de pago en el telefono de quien acaba de grabarla,
+       hasta la siguiente sincronizada. */
+    free: true,
     downbeats: teacher.downbeats.slice(),
     fp: { keys: fp.keys, times: fp.times }
   };
@@ -3015,7 +3026,28 @@ function renderAdmin() {
     b.textContent = t(c.free ? "isFree" : "makeFree");
     b.addEventListener("click", () => cambiarGratis(c, !c.free));
 
-    row.appendChild(info); row.appendChild(b);
+    /* Quitar del catalogo. Dos toques, no uno: esta pegado al de gratis, se
+       usa con el pulgar y borra el trabajo de otra persona. Y no es el
+       borrado con papelera del dueno -de ese la sacaria otra vez y quedaria
+       deshecha la decision-, asi que el segundo toque tiene que ser
+       deliberado. Si no llega en cinco segundos, el boton se vuelve atras
+       solo: un "¿seguro?" olvidado en pantalla es una trampa. */
+    const x = document.createElement("button");
+    x.className = "chip";
+    x.textContent = t("admDel");
+    let armado = null;
+    x.addEventListener("click", () => {
+      if (armado) { clearTimeout(armado); armado = null; borrarDelCatalogo(c); return; }
+      x.textContent = t("admDelSure");
+      x.classList.add("peligro");
+      armado = setTimeout(() => {
+        armado = null;
+        x.textContent = t("admDel");
+        x.classList.remove("peligro");
+      }, 5000);
+    });
+
+    row.appendChild(info); row.appendChild(b); row.appendChild(x);
     el.appendChild(row);
   }
   $("adm-status").textContent = t("adminCount", gratis, catalog.length);
@@ -3038,6 +3070,28 @@ async function cambiarGratis(s, gratis) {
     await reload();
     renderAdmin();
     $("adm-status").textContent = t(gratis ? "nowFree" : "nowPaid", s.title);
+  } catch (e) {
+    $("adm-status").textContent = t("editFailed") + String(e.message || e);
+  }
+}
+
+/* ---------- Quitar una cancion del catalogo (solo administrador) ----------
+
+   Sin esto el catalogo no tiene quien responda por el: una cancion repetida,
+   mal marcada o subida por error se queda ahi para siempre, y el unico que
+   podia quitarla era justo quien no se dio cuenta.
+
+   Se borra de verdad, no a la papelera. La papelera es la red del dueno para
+   sus propias canciones; usarla aqui dejaria que la sacara otra vez y la
+   decision de moderar no seria tal. */
+async function borrarDelCatalogo(s) {
+  try {
+    await cloud.rest("songs?id=eq." + encodeURIComponent(s.id), { method: "DELETE" });
+    await DB.del(s.id, "catalog");
+    await DB.del(s.id, "songs");
+    await reload();
+    renderAdmin();
+    $("adm-status").textContent = t("admDeleted", s.title);
   } catch (e) {
     $("adm-status").textContent = t("editFailed") + String(e.message || e);
   }

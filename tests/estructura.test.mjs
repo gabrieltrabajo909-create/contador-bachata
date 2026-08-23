@@ -677,6 +677,48 @@ await prueba("la contrasena se pide dos veces", () => {
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("El catalogo comun");
+
+await prueba("una cancion recien grabada nace gratis", () => {
+  /* El servidor lo pone por defecto, pero si el telefono no hiciera lo mismo,
+     quien acaba de grabarla la veria de pago en su propia pantalla hasta la
+     siguiente sincronizada. */
+  const f = /\$\("p-save"\)\.addEventListener[\s\S]*?\n\}\);/.exec(FUENTE);
+  afirmar(f, "no encuentro el guardado de una cancion");
+  afirmar(/free:\s*true/.test(f[0]), "la cancion nueva no nace gratis");
+});
+
+await prueba("el administrador puede quitar del catalogo", () => {
+  afirmar(/function borrarDelCatalogo/.test(FUENTE), "no hay forma de quitar una cancion");
+  afirmar(/admDel\b/.test(FUENTE), "el boton de quitar no existe en la lista");
+  const f = /async function borrarDelCatalogo[\s\S]*?\n\}/.exec(FUENTE);
+  afirmar(/method:\s*"DELETE"/.test(f[0]), "no se borra en el servidor");
+  afirmar(/DB\.del\([^)]*"catalog"\)/.test(f[0]), "queda en el catalogo de este telefono");
+});
+
+await prueba("quitar pide dos toques", () => {
+  /* Esta pegado al boton de gratis, se usa con el pulgar, y borra el trabajo
+     de otra persona sin papelera de la que sacarlo. */
+  const f = /x\.addEventListener\("click"[\s\S]*?\n    \}\);/.exec(FUENTE);
+  afirmar(f, "no encuentro el boton de quitar");
+  afirmar(/admDelSure/.test(f[0]), "borra al primer toque");
+  afirmar(/setTimeout/.test(f[0]), "el «¿seguro?» se queda puesto para siempre");
+});
+
+await prueba("el servidor deja moderar, no solo al dueno", () => {
+  const sql = readFileSync(
+    new URL("../db/09-gratis-por-defecto-y-moderacion.sql", import.meta.url), "utf8");
+  afirmar(/alter column free set default true/i.test(sql),
+    "el valor por defecto de gratis no cambia");
+  const pol = /create policy songs_delete[\s\S]*?;/.exec(sql);
+  afirmar(pol, "no se toca quien puede borrar");
+  afirmar(/is_admin\(auth\.uid\(\)\)/.test(pol[0]),
+    "el administrador sigue sin poder quitar canciones ajenas");
+  afirmar(/owner = auth\.uid\(\)/.test(pol[0]),
+    "el dueno se quedaria sin poder borrar las suyas");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("Irse del todo");
 
 /* Google Play no deja publicar una app con cuentas si no se pueden borrar
