@@ -645,9 +645,10 @@ def _cuenta_de_usar_y_tirar():
     r = pedir("/auth/v1/signup", "POST", {"email": correo, "password": clave})
     if r.codigo not in (200, 201) or not (r.datos or {}).get("access_token"):
         sys.exit(f"no pude crear la cuenta de usar y tirar: {r.codigo} {r.texto[:200]}")
-    return correo, clave, r.datos["access_token"], r.datos["user"]["id"]
+    return (correo, clave, r.datos["access_token"],
+            r.datos.get("refresh_token"), r.datos["user"]["id"])
 
-correoC, claveC, tokenC, uidC = _cuenta_de_usar_y_tirar()
+correoC, claveC, tokenC, refrescoC, uidC = _cuenta_de_usar_y_tirar()
 ID_ADIOS = MARCA + "-adios"
 rest("songs", "POST", [cancion(ID_ADIOS, "Cancion que se va", uidC)], token=tokenC)
 
@@ -666,13 +667,34 @@ def _():
               {"email": correoC, "password": claveC})
     assert r.codigo != 200, "la cuenta borrada TODAVIA deja entrar"
 
-@prueba("el token que tenia el telefono deja de valer")
+# EL TOKEN QUE YA ESTABA DADO
+#
+# Este bloque nacio de una prueba que fallo, y la prueba tenia razon a medias.
+# Yo daba por hecho que borrar la cuenta mataba el token al instante. No es
+# asi, y no es un fallo nuestro: el token de Supabase no se consulta contra la
+# base, se comprueba solo, como un billete con fecha. Nadie puede "recogerlo"
+# antes de que caduque, y caduca en una hora.
+#
+# Asi que lo que hay que comprobar no es que muera en el acto -eso seria una
+# prueba que no se puede cumplir- sino que ese billete ya no sirva para nada
+# que importe: no puede escribir, y sobre todo no puede renovarse. Cuando
+# expire, se acabo.
+
+@prueba("el token de una cuenta borrada ya no puede escribir")
 def _():
-    # Importa de verdad: el telefono se queda con el token guardado, y si
-    # siguiera sirviendo, una cuenta borrada seguiria escribiendo en la base.
-    r = rest("songs?select=id", token=tokenC)
-    assert r.codigo >= 400 or not r.datos, \
-        f"el token de una cuenta borrada sigue leyendo ({r.codigo})"
+    r = rest("songs", "POST", [cancion(MARCA + "-fantasma", "Fantasma", uidC)],
+             token=tokenC)
+    assert r.codigo >= 400, \
+        f"una cuenta borrada TODAVIA escribe en la base ({r.codigo})"
+
+@prueba("y no puede renovarse cuando caduque")
+def _():
+    # Esto es lo que cierra la puerta de verdad. Sin renovacion, la hora que
+    # le queda al token es todo lo que le queda a esa cuenta, para siempre.
+    r = pedir("/auth/v1/token?grant_type=refresh_token", "POST",
+              {"refresh_token": refrescoC})
+    assert r.codigo >= 400, \
+        f"una cuenta borrada puede renovar su sesion sin fin ({r.codigo})"
 
 @prueba("se van tambien sus canciones")
 def _():
