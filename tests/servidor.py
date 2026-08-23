@@ -290,6 +290,31 @@ def _():
         assert not v.datos[0]["subscribed"], "la cuenta B suscribio a la A"
 
 # --------------------------------------------------------------------------
+seccion("El catalogo comun")
+
+@prueba("una cancion subida sin decir nada nace gratis")
+def _():
+    """Lo decide el servidor, no la app: la app NO manda el campo `free` a
+    proposito -si lo mandara, quien grabo la cancion podria darse gratis a si
+    mismo-. Asi que lo unico que hace que nazca gratis es el valor por defecto
+    de la columna, y esto lo comprueba preguntandole a la base, que es donde
+    de verdad esta."""
+    id_ = MARCA + "-defecto"
+    fila = cancion(id_, "Nace gratis", uidA)
+    del fila["free"]                      # igual que hace la app de verdad
+    try:
+        r = rest("songs", "POST", [fila], token=tokenA)
+        assert r.codigo < 400, f"no pude subirla: {r.codigo} {r.texto[:150]}"
+        v = rest(f"songs?select=free&id=eq.{id_}", token=tokenA)
+        assert v.datos and v.datos[0]["free"] is True, (
+            "una cancion nueva NO nace gratis.\n"
+            "Corre db/09-gratis-por-defecto-y-moderacion.sql en el editor SQL de Supabase.")
+    finally:
+        # En el finally y no al final: si la comprobacion falla, la cancion de
+        # prueba se queda en la base y ensucia la corrida siguiente.
+        rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
+
+# --------------------------------------------------------------------------
 seccion("Borrar")
 
 @prueba("quien no la creo no la puede borrar")
