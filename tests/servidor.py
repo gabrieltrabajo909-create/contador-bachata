@@ -633,6 +633,58 @@ def _():
     assert r.codigo >= 400, "acepto una contrasena de tres caracteres"
 
 # --------------------------------------------------------------------------
+seccion("Borrar la cuenta")
+
+# Esta seccion NO usa las dos cuentas fijas: las borraria y no habria forma de
+# volver a correr las pruebas. Se crea una de usar y tirar que, ademas, se
+# limpia sola: si el borrado funciona, se lleva a si misma por delante.
+
+def _cuenta_de_usar_y_tirar():
+    correo = f"prueba.borrar.{secrets.token_hex(6)}@example.com"
+    clave = "p" + secrets.token_urlsafe(24)
+    r = pedir("/auth/v1/signup", "POST", {"email": correo, "password": clave})
+    if r.codigo not in (200, 201) or not (r.datos or {}).get("access_token"):
+        sys.exit(f"no pude crear la cuenta de usar y tirar: {r.codigo} {r.texto[:200]}")
+    return correo, clave, r.datos["access_token"], r.datos["user"]["id"]
+
+correoC, claveC, tokenC, uidC = _cuenta_de_usar_y_tirar()
+ID_ADIOS = MARCA + "-adios"
+rest("songs", "POST", [cancion(ID_ADIOS, "Cancion que se va", uidC)], token=tokenC)
+
+_borrada = pedir("/rest/v1/rpc/borrar_mi_cuenta", "POST", {}, token=tokenC)
+
+@prueba("la funcion de borrar la cuenta existe en la base")
+def _():
+    assert _borrada.codigo != 404, (
+        "la base todavia no tiene borrar_mi_cuenta.\n"
+        "Corre db/08-borrar-cuenta.sql en el editor SQL de Supabase.")
+    assert _borrada.codigo < 400, f"fallo al borrar: {_borrada.codigo} {_borrada.texto[:200]}"
+
+@prueba("despues de borrarla, esa cuenta ya no puede entrar")
+def _():
+    r = pedir("/auth/v1/token?grant_type=password", "POST",
+              {"email": correoC, "password": claveC})
+    assert r.codigo != 200, "la cuenta borrada TODAVIA deja entrar"
+
+@prueba("el token que tenia el telefono deja de valer")
+def _():
+    # Importa de verdad: el telefono se queda con el token guardado, y si
+    # siguiera sirviendo, una cuenta borrada seguiria escribiendo en la base.
+    r = rest("songs?select=id", token=tokenC)
+    assert r.codigo >= 400 or not r.datos, \
+        f"el token de una cuenta borrada sigue leyendo ({r.codigo})"
+
+@prueba("se van tambien sus canciones")
+def _():
+    r = rest(f"songs?select=id&id=eq.{ID_ADIOS}", token=tokenA)
+    assert not r.datos, "quedo colgada una cancion de la cuenta borrada"
+
+@prueba("sin sesion no se puede llamar a borrar")
+def _():
+    r = pedir("/rest/v1/rpc/borrar_mi_cuenta", "POST", {})
+    assert r.codigo >= 400, f"un desconocido pudo llamar a borrar_mi_cuenta ({r.codigo})"
+
+# --------------------------------------------------------------------------
 limpiar()
 
 @prueba("las pruebas no dejaron basura")

@@ -706,6 +706,26 @@
         <p class="status" id="ac-chpass-msg"></p>
 
         <button class="ghost" id="ac-out"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-exit"/></svg><span data-i18n="signOut">Salir</span></button>
+
+        <!-- Borrar la cuenta. Va al final, escrito como un enlace y no como un
+             boton, porque es lo ultimo que alguien quiere tocar sin querer
+             mientras busca "Salir", que esta justo encima.
+
+             Y no borra al primer toque: primero aparece lo que se pierde, y
+             hay que escribir la palabra a mano. Un "¿estas seguro?" se
+             contesta que si sin leerlo; escribir seis letras, no. Hace falta
+             ese freno porque esto NO es como borrar una cancion: aquello se
+             recupera durante 30 dias, esto no se recupera nunca. -->
+        <button class="link" id="ac-del" data-i18n="delAccount">Borrar mi cuenta</button>
+
+        <div id="ac-del-conf" hidden>
+          <p class="hint" data-i18n="delWarn">Se borran tu cuenta, tus canciones y tus puntajes, en tu teléfono y en el servidor. No se puede deshacer y no hay papelera.</p>
+          <label for="ac-del-word" data-i18n="delAsk">Escribí BORRAR para confirmar</label>
+          <input type="text" id="ac-del-word" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="BORRAR" data-i18n-ph="delWord">
+          <button class="danger" id="ac-del-go" data-i18n="delGo">Borrar para siempre</button>
+          <button class="ghost" id="ac-del-no" data-i18n="cancel2">Mejor no</button>
+        </div>
+        <p class="status" id="ac-del-msg"></p>
       </div>
 
       <div id="ajustes-app" hidden>
@@ -1208,6 +1228,13 @@ const STR = {
     synced: "Sincronizado: {0} canciones y {1} puntajes.",
     syncFail: "Falló la sincronización: ",
     loggedOut: "Sesión cerrada. Tus datos siguen en este teléfono.",
+    delAccount: "Borrar mi cuenta", cancel2: "Mejor no",
+    delWarn: "Se borran tu cuenta, tus canciones y tus puntajes, en este teléfono y en el servidor. No se puede deshacer y no hay papelera.",
+    delAsk: "Escribí BORRAR para confirmar", delWord: "BORRAR",
+    delGo: "Borrar para siempre",
+    delBadWord: "Escribí BORRAR, tal cual, para confirmar.",
+    delDoing: "Borrando…", delDone: "Cuenta borrada. Gracias por probarla.",
+    delFail: "No se pudo borrar: ",
     syncDenied: "El servidor rechazó parte de los datos. Volvé a intentar; si sigue, avisame.",
     locked: "Bloqueada", subActive: "Suscripción activa",
     subOff: "Sin suscripción", subOn: "Suscribirme (prueba)", subCancel: "Cancelar suscripción",
@@ -1437,6 +1464,13 @@ const STR = {
     synced: "Synced: {0} songs and {1} scores.",
     syncFail: "Sync failed: ",
     loggedOut: "Signed out. Your data is still on this phone.",
+    delAccount: "Delete my account", cancel2: "Never mind",
+    delWarn: "This deletes your account, your songs and your scores, on this phone and on the server. It cannot be undone and there is no bin.",
+    delAsk: "Type DELETE to confirm", delWord: "DELETE",
+    delGo: "Delete for ever",
+    delBadWord: "Type DELETE, exactly, to confirm.",
+    delDoing: "Deleting…", delDone: "Account deleted. Thanks for trying it.",
+    delFail: "Could not delete: ",
     syncDenied: "The server refused some of the data. Try again; if it persists, tell me.",
     locked: "Locked", subActive: "Subscription active",
     subOff: "No subscription", subOn: "Subscribe (test)", subCancel: "Cancel subscription",
@@ -1620,7 +1654,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.23.0";
+const VERSION = "2.24.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -2348,6 +2382,16 @@ const DB = {
       r.onsuccess = () => res();
       r.onerror = () => rej(r.error);
     });
+  },
+  /* Vaciar un cajon entero. Solo lo usa el borrado de cuenta: si alguien pide
+     irse y le queda el catalogo en el telefono, el siguiente que entre en ese
+     aparato se encuentra las canciones del anterior. */
+  vaciar(store) {
+    return new Promise((res, rej) => {
+      const r = this.tx(store, "readwrite").clear();
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    });
   }
 };
 
@@ -2594,6 +2638,10 @@ function toggleCuenta(abrir) {
   const quiero = abrir === undefined ? card.hidden : abrir;
   card.hidden = !quiero;
   $("acct-toggle").setAttribute("aria-expanded", String(quiero));
+  /* Al cerrar los ajustes se recoge la confirmacion de borrar la cuenta. Si
+     no, quedaria abierta y a medio escribir para la proxima vez que alguien
+     entre aqui buscando otra cosa. */
+  if (!quiero) mostrarBorrado(false);
   if (quiero) card.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 $("acct-toggle").addEventListener("click", () => toggleCuenta());
@@ -5026,6 +5074,67 @@ $("ac-out").addEventListener("click", () => {
   setAc(t("loggedOut"));
 });
 $("ac-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth("in"); });
+
+/* ---------- Borrar la cuenta ----------
+
+   Lo pide Google Play para dejar publicar, pero tiene que estar igual: quien
+   dio su correo y su microfono tiene derecho a irse sin escribirle a nadie.
+
+   El orden importa. Primero el servidor y despues el telefono: si se hiciera
+   al reves y el servidor fallara, la persona se quedaria sin sus canciones
+   aqui y con la cuenta viva alla, que es el peor de los dos mundos. */
+function setDel(msg, kind) {
+  const el = $("ac-del-msg");
+  el.textContent = msg || "";
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+function mostrarBorrado(si) {
+  $("ac-del-conf").hidden = !si;
+  $("ac-del").hidden = si;
+  $("ac-del-word").value = "";
+  setDel("");
+}
+
+$("ac-del").addEventListener("click", () => mostrarBorrado(true));
+$("ac-del-no").addEventListener("click", () => mostrarBorrado(false));
+
+$("ac-del-go").addEventListener("click", async () => {
+  if (!cloud.session) return;
+  /* Sin distinguir mayusculas ni espacios de sobra: el freno esta en tener
+     que escribir la palabra, no en pelearse con el teclado del telefono. */
+  if ($("ac-del-word").value.trim().toUpperCase() !== t("delWord")) {
+    setDel(t("delBadWord"), "err");
+    return;
+  }
+  $("ac-del-go").disabled = $("ac-del-no").disabled = true;
+  setDel(t("delDoing"));
+  try {
+    await cloud.rest("rpc/borrar_mi_cuenta", { method: "POST", body: "{}" });
+
+    /* Ya no hay cuenta: se suelta el microfono antes de tocar nada mas, y se
+       vacia lo guardado aqui. Si no, el siguiente que entre en este telefono
+       se encuentra las canciones del anterior. */
+    stopStudent();
+    stopTeacher(true);
+    for (const cajon of ["songs", "scores", "catalog"]) {
+      try { await DB.vaciar(cajon); } catch (e) { /* si falta un cajon, sigue */ }
+    }
+    cloud.signOut();
+    soyAdmin = false;
+    cloud.profile = null;
+    await reload();
+    toggleCuenta(false);
+    selectTab("alum");
+    mostrarBorrado(false);
+    renderAccount();
+    setAc(t("delDone"), "ok");
+  } catch (e) {
+    setDel(t("delFail") + String(e.message || e), "err");
+  } finally {
+    $("ac-del-go").disabled = $("ac-del-no").disabled = false;
+  }
+});
 
 /* =========================================================================
    Cambio de idioma en caliente

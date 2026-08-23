@@ -677,6 +677,70 @@ await prueba("la contrasena se pide dos veces", () => {
 });
 
 /* ------------------------------------------------------------------------ */
+seccion("Irse del todo");
+
+/* Google Play no deja publicar una app con cuentas si no se pueden borrar
+   desde dentro. Pero aunque no lo pidiera: quien da su correo y su microfono
+   tiene derecho a irse sin escribirle a nadie y sin esperar a que alguien se
+   acuerde de atenderle. */
+
+await prueba("se puede borrar la cuenta desde los ajustes", () => {
+  const cuenta = /<div id="ajustes-cuenta">([\s\S]*?)\n      <\/div>/.exec(SOLO_HTML);
+  afirmar(cuenta, "no encuentro el grupo de la cuenta");
+  afirmar(cuenta[1].includes('id="ac-del"'), "no hay boton de borrar la cuenta");
+  afirmar(/\$\("ac-del-go"\)\.addEventListener/.test(FUENTE), "el boton no hace nada");
+  afirmar(/rpc\/borrar_mi_cuenta/.test(FUENTE),
+    "no se le pide al servidor que borre la cuenta");
+});
+
+await prueba("no borra al primer toque: hay que escribir la palabra", () => {
+  /* Un "¿estas seguro?" se contesta que si sin leerlo. Y esto no es como
+     borrar una cancion, que se recupera durante 30 dias: aqui no hay vuelta. */
+  const f = /\$\("ac-del-go"\)\.addEventListener[\s\S]*?\n\}\);/.exec(FUENTE);
+  afirmar(f, "no encuentro el borrado");
+  afirmar(/delWord/.test(f[0]), "no se comprueba ninguna palabra escrita a mano");
+  afirmar(f[0].indexOf("delWord") < f[0].indexOf("borrar_mi_cuenta"),
+    "se llama al servidor antes de comprobar la palabra");
+});
+
+await prueba("al borrar no queda nada guardado en el telefono", () => {
+  /* Si se borra la cuenta en el servidor y aqui quedan las canciones, el
+     siguiente que entre en ese telefono se encuentra las del anterior. */
+  const f = /\$\("ac-del-go"\)\.addEventListener[\s\S]*?\n\}\);/.exec(FUENTE);
+  for (const cajon of ["songs", "scores", "catalog"]) {
+    afirmar(f[0].includes('"' + cajon + '"'), "no se vacia " + cajon);
+  }
+  afirmar(/DB\.vaciar/.test(f[0]), "no se vacia lo guardado aqui");
+  afirmar(/signOut\(\)/.test(f[0]), "se borra la cuenta pero la sesion sigue abierta");
+});
+
+await prueba("primero el servidor y despues el telefono", () => {
+  /* Al reves, si el servidor fallara, la persona se quedaria sin sus
+     canciones aqui y con la cuenta viva alla: el peor de los dos mundos. */
+  const f = /\$\("ac-del-go"\)\.addEventListener[\s\S]*?\n\}\);/.exec(FUENTE);
+  afirmar(f[0].indexOf("borrar_mi_cuenta") < f[0].indexOf("DB.vaciar"),
+    "se borra lo del telefono antes de saber si el servidor pudo");
+});
+
+await prueba("el servidor solo deja que cada uno se borre a si mismo", () => {
+  const sql = readFileSync(new URL("../db/08-borrar-cuenta.sql", import.meta.url), "utf8");
+  afirmar(/security definer/i.test(sql), "sin security definer no podria tocar auth.users");
+  afirmar(/auth\.uid\(\)/.test(sql),
+    "no usa auth.uid(): habria que decirle a quien borrar, y entonces se podria pedir otro");
+  afirmar(/create or replace function public\.borrar_mi_cuenta\(\)/.test(sql),
+    "la funcion recibe parametros: quien se borra no puede venir de fuera");
+  afirmar(/revoke[\s\S]*anon/i.test(sql), "no se le quita el permiso a quien no tiene sesion");
+});
+
+await prueba("la politica de privacidad existe, esta enlazada y se puede contestar", () => {
+  const pol = readFileSync(new URL("../privacidad.html", import.meta.url), "utf8");
+  afirmar(/privacidad\.html/.test(SOLO_HTML), "no se enlaza desde la app");
+  afirmar(/@/.test(pol), "no hay correo de contacto, y Google Play lo exige");
+  afirmar(!/feeltheone\.app@gmail/.test(pol),
+    "quedo el correo de marcador, que no existe: Play manda gente ahi y rebotaria");
+});
+
+/* ------------------------------------------------------------------------ */
 seccion("El telefono se comprueba solo");
 
 /* El problema de fondo de estos dias no fue el codigo: fue que para saber si
