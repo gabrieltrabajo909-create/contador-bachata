@@ -25,6 +25,7 @@ ARCHIVOS=(
   index.html
   sw.js
   manifest.webmanifest
+  privacidad.html   # Google Play no deja publicar sin esta direccion
   icono-64.png
   icono-192.png
   icono-512.png

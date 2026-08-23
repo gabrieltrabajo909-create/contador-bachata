@@ -1,0 +1,208 @@
+<!doctype html>
+<!-- Politica de privacidad.
+
+     Existe por dos motivos. El primero es que Google Play no deja publicar sin
+     una direccion web que diga que datos se recogen; el segundo, mas
+     importante, es que quien entra tiene derecho a saberlo sin leer codigo.
+
+     REGLA DE ESTE ARCHIVO: aqui no se escribe una intencion, se escribe lo que
+     el codigo hace hoy. Si manana la app manda algo nuevo al servidor, se
+     cambia esto en el mismo movimiento. Una politica que promete de mas es
+     peor que no tenerla: convierte un cambio tecnico en una mentira.
+
+     Lo que se afirma abajo esta comprobado en el codigo: lo unico que sube a
+     la nube son las filas de `songs` (titulo, artista, ritmo, marcas y la
+     huella en numeros) y `scores`. El audio no sale del telefono. -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacidad · Feel The One</title>
+<style>
+  :root {
+    --bg: #0e0d12; --card: #17161d; --line: #2a2833;
+    --fg: #ece9f2; --muted: #9a94a8; --accent: #c9a227;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 18px 64px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 34px 0 10px; color: var(--accent); }
+  .fecha { color: var(--muted); font-size: 14px; margin: 0 0 28px; }
+  p { margin: 0 0 12px; }
+  ul { margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px; margin: 0 0 18px;
+  }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+  strong { color: #fff; }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 48px 0 32px; }
+  .volver { display: inline-block; margin-top: 40px; }
+  [lang="en"] { color: var(--muted); }
+  [lang="en"] h1, [lang="en"] h2, [lang="en"] strong { color: inherit; }
+  [lang="en"] h2 { color: var(--accent); opacity: .8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Privacidad</h1>
+<p class="fecha">Feel The One · última actualización: 22 de agosto de 2026</p>
+
+<div class="card">
+  <p><strong>Lo importante, en una línea:</strong> la app escucha el micrófono
+  para reconocer la canción, pero <strong>el audio nunca sale de tu
+  teléfono</strong>. No hay publicidad ni rastreadores, y no vendemos ni
+  compartimos nada con nadie.</p>
+</div>
+
+<h2>El micrófono</h2>
+<p>La app usa el micrófono solo mientras estás grabando una canción o
+escuchando para reconocerla. Nunca en segundo plano.</p>
+<p>Ese sonido <strong>no se graba ni se guarda ni se envía</strong>. Se procesa
+en el momento, dentro del teléfono, para sacar una <em>huella</em>: una lista
+de números que describe el patrón del sonido. De esa huella no se puede
+reconstruir la música ni escuchar nada de lo que había alrededor. Es lo mismo
+que hace tu teléfono cuando reconoce una canción que suena en un bar.</p>
+
+<h2>Qué se guarda</h2>
+<ul>
+  <li><strong>Tu correo electrónico</strong>, para poder entrar y para poder
+  recuperar la cuenta si olvidás la contraseña.</li>
+  <li><strong>Tu contraseña</strong>, cifrada. No la vemos ni la podemos leer.</li>
+  <li><strong>Tu nombre de profesor</strong>, si elegís poner uno. Aparece al
+  lado de las canciones que compartís, para que tus alumnos sepan que son
+  tuyas.</li>
+  <li><strong>Las canciones que grabás</strong>: el título, el artista, el
+  ritmo, las marcas del tiempo y la huella en números. No el audio.</li>
+  <li><strong>Tus puntajes</strong> del juego.</li>
+</ul>
+
+<h2>Qué NO se guarda</h2>
+<ul>
+  <li>Ninguna grabación de audio.</li>
+  <li>Tu ubicación.</li>
+  <li>Tus contactos, tus fotos ni ningún otro archivo del teléfono.</li>
+  <li>Tu actividad fuera de esta app.</li>
+</ul>
+
+<h2>Publicidad y rastreo</h2>
+<p><strong>No hay.</strong> Ni anuncios, ni medidores de audiencia, ni
+identificadores de publicidad, ni cookies de terceros. Nadie fuera de esta app
+sabe que la estás usando.</p>
+
+<h2>Dónde vive todo esto</h2>
+<p>Los datos están en <strong>Supabase</strong>, el servicio que nos guarda la
+base de datos. El servidor decide quién puede tocar qué: cada persona solo
+puede modificar sus propias canciones y sus propios puntajes. Eso no lo decide
+la app en tu teléfono, lo decide el servidor, que es lo que hace que no se
+pueda esquivar.</p>
+<p>Las canciones que un profesor comparte quedan visibles para los demás
+usuarios de la app. Es el sentido del catálogo. Si no querés que una canción se
+comparta, borrala.</p>
+
+<h2>Borrar tu cuenta</h2>
+<p>Podés pedir que se borre tu cuenta y todo lo que tenga que ver con ella
+—canciones, puntajes y tu perfil— escribiendo a
+<a href="mailto:gabriel.trabajo909@gmail.com">gabriel.trabajo909@gmail.com</a> desde la
+dirección con la que te registraste. Se borra dentro de los 30 días.</p>
+
+<h2>Menores</h2>
+<p>La app está pensada para mayores de 13 años. No pedimos ni guardamos datos
+de menores a propósito.</p>
+
+<h2>Cambios</h2>
+<p>Si algún día la app empieza a guardar algo distinto, esta página se cambia
+el mismo día y con la fecha de arriba actualizada.</p>
+
+<h2>Contacto</h2>
+<p><a href="mailto:gabriel.trabajo909@gmail.com">gabriel.trabajo909@gmail.com</a></p>
+
+<a class="volver" href="./index.html">← Volver a la app</a>
+
+<hr>
+
+<div lang="en">
+<h1>Privacy</h1>
+<p class="fecha">Feel The One · last updated: 22 August 2026</p>
+
+<div class="card">
+  <p><strong>The short version:</strong> the app listens through the microphone
+  to recognise the song, but <strong>the audio never leaves your
+  phone</strong>. There are no ads and no trackers, and we do not sell or share
+  anything with anyone.</p>
+</div>
+
+<h2>The microphone</h2>
+<p>The app uses the microphone only while you are recording a song or
+listening to recognise one. Never in the background.</p>
+<p>That sound is <strong>not recorded, not stored and not sent
+anywhere</strong>. It is processed on the spot, inside your phone, to produce a
+<em>fingerprint</em>: a list of numbers describing the pattern of the sound.
+The music cannot be reconstructed from it, and neither can anything else that
+was happening around you. It is the same thing your phone does when it
+recognises a song playing in a bar.</p>
+
+<h2>What is stored</h2>
+<ul>
+  <li><strong>Your email address</strong>, so you can sign in and recover your
+  account if you forget your password.</li>
+  <li><strong>Your password</strong>, encrypted. We cannot see or read it.</li>
+  <li><strong>Your teacher name</strong>, if you choose one. It appears next to
+  the songs you share, so your students know they are yours.</li>
+  <li><strong>The songs you record</strong>: title, artist, rhythm, the beat
+  marks and the fingerprint in numbers. Not the audio.</li>
+  <li><strong>Your game scores</strong>.</li>
+</ul>
+
+<h2>What is NOT stored</h2>
+<ul>
+  <li>Any audio recording.</li>
+  <li>Your location.</li>
+  <li>Your contacts, photos or any other file on your phone.</li>
+  <li>Anything you do outside this app.</li>
+</ul>
+
+<h2>Ads and tracking</h2>
+<p><strong>There are none.</strong> No advertising, no analytics, no
+advertising identifiers, no third-party cookies. Nobody outside this app knows
+you are using it.</p>
+
+<h2>Where all this lives</h2>
+<p>The data is held by <strong>Supabase</strong>, our database provider. The
+server decides who may touch what: each person can only modify their own songs
+and their own scores. That is not decided by the app on your phone but by the
+server, which is what makes it impossible to get around.</p>
+<p>Songs a teacher shares become visible to other users of the app. That is the
+point of the catalogue. If you do not want a song shared, delete it.</p>
+
+<h2>Deleting your account</h2>
+<p>You can ask for your account and everything tied to it —songs, scores and
+your profile— to be deleted by writing to
+<a href="mailto:gabriel.trabajo909@gmail.com">gabriel.trabajo909@gmail.com</a> from the
+address you registered with. It is deleted within 30 days.</p>
+
+<h2>Children</h2>
+<p>The app is intended for people aged 13 and over. We do not knowingly ask for
+or store data from children.</p>
+
+<h2>Changes</h2>
+<p>If the app ever starts storing something different, this page is updated the
+same day, with the date above changed.</p>
+
+<h2>Contact</h2>
+<p><a href="mailto:gabriel.trabajo909@gmail.com">gabriel.trabajo909@gmail.com</a></p>
+
+<a class="volver" href="./index.html">← Back to the app</a>
+</div>
+
+</div>
+</body>
+</html>
