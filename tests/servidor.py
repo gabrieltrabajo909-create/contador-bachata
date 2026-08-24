@@ -314,6 +314,36 @@ def _():
         # prueba se queda en la base y ensucia la corrida siguiente.
         rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
 
+@prueba("el link de la cancion se guarda y vuelve igual")
+def _():
+    """El link lo pega el profesor y lo abre el alumno, asi que tiene que
+    sobrevivir el viaje entero: subir, guardarse, y volver a bajar sin
+    cambiarse. Se le pregunta a la base, no al formulario."""
+    id_ = MARCA + "-link"
+    url = "https://open.spotify.com/track/prueba"
+    fila = cancion(id_, "Con link", uidA)
+    fila["link"] = url
+    try:
+        r = rest("songs", "POST", [fila], token=tokenA)
+        assert r.codigo < 400, (
+            f"no pude subirla: {r.codigo} {r.texto[:150]}\n"
+            "Corre db/10-link-de-la-cancion.sql en el editor SQL de Supabase.")
+        v = rest(f"songs?select=link&id=eq.{id_}", token=tokenA)
+        assert v.datos and v.datos[0]["link"] == url, \
+            f"el link no volvio igual: {v.datos}"
+    finally:
+        rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
+
+@prueba("y esta en el catalogo, que es de donde lo lee el alumno")
+def _():
+    """La columna puede existir en la TABLA y faltar en la VISTA: son dos cosas
+    distintas, y la vista hay que recrearla entera a mano. Si se olvida, no
+    salta ningun error en ningun lado: simplemente el alumno no ve el boton."""
+    r = rest("songs_catalog?select=link&limit=1", token=tokenA)
+    assert r.codigo < 400, (
+        f"el catalogo no tiene la columna link: {r.codigo} {r.texto[:150]}\n"
+        "Corre db/10-link-de-la-cancion.sql: recrea la vista songs_catalog.")
+
 # --------------------------------------------------------------------------
 seccion("Borrar")
 

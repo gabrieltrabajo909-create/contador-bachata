@@ -444,11 +444,12 @@
   .song .info { flex: 1; min-width: 0; }
 
   /* Boton de solo icono dentro de una fila */
-  .song button.solo-ic {
+  .song button.solo-ic, .song a.solo-ic {
     padding: 8px; line-height: 0; border-radius: 10px;
   }
-  .song button.solo-ic .ic { margin: 0; width: 1.05rem; height: 1.05rem; }
+  .song button.solo-ic .ic, .song a.solo-ic .ic { margin: 0; width: 1.05rem; height: 1.05rem; }
   .song button.solo-ic.peligro { color: var(--accent); }
+  .song a.solo-ic { color: var(--accent2); }
   .song button.chip { padding: 6px 10px; font-size: .72rem; }
   .song button.chip.on { color: var(--accent2); border-color: var(--accent2); }
   /* Solo mientras esta esperando el segundo toque para borrar */
@@ -459,12 +460,16 @@
      pegada al artista y el primer titulo largo se la comia. */
   .song .by { font-size: 0.76rem; color: var(--accent2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .song button {
+  /* El de abrir la canción es un enlace de verdad -para que el teléfono
+     ofrezca abrirlo en Spotify y no en el navegador-, así que tiene que entrar
+     por estas mismas reglas o queda como un texto suelto en medio de la fila. */
+  .song button, .song a.solo-ic {
     /* Ancho automatico SIEMPRE. Los botones grandes de la app llevan
        width:100%, y en cuanto uno de esos cayo dentro de una fila se comio el
        nombre de la cancion entero: quedaba en cero pixeles. */
     width: auto;
     flex: none;
+    text-decoration: none;
     border: 1px solid var(--line);
     background: var(--card2);
     color: var(--muted);
@@ -614,6 +619,7 @@
     <g id="g-pencil"><path d="M4 20l4.5-1.2L20 7.3a2 2 0 0 0 0-2.8l-.5-.5a2 2 0 0 0-2.8 0L5.2 15.5z"/><path d="M15.5 6l2.5 2.5"/></g>
     <g id="g-star"><path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.7l5.4-.8z"/></g>
     <g id="g-undo"><path d="M4 9h9a6 6 0 0 1 0 12h-3"/><path d="M7.5 5.5L4 9l3.5 3.5"/></g>
+    <g id="g-play"><circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8l5.4 3.2-5.4 3.2z"/></g>
   </defs>
 </svg>
 
@@ -790,6 +796,9 @@
       <input type="text" id="f-title" placeholder="Propuesta indecente" data-i18n-ph="phSong">
       <label for="f-artist" data-i18n="artist">Artista</label>
       <input type="text" id="f-artist" placeholder="Romeo Santos" data-i18n-ph="phArtist">
+      <label for="f-link" data-i18n="link">Link de la canción</label>
+      <input type="url" id="f-link" inputmode="url" autocomplete="off" placeholder="https://open.spotify.com/..." data-i18n-ph="phLink">
+      <p class="hint" data-i18n="linkHint">Opcional. En Spotify: Compartir → Copiar enlace, y pegalo acá. Así tus alumnos la ponen de un toque, y es la versión exacta que estás grabando.</p>
       <!-- El nombre del profesor ya no se escribe por canción: sale de la
            cuenta y es único, para poder distinguir dos versiones de la misma
            canción grabadas por personas distintas. -->
@@ -799,12 +808,23 @@
         <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
         <button data-r="salsa1" aria-pressed="false" data-i18n="salsa1">Salsa en 1</button>
       </div>
+      <label data-i18n="assist">Cómo marcar</label>
+      <div class="seg" id="f-assist">
+        <button data-a="0" aria-pressed="true" data-i18n="assistOff">A mano</button>
+        <button data-a="1" aria-pressed="false" data-i18n="assistOn">Con ayuda</button>
+      </div>
+      <p class="hint" data-i18n="assistHint">Con ayuda: marcá dos UNO seguidos y la app sigue sola. Después tocá solo donde se equivoque.</p>
       <button class="primary" id="p-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-mic"/></svg><span data-i18n="startRec">Empezar a grabar</span></button>
     </div>
 
     <div class="card" id="p-rec" hidden>
       <h2 data-i18n="recording">Grabando</h2>
       <div class="meter"><i id="p-level"></i></div>
+      <!-- La cuenta que propone la app, para poder juzgarla mientras suena -->
+      <div id="p-ayuda" hidden>
+        <div class="beats" id="p-beats"></div>
+        <p class="hint" id="p-ayuda-est"></p>
+      </div>
       <button class="tapzone" id="p-tap">
         <span id="p-tapmain" data-i18n="tapOne">Toca en cada UNO</span>
         <small id="p-taphint" data-i18n="tapHint">Empieza cuando entre el 1 de la canción</small>
@@ -853,6 +873,8 @@
         <input type="text" id="e-title">
         <label for="e-artist" data-i18n="artist">Artista</label>
         <input type="text" id="e-artist">
+        <label for="e-link" data-i18n="link">Link de la canción</label>
+        <input type="url" id="e-link" inputmode="url" autocomplete="off" placeholder="https://open.spotify.com/...">
         <label data-i18n="rhythm">Ritmo</label>
         <div class="seg" id="e-rhythm">
           <button data-r="bachata" aria-pressed="true" data-i18n="bachata">Bachata</button>
@@ -1145,9 +1167,25 @@ const STR = {
   es: {
     tabProf: "Profesor", tabAlum: "Alumno",
     newSong: "Nueva canción", song: "Canción", artist: "Artista",
+    link: "Link de la canción", phLink: "https://open.spotify.com/...",
+    linkHint: "Opcional. En Spotify: Compartir → Copiar enlace, y pegalo acá. Así tus alumnos la ponen de un toque, y es la versión exacta que estás grabando.",
+    openSong: "Abrir la canción",
     rhythm: "Ritmo", bachata: "Bachata", salsa1: "Salsa en 1",
     startRec: "Empezar a grabar", recording: "Grabando",
     tapOne: "Toca en cada UNO", tapHint: "Empieza cuando entre el 1 de la canción",
+    assist: "Cómo marcar", assistOff: "A mano", assistOn: "Con ayuda",
+    assistHint: "Con ayuda: marcá dos UNO seguidos y la app sigue sola. Después tocá solo donde se equivoque.",
+    assistStart: "Dos UNO seguidos y sigo yo",
+    assistHelp: "Marcá dos UNO seguidos, uno detrás del otro.",
+    assistFirst: "Ahora el UNO siguiente",
+    assistOdd: "Muy lejos uno de otro. Marcá dos UNO seguidos.",
+    assistGo: "Listo, sigo yo",
+    assistFine: "Va bien",
+    assistFixed: "Corregido",
+    assistTaps: "{0} toques tuyos",
+    assistWait: "Esperando tus dos primeros UNO",
+    assistOk: "Enganchado · {0} BPM",
+    assistLost: "Me perdí. Tocá en el próximo UNO.",
     undo: "Borrar último", finish: "Terminar",
     review: "Revisar antes de guardar", nudgeLabel: "Ajuste fino de todas las cuentas",
     tapsMarked: "Golpes marcados", save: "Guardar canción", discard: "Descartar",
@@ -1383,9 +1421,25 @@ const STR = {
   en: {
     tabProf: "Teacher", tabAlum: "Student",
     newSong: "New song", song: "Song", artist: "Artist",
+    link: "Link to the song", phLink: "https://open.spotify.com/...",
+    linkHint: "Optional. In Spotify: Share → Copy link, and paste it here. Your students then play it with one tap, and it's the exact version you're recording.",
+    openSong: "Open the song",
     rhythm: "Rhythm", bachata: "Bachata", salsa1: "Salsa on 1",
     startRec: "Start recording", recording: "Recording",
     tapOne: "Tap on every ONE", tapHint: "Start when the 1 comes round",
+    assist: "How to mark", assistOff: "By hand", assistOn: "With help",
+    assistHint: "With help: mark two ONEs in a row and the app carries on. After that, only tap where it gets it wrong.",
+    assistStart: "Two ONEs in a row and I take over",
+    assistHelp: "Mark two ONEs in a row, one after the other.",
+    assistFirst: "Now the next ONE",
+    assistOdd: "Too far apart. Mark two ONEs in a row.",
+    assistGo: "Got it, I'll carry on",
+    assistFine: "Looking good",
+    assistFixed: "Fixed",
+    assistTaps: "{0} taps of yours",
+    assistWait: "Waiting for your first two ONEs",
+    assistOk: "Locked on · {0} BPM",
+    assistLost: "Lost it. Tap on the next ONE.",
     undo: "Undo last", finish: "Done",
     review: "Check before saving", nudgeLabel: "Nudge every count",
     tapsMarked: "Marked taps", save: "Save song", discard: "Discard",
@@ -1640,6 +1694,26 @@ const rhythmName = (r) => t(RHYTHMS[r].key);
 const isOne = (i) => i === 0;
 const isTap = (i) => i === 3 || i === 7;
 
+/* El link de una canción, o cadena vacía si no sirve.
+
+   Esto NO es cosmética: el link lo escribe un profesor y lo abren todos sus
+   alumnos a través del catálogo compartido. Sin este filtro, alguien podría
+   guardar un "javascript:..." que se ejecutaría en el teléfono de cualquiera
+   que tocara el botón, con la sesión de esa persona abierta. Se acepta
+   únicamente lo que se puede abrir en el navegador y nada más.
+
+   Se guarda ya normalizado -no en bruto- para que el filtro no dependa de que
+   todos los sitios que lo pinten se acuerden de volver a filtrar. */
+function linkSeguro(txt) {
+  const s = String(txt || "").trim();
+  if (!s) return "";
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return u.href;
+  } catch (e) { return ""; }
+}
+
 /* =========================================================================
    Huella de audio (constelación de picos, estilo landmark)
 
@@ -1660,7 +1734,7 @@ const isTap = (i) => i === 3 || i === 7;
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.25.0";
+const VERSION = "2.26.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -2119,6 +2193,242 @@ class Matcher {
        cancion, que es el error que no se puede cometer. */
     if (best.score < ENTRE_CANCIONES * Math.max(segundaCancion, 1)) return null;
     return best;
+  }
+}
+
+/* =========================================================================
+   El seguidor: marcar la canción entre el profesor y la máquina
+   =========================================================================
+
+   Marcar una canción a mano es tocar la pantalla cada ocho tiempos, de punta
+   a punta, sin distraerse. Cuatro minutos de canción son unos sesenta toques.
+   Es tedioso, y el cansancio se nota justo al final, donde nadie revisa.
+
+   El reparto que hace esto es el que le conviene a cada uno:
+
+     La máquina sigue el pulso. Es lo aburrido, y no se cansa nunca.
+     El profesor dice cuál de esos golpes es el UNO. Es lo que la máquina no
+     sabe hacer, y él resuelve de un toque.
+
+   Detectar el pulso es un problema resuelto. Saber dónde cae el UNO no lo es
+   -en bachata menos que en nada, porque el UNO es una convención antes que un
+   golpe-, y por eso no se intenta: se pregunta.
+
+   NADA DE LO QUE SE GUARDA CAMBIA. La salida sigue siendo la misma lista de
+   segundos de siempre, escrita en el mismo sitio. Da igual si esos segundos
+   los puso un dedo o esta clase; el resto de la app no se entera. */
+
+const SEG = {
+  /* Por debajo de ~94 Hz hay más retumbe de sala que golpe de canción, y el
+     retumbe no marca el tiempo: lo emborrona. */
+  MINBIN: 4,
+
+  /* Cuántos decibelios como mucho puede aportar una casilla al golpe. Sin
+     tope, un solo agudo que aparece de la nada tapa a toda la percusión. */
+  TOPE: 12,
+
+  /* Dónde se busca el golpe alrededor de donde se lo esperaba, en fracción de
+     tiempo. Un 22% es bastante para recuperar una canción que se arrastra, y
+     poco para saltar al tiempo de al lado por error: el vecino está al 100%. */
+  BUSCA: 0.22,
+
+  /* Cuánto pesa lo que se acaba de medir al corregir la velocidad. Bajo a
+     propósito: la velocidad tiene que ceder ante lo que hace la canción, pero
+     despacio, o un golpe mal leído la descoloca entera. */
+  MEMORIA: 0.12,
+
+  /* Y hasta dónde puede alejarse de la velocidad que marcó el profesor. Sin
+     este freno, una racha de golpes mal leídos se realimenta y el seguidor se
+     va a otra velocidad sin volver nunca. */
+  LIMITE: 0.15,
+
+  /* Cuánto tiene que destacar un pico sobre lo que hay alrededor para creerle.
+     Si no destaca, es mejor seguir con la predicción que engancharse al ruido:
+     equivocarse quieto se arregla solo; equivocarse moviéndose, no. */
+  CLARO: 1.6,
+
+  /* Tiempos en un compás. Ocho, y es lo que ya daba por sentado la app cuando
+     calculaba los BPM de dos toques. Bachata y salsa se cuentan igual. */
+  PORCOMPAS: 8,
+
+  /* Un toque más cerca que esto de un UNO propuesto se lee como "vas bien",
+     no como "está mal, es acá". En fracción de tiempo. */
+  CERCA: 0.25,
+
+  // Entre qué valores se acepta el compás que sale de los dos primeros toques
+  COMPAS_MIN: 1.5,
+  COMPAS_MAX: 6.5,
+
+  // Golpes seguidos sin encontrar nada antes de admitir que se perdió
+  PACIENCIA: 6
+};
+
+class Seguidor {
+  /* Recibe la lista donde escribir los UNO. Es la MISMA de siempre
+     -teacher.downbeats-, no una copia: así la pantalla de revisar, el
+     acomodador de marcas, el guardado y la sincronización siguen leyendo de
+     donde leían y no hay que tocar ni una línea de todo eso. */
+  constructor(donde) {
+    this.unos = donde;
+    this.flujo = [];        // fuerza de golpe, una por frame
+    this.prev = new Float32Array(FP.MAXBIN);
+    this.hayPrev = false;
+    this.ultimo = -1;       // último frame recibido
+    this.anclas = [];       // los toques del profesor, tal cual llegaron
+    this.pulso = 0;         // segundos por tiempo, se va corrigiendo
+    this.base = 0;          // la que dijo el profesor; el freno se mide contra ésta
+    this.cuenta = 0;        // en qué tiempo del compás vamos
+    this.proximo = 0;       // cuándo toca el siguiente
+    this.anterior = null;   // cuándo cayó el anterior, ya corregido
+    this.dudas = 0;         // golpes seguidos sin encontrar nada
+    this.perdido = false;
+  }
+
+  get enMarcha() { return this.pulso > 0; }
+
+  /* Un frame más. Es el mismo que ya se usa para la huella: mismo micrófono,
+     mismo espectro, mismo instante. Esta clase no abre nada ni pide nada, solo
+     mira otra vez lo que ya estaba pasando por ahí. */
+  push(spec, frame) {
+    let v = 0;
+    if (this.hayPrev) {
+      /* Cuánto sonido NUEVO entró respecto del frame anterior. Cuando ataca
+         la guitarra o pega la güira, este número salta; mientras algo suena
+         sostenido, no. El espectro viene en decibelios, así que la resta ya
+         es una proporción y da igual el volumen al que esté la canción. */
+      for (let i = SEG.MINBIN; i < FP.MAXBIN; i++) {
+        const d = spec[i] - this.prev[i];
+        if (d > 0) v += d < SEG.TOPE ? d : SEG.TOPE;
+      }
+    }
+    /* Copia obligatoria: el que captura reutiliza el mismo buffer en cada
+       frame, así que guardarse la referencia sería compararlo consigo mismo. */
+    for (let i = SEG.MINBIN; i < FP.MAXBIN; i++) this.prev[i] = spec[i];
+    this.hayPrev = true;
+    this.flujo[frame] = v;
+    this.ultimo = frame;
+
+    /* Solo se puede resolver un tiempo cuando ya llegó el sonido de DESPUÉS
+       de donde se lo espera: si no, buscar el golpe "alrededor" sería buscar
+       nada más que hacia atrás, y todo saldría corrido hacia el principio. */
+    if (this.pulso) this.avanzar(frame * FP.HOP - SEG.BUSCA * this.pulso);
+  }
+
+  /* El golpe más marcado cerca de "centro", o null si por ahí no pasa nada que
+     destaque. Devolver null es una respuesta buena: significa "seguí con lo
+     que tenías", que casi siempre es mejor que agarrarse de cualquier cosa. */
+  pico(centro, radio) {
+    const a = Math.max(0, Math.round((centro - radio) / FP.HOP));
+    const b = Math.min(this.ultimo, Math.round((centro + radio) / FP.HOP));
+    if (b <= a) return null;
+    let mejor = a, suma = 0, n = 0;
+    for (let i = a; i <= b; i++) {
+      const v = this.flujo[i] || 0;
+      if (v > (this.flujo[mejor] || 0)) mejor = i;
+      suma += v; n++;
+    }
+    const media = n ? suma / n : 0;
+    if (!(this.flujo[mejor] > media * SEG.CLARO)) return null;
+    return mejor * FP.HOP;
+  }
+
+  /* Lleva la cuenta hasta el instante dado, tiempo por tiempo. */
+  avanzar(hasta) {
+    let vueltas = 0;
+    while (this.pulso && this.proximo <= hasta && vueltas++ < 500) {
+      const donde = this.pico(this.proximo, SEG.BUSCA * this.pulso);
+      const t = donde === null ? this.proximo : donde;
+
+      if (donde === null) {
+        this.dudas++;
+        if (this.dudas >= SEG.PACIENCIA) this.perdido = true;
+      } else {
+        this.dudas = 0;
+        this.perdido = false;
+        /* La velocidad cede ante lo que hace la canción, pero despacio y sin
+           poder alejarse de la que marcó el profesor. */
+        if (this.anterior !== null) {
+          const visto = t - this.anterior;
+          const min = this.base * (1 - SEG.LIMITE), max = this.base * (1 + SEG.LIMITE);
+          const objetivo = Math.min(Math.max(visto, min), max);
+          this.pulso = this.pulso * (1 - SEG.MEMORIA) + objetivo * SEG.MEMORIA;
+        }
+      }
+
+      this.cuenta = this.cuenta % SEG.PORCOMPAS + 1;
+      /* Y acá es donde el trabajo del seguidor se convierte en lo que la app
+         guarda desde siempre: un segundo más en la lista. */
+      if (this.cuenta === 1) this.unos.push(t);
+      this.anterior = t;
+      this.proximo = t + this.pulso;
+    }
+  }
+
+  /* El profesor tocó la pantalla. Devuelve qué se hizo con ese toque, para
+     poder decírselo: "arrancamos", "vas bien" o "corregido". */
+  tocar(t) {
+    this.anclas.push(t);
+
+    // Primer toque: solo se recuerda. Todavía no se sabe a qué velocidad va.
+    if (this.anclas.length === 1) return "primero";
+
+    /* Segundo toque: sale el compás, y con él todo lo demás. De acá en
+       adelante la máquina puede seguir sola. */
+    if (!this.pulso) {
+      const compas = t - this.anclas[this.anclas.length - 2];
+      if (compas < SEG.COMPAS_MIN || compas > SEG.COMPAS_MAX) return "raro";
+      this.base = compas / SEG.PORCOMPAS;
+      this.pulso = this.base;
+      this.arrancarEn(t);
+      return "listo";
+    }
+
+    /* Ya en marcha. Un toque cerca de un UNO propuesto no lo mueve: la
+       propuesta está pegada a un golpe de la canción y el toque a un dedo, que
+       tiembla treinta o cuarenta milésimas. Corregir hacia el dedo sería
+       cambiar lo bueno por lo aproximado. Se lee como "vas bien". */
+    const ultimo = this.unos[this.unos.length - 1];
+    if (ultimo !== undefined) {
+      const compas = this.pulso * SEG.PORCOMPAS;
+      const dist = Math.min(Math.abs(t - ultimo), Math.abs(t - (ultimo + compas)));
+      if (dist < this.pulso * SEG.CERCA) { this.dudas = 0; this.perdido = false; return "bien"; }
+    }
+
+    /* Toque lejos: el seguidor tenía el UNO en otro sitio. Manda el profesor.
+       Se tiran los UNO del último medio compás, que son los que están mal por
+       este mismo motivo, y se vuelve a contar desde acá. */
+    const borde = t - this.pulso * SEG.PORCOMPAS / 2;
+    while (this.unos.length && this.unos[this.unos.length - 1] > borde) this.unos.pop();
+    this.arrancarEn(t);
+    return "corregido";
+  }
+
+  /* Este instante es un UNO. A contar de nuevo desde acá. */
+  arrancarEn(t) {
+    this.unos.push(t);
+    this.cuenta = 1;
+    this.anterior = t;
+    this.proximo = t + this.pulso;
+    this.dudas = 0;
+    this.perdido = false;
+  }
+
+  /* Qué mostrar en pantalla ahora mismo.
+
+     La cuenta se calcula hacia adelante en vez de leerse: los tiempos se
+     resuelven con un pelo de retraso -hay que esperar el sonido de después-,
+     y mostrar ese retraso haría dudar al profesor de algo que está bien. */
+  estado(ahora) {
+    if (!this.pulso || this.anterior === null) {
+      return { listo: false, cuenta: 0, seguro: false, bpm: 0 };
+    }
+    const pasados = Math.max(0, Math.floor((ahora - this.anterior) / this.pulso));
+    return {
+      listo: true,
+      cuenta: (this.cuenta - 1 + pasados) % SEG.PORCOMPAS + 1,
+      seguro: !this.perdido,
+      bpm: Math.round(60 / this.pulso)
+    };
   }
 }
 
@@ -2673,7 +2983,11 @@ buildBeats("bachata");
    MODO PROFESOR
    ========================================================================= */
 const teacher = {
-  listener: null, fp: null, downbeats: [], rhythm: "bachata", meta: null, active: false
+  listener: null, fp: null, downbeats: [], rhythm: "bachata", meta: null, active: false,
+  /* Apagada de salida, y no por prudencia genérica: hasta que alguien la use
+     con canciones de verdad no se sabe cuánto acierta, y una ayuda que se
+     equivoca sin avisar es peor que no tenerla. Se enciende a mano. */
+  ayuda: false, seguidor: null
 };
 
 $("f-rhythm").addEventListener("click", (e) => {
@@ -2683,6 +2997,56 @@ $("f-rhythm").addEventListener("click", (e) => {
   teacher.rhythm = b.dataset.r;
 });
 
+$("f-assist").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-a]");
+  if (!b) return;
+  for (const x of $("f-assist").children) x.setAttribute("aria-pressed", x === b);
+  teacher.ayuda = b.dataset.a === "1";
+});
+
+/* La rejilla de ocho cuentas del profesor. Es la misma que ve el alumno, a
+   propósito: lo que está juzgando es exactamente eso, así que conviene que se
+   vea igual y no haya que traducir nada de una pantalla a la otra. */
+const teacherCells = [];
+function buildTeacherBeats(rhythm) {
+  const el = $("p-beats");
+  el.textContent = "";
+  teacherCells.length = 0;
+  RHYTHMS[rhythm].labels.forEach((lab, i) => {
+    const d = document.createElement("div");
+    d.className = "beat" + (isOne(i) ? " one" : isTap(i) ? " tapb" : "");
+    d.textContent = lab;
+    el.appendChild(d);
+    teacherCells.push(d);
+  });
+}
+
+/* Repinta la cuenta propuesta mientras suena la canción.
+
+   Con un temporizador y NO con requestAnimationFrame, que en esta app está
+   prohibido y hay una prueba que lo vigila. La prohibición nació de colgar la
+   captura de audio del reloj del dibujo: cuando el teléfono iba justo, ese
+   reloj dejaba de llamar y se perdían tres de cada cuatro frames de sonido.
+   Aquí solo se dibujan ocho casillas y el sonido no depende de esto, así que
+   el peligro no es el mismo -pero la regla se respeta igual: si un día se
+   acepta una excepción "que no cuenta", la siguiente tampoco contará.
+
+   Cuarenta milésimas alcanzan de sobra: la cuenta cambia cada medio segundo.
+
+   Lo que se dibuja es dónde CAE la cuenta, no dónde se terminó de comprobar.
+   Los tiempos se resuelven con un pelo de retraso -hay que esperar el sonido
+   de después del golpe- y mostrar ese retraso haría dudar al profesor de algo
+   que está bien. */
+function pintarAyuda() {
+  if (!teacher.active || !teacher.ayuda || !teacher.seguidor) return;
+  const s = teacher.seguidor.estado(teacher.listener.time);
+  teacherCells.forEach((c, i) => c.classList.toggle("on", s.listo && i === s.cuenta - 1));
+  const est = $("p-ayuda-est");
+  if (!s.listo) est.textContent = t("assistWait");
+  else est.textContent = s.seguro ? t("assistOk", s.bpm) : t("assistLost");
+  est.classList.toggle("err", s.listo && !s.seguro);
+}
+
 $("p-start").addEventListener("click", async () => {
   const title = $("f-title").value.trim();
   if (!title) { setP(t("needName"), "err"); return; }
@@ -2690,16 +3054,25 @@ $("p-start").addEventListener("click", async () => {
   teacher.meta = {
     title,
     artist: $("f-artist").value.trim(),
+    link: linkSeguro($("f-link").value),
     teacher: miNombreDeProfesor(),
     rhythm: teacher.rhythm
   };
   teacher.fp = new Fingerprinter();
   teacher.downbeats = [];
+  /* El seguidor escribe en LA MISMA lista de siempre. Por eso revisar,
+     acomodar marcas, guardar y sincronizar no se enteran de nada. */
+  teacher.seguidor = new Seguidor(teacher.downbeats);
 
   teacher.listener = new Listener();
   try {
     await teacher.listener.start(
-      (spec, frame) => teacher.fp.push(spec, frame),
+      (spec, frame) => {
+        teacher.fp.push(spec, frame);
+        /* Mismo frame, mismo espectro, mismo instante: la ayuda no abre nada
+           ni pide nada al micrófono, solo mira otra vez lo que ya pasaba. */
+        if (teacher.ayuda) teacher.seguidor.push(spec, frame);
+      },
       (lvl, saturando) => {
         const barra = $("p-level");
         barra.style.width = (lvl * 100) + "%";
@@ -2719,20 +3092,65 @@ $("p-start").addEventListener("click", async () => {
   $("p-rec").hidden = false;
   $("p-review").hidden = true;
   $("p-tap").classList.add("armed");
-  setP(t("tapAtLeast"));
+  $("p-ayuda").hidden = !teacher.ayuda;
+  /* "Borrar último" solo tiene sentido marcando a mano. Con ayuda los UNO los
+     pone la máquina de a decenas, y quitar el de más atrás no arregla nada:
+     ahí se corrige tocando donde se equivocó. */
+  $("p-undo").hidden = teacher.ayuda;
+  if (teacher.ayuda) {
+    buildTeacherBeats(teacher.rhythm);
+    $("p-tapmain").textContent = t("assistFirst");
+    $("p-taphint").textContent = t("assistStart");
+    pintarAyuda();
+    teacher.pintando = setInterval(pintarAyuda, 40);
+  } else {
+    $("p-tapmain").textContent = t("tapOne");
+    $("p-taphint").textContent = t("tapHint");
+  }
+  setP(teacher.ayuda ? t("assistHelp") : t("tapAtLeast"));
 });
 
-function tapNow() {
-  if (!teacher.active) return;
-  const t = teacher.listener.time;
-  const last = teacher.downbeats[teacher.downbeats.length - 1];
-  if (last !== undefined && t - last < 0.35) return;   // rebote
-  teacher.downbeats.push(t);
-
+/* El parpadeo y la vibración de "te leí". Van juntos y en un solo sitio
+   porque los dos modos de marcar los quieren igual. */
+function acusarToque() {
   const z = $("p-tap");
   z.classList.add("hit");
   setTimeout(() => z.classList.remove("hit"), 90);
   if (navigator.vibrate) navigator.vibrate(12);
+}
+
+function tapNow() {
+  if (!teacher.active) return;
+  /* Este instante NO se puede llamar "t": así se llama la función de traducir,
+     y una variable local con ese nombre la tapa dentro de toda la función. Ya
+     pasó una vez en esta app y volvió a pasar acá: cada toque reventaba al ir
+     a escribir el contador, después de haber guardado la marca. Como la marca
+     sí entraba y la pantalla sí parpadeaba, parecía que funcionaba, y lo único
+     que se perdía era el número de toques y los BPM. */
+  const ahora = teacher.listener.time;
+
+  if (teacher.ayuda) {
+    /* Con ayuda el rebote se mide contra el toque anterior y no contra el
+       último UNO: los UNO los pone la máquina y llegan solos, así que
+       compararse con ellos descartaría toques buenos del profesor. */
+    const previo = teacher.seguidor.anclas[teacher.seguidor.anclas.length - 1];
+    if (previo !== undefined && ahora - previo < 0.35) return;
+    acusarToque();
+
+    const que = teacher.seguidor.tocar(ahora);
+    const principal = {
+      primero: "assistFirst", raro: "assistOdd", listo: "assistGo",
+      bien: "assistFine", corregido: "assistFixed"
+    }[que];
+    $("p-tapmain").textContent = t(principal);
+    $("p-taphint").textContent = t("assistTaps", teacher.seguidor.anclas.length);
+    return;
+  }
+
+  const last = teacher.downbeats[teacher.downbeats.length - 1];
+  if (last !== undefined && ahora - last < 0.35) return;   // rebote
+  acusarToque();
+  teacher.downbeats.push(ahora);
 
   const n = teacher.downbeats.length;
   $("p-tapmain").textContent = t(n === 1 ? "tapCount" : "tapCountN", n);
@@ -2972,12 +3390,21 @@ function resetTeacher() {
   $("p-tapmain").textContent = t("tapOne");
   $("p-taphint").textContent = t("tapHint");
   $("p-level").style.width = "0%";
+  $("p-ayuda").hidden = true;
+  $("p-undo").hidden = false;
   teacher.downbeats = [];
+  /* Se suelta junto con la lista: el seguidor guarda una referencia a la de
+     antes, y dejarlo vivo sería escribir en una lista que ya no mira nadie. */
+  teacher.seguidor = null;
 }
 
 function stopTeacher(silent) {
   if (teacher.listener) { teacher.listener.stop(); teacher.listener = null; }
   teacher.active = false;
+  /* El repintado se corta acá y no en cada sitio que deja de grabar. Un
+     temporizador que sigue vivo con el micrófono ya cerrado despierta al
+     teléfono veinticinco veces por segundo para no dibujar nada. */
+  if (teacher.pintando) { clearInterval(teacher.pintando); teacher.pintando = null; }
   if (!silent) setP("");
 }
 
@@ -3165,6 +3592,7 @@ function abrirEditor(s) {
   $("e-cual").textContent = s.title;
   $("e-title").value = s.title || "";
   $("e-artist").value = s.artist || "";
+  $("e-link").value = s.link || "";
   for (const b of $("e-rhythm").children) {
     b.setAttribute("aria-pressed", String(b.dataset.r === s.rhythm));
   }
@@ -3198,6 +3626,7 @@ $("e-save").addEventListener("click", async () => {
   const cambios = {
     title: titulo,
     artist: $("e-artist").value.trim(),
+    link: linkSeguro($("e-link").value),
     teacher: miNombreDeProfesor() || editando.teacher || "",
     rhythm: ritmo
   };
@@ -4092,6 +4521,28 @@ function ponerDatos(info, s) {
   }
 }
 
+/* El botón para abrir la canción donde esté, o null si no tiene link.
+
+   Es un enlace de verdad y no un botón con código detrás: así el teléfono
+   ofrece abrirlo en la app de Spotify en vez de en el navegador, que es lo
+   que hace falta para que suene por el altavoz.
+
+   rel="noopener" no es adorno: sin eso la página que se abre puede navegar a
+   la nuestra desde atrás, y el link lo escribió otra persona. */
+function botonDeLink(s) {
+  const url = linkSeguro(s.link);
+  if (!url) return null;
+  const a = document.createElement("a");
+  a.className = "solo-ic";
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.title = t("openSong");
+  a.setAttribute("aria-label", t("openSong") + ": " + s.title);
+  a.appendChild(icono("play"));
+  return a;
+}
+
 function renderLists() {
   const mk = (s, forStudent) => {
     const row = document.createElement("div");
@@ -4149,6 +4600,8 @@ function renderLists() {
     }
 
     if (info) row.appendChild(info);
+    const play = botonDeLink(s);
+    if (play) row.appendChild(play);
     row.appendChild(btn);
     return row;
   };
@@ -4192,7 +4645,12 @@ function renderLists() {
         btn.append(icono("lock"), document.createTextNode(t("locked")));
         btn.disabled = true;
       }
-      row.appendChild(info); row.appendChild(btn);
+      row.appendChild(info);
+      /* El botón de abrir va también en las bloqueadas: escucharla es libre,
+         lo que hace falta pagar es que la app le marque el UNO encima. */
+      const play = botonDeLink(c);
+      if (play) row.appendChild(play);
+      row.appendChild(btn);
       catEl.appendChild(row);
     });
     if (bloqueadas) {
@@ -4692,6 +5150,7 @@ const rowToSong = (r) => ({
      pantalla se olvidaba de cuales eran gratis. En el servidor nunca se
      perdio: era solo lo que se veia. */
   free: !!r.free,
+  link: r.link || "",
   createdAt: new Date(r.created_at).getTime(),
   downbeats: r.downbeats,
   fp: { keys: fromB64(r.fp_keys, Uint32Array), times: fromB64(r.fp_times, Uint16Array) }
@@ -4711,6 +5170,10 @@ const songToRow = (s, uid) => ({
   id: s.id, owner: uid, title: s.title, artist: s.artist || null,
   teacher: miNombreDeProfesor() || s.teacher || null,
   rhythm: s.rhythm, duration: s.duration || 0,
+  /* El link SI se sube, al reves que `free`. Son cosas distintas: `free` lo
+     decide el administrador y por eso no se manda, pero el link es de quien
+     grabo la cancion -es la version que eligio- y nadie mas lo va a poner. */
+  link: s.link || null,
   fpv: fpVersionOf(s), downbeats: Array.from(s.downbeats),
   fp_keys: toB64(s.fp.keys), fp_times: toB64(s.fp.times), shared: true,
   fpl_keys: toB64(huellaRala(s.fp).keys), fpl_times: toB64(huellaRala(s.fp).times)
@@ -4751,21 +5214,24 @@ async function syncNow() {
     // Si la huella local esta rota, subirla propagaria el problema
     .filter(s => { try { toB64(s.fp.keys); return true; } catch (e) { return false; } });
   if (misSongs.length) {
-    /* La huella rala vive en columnas nuevas. Si la base todavia no las tiene
-       se reintenta sin ellas: es preferible sincronizar sin poder identificar
-       las bloqueadas que no poder sincronizar en absoluto. */
-    const subir = (conRala) => cloud.rest("songs", Object.assign({
+    /* Hay columnas que llegaron despues que la app: la huella rala y el link.
+       Si la base todavia no las tiene se reintenta sin ellas, porque es
+       preferible sincronizar de menos que no sincronizar en absoluto. Y esto
+       no es una hipotesis: mientras haya un solo telefono con la version vieja
+       o una base sin migrar, este camino se usa de verdad. */
+    const NUEVAS = ["fpl_keys", "fpl_times", "link"];
+    const subir = (completo) => cloud.rest("songs", Object.assign({
       method: "POST",
       body: JSON.stringify(misSongs.map(s => {
         const fila = songToRow(s, uid);
-        if (!conRala) { delete fila.fpl_keys; delete fila.fpl_times; }
+        if (!completo) for (const c of NUEVAS) delete fila[c];
         return fila;
       }))
     }, merge));
     try {
       await subir(true);
     } catch (e) {
-      if (!/fpl_keys|fpl_times|PGRST204/.test(String(e.message || e))) throw e;
+      if (!/fpl_keys|fpl_times|link|PGRST204/.test(String(e.message || e))) throw e;
       await subir(false);
     }
     // Quedan marcadas como mias para no volver a dudar en la proxima subida

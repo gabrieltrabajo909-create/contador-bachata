@@ -186,8 +186,15 @@ await prueba("ningun boton de una fila puede estirarse y tapar el titulo", () =>
   /* Los botones grandes de la app llevan width:100%. En cuanto uno de esos
      cayo dentro de una fila de cancion, se comio el nombre entero: el titulo
      quedo en cero pixeles y la lista mostraba solo botones. */
-  afirmar(/\.song button \{[^}]*width:\s*auto/.test(HTML),
-    "falta el ancho automatico en los botones de las filas");
+  /* El selector puede nombrar mas de una cosa -hoy tambien el enlace de abrir
+     la cancion- pero `.song button` tiene que seguir cayendo dentro. */
+  const regla = /\.song button[^{]*\{[^}]*width:\s*auto/.exec(HTML);
+  afirmar(regla, "falta el ancho automatico en los botones de las filas");
+
+  /* El enlace de abrir la cancion corre el mismo peligro por el mismo motivo:
+     va dentro de la fila, pegado al titulo. */
+  afirmar(/\.song a\.solo-ic/.test(regla[0]),
+    "el enlace de abrir la cancion se quedo fuera del ancho automatico");
 
   // Y que no se cuelen las clases de boton grande al construir las filas
   const constructor = FUENTE.slice(FUENTE.indexOf("const mk = (s, forStudent)"),
@@ -971,6 +978,136 @@ await prueba("la clave del servidor es la publica, no una secreta", () => {
   afirmar(!/service_role|SUPABASE_SERVICE|sb_secret_/.test(HTML),
     "hay una clave secreta metida en la pagina");
   afirmar(/sb_publishable_/.test(HTML), "no encuentro la clave publica");
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("Marcar con ayuda");
+
+await prueba("la ayuda arranca apagada", () => {
+  /* Hasta que alguien la pruebe con canciones de verdad no se sabe cuanto
+     acierta, y una ayuda que se equivoca sin avisar es peor que no tenerla.
+     Se enciende a mano, no de fabrica. */
+  afirmar(/ayuda:\s*false/.test(FUENTE), "la ayuda viene encendida de serie");
+  const seg = /<div class="seg" id="f-assist">([\s\S]*?)<\/div>/.exec(SOLO_HTML);
+  afirmar(seg, "no encuentro el interruptor de la ayuda");
+  const aMano = /data-a="0"[^>]*aria-pressed="true"/.test(seg[1]);
+  afirmar(aMano, "el interruptor aparece marcado en 'con ayuda'");
+});
+
+await prueba("escribe en la misma lista de siempre y no en un formato nuevo", () => {
+  /* Esta es LA promesa del cambio: revisar, acomodar marcas, guardar y
+     sincronizar no se enteran de nada porque lo guardado no cambia de forma.
+     Si alguna vez el seguidor deja de recibir teacher.downbeats, se acabo. */
+  afirmar(/new Seguidor\(teacher\.downbeats\)/.test(FUENTE),
+    "el seguidor ya no escribe en la lista de marcas del profesor");
+});
+
+await prueba("no abre el microfono por su cuenta: usa los frames de la huella", () => {
+  /* Si pidiera su propia captura habria dos micrófonos abiertos, dos relojes
+     distintos y el doble de bateria, para mirar exactamente el mismo sonido. */
+  const clase = FUENTE.slice(FUENTE.indexOf("class Seguidor"),
+                            FUENTE.indexOf("class Listener"));
+  afirmar(!/getUserMedia|AudioContext|new Listener/.test(clase),
+    "el seguidor abre su propia captura de audio");
+  afirmar(/teacher\.ayuda\) teacher\.seguidor\.push\(spec, frame\)/.test(FUENTE),
+    "el seguidor no esta enganchado a los frames que ya pasan por la grabacion");
+});
+
+await prueba("sin dos toques del profesor no propone nada", () => {
+  const clase = FUENTE.slice(FUENTE.indexOf("class Seguidor"),
+                             FUENTE.indexOf("class Listener"));
+  /* La unica puerta para arrancar es tocar(). Si apareciera un detector de
+     velocidad automatico, el seguidor podria decidir solo donde esta el UNO,
+     que es justo lo que no se quiere: en bachata se equivocaria y el alumno
+     no tiene como notarlo. */
+  afirmar(/if \(this\.anclas\.length === 1\) return "primero"/.test(clase),
+    "el primer toque ya no se limita a esperar al segundo");
+});
+
+await prueba("el temporizador del dibujo se apaga al dejar de grabar", () => {
+  const parar = FUENTE.slice(FUENTE.indexOf("function stopTeacher"),
+                             FUENTE.indexOf("function setP"));
+  afirmar(/clearInterval\(teacher\.pintando\)/.test(parar),
+    "el repintado sigue vivo con el microfono cerrado");
+});
+
+await prueba("la variable del instante no se llama t", () => {
+  /* Ya paso dos veces en esta app: una variable local llamada `t` tapa la
+     funcion de traducir dentro de toda la funcion, y la linea siguiente que
+     traduce algo revienta. En tapNow el fallo era invisible porque la marca
+     se guardaba igual y la pantalla parpadeaba: lo unico que se perdia era el
+     contador de toques. */
+  const fn = FUENTE.slice(FUENTE.indexOf("function tapNow"),
+                          FUENTE.indexOf('$("p-tap").addEventListener'));
+  afirmar(!/\bconst t\s*=/.test(fn), "vuelve a haber un `const t` tapando la traduccion");
+});
+
+/* ------------------------------------------------------------------------ */
+seccion("El link de la cancion");
+
+await prueba("solo se guardan links que se puedan abrir en el navegador", () => {
+  /* El link lo escribe un profesor y lo abren todos sus alumnos desde el
+     catalogo compartido. Sin filtro, un "javascript:..." se ejecutaria en el
+     telefono de cualquiera que tocara el boton, con su sesion abierta. */
+  afirmar(/function linkSeguro/.test(FUENTE), "no existe el filtro de links");
+  const fn = FUENTE.slice(FUENTE.indexOf("function linkSeguro"));
+  afirmar(/protocol !== "http:" && u\.protocol !== "https:"/.test(fn),
+    "el filtro no comprueba el protocolo");
+});
+
+await prueba("y se filtran al guardar, no solo al pintarlos", () => {
+  /* Filtrar solo al dibujar obliga a que TODOS los sitios que lo pinten se
+     acuerden, y basta que uno se olvide. Se guarda ya limpio. */
+  afirmar(/link: linkSeguro\(\$\("f-link"\)\.value\)/.test(FUENTE),
+    "al grabar se guarda el link sin filtrar");
+  afirmar(/link: linkSeguro\(\$\("e-link"\)\.value\)/.test(FUENTE),
+    "al editar se guarda el link sin filtrar");
+});
+
+await prueba("el enlace se abre fuera y sin dejar puerta atras", () => {
+  const fn = FUENTE.slice(FUENTE.indexOf("function botonDeLink"),
+                          FUENTE.indexOf("function renderLists"));
+  afirmar(/rel = "noopener noreferrer"/.test(fn),
+    "la pagina que se abre puede navegar la nuestra desde atras");
+  afirmar(/target = "_blank"/.test(fn), "el link se abre encima de la app");
+});
+
+await prueba("el link viaja al servidor y vuelve", () => {
+  afirmar(/link: r\.link \|\| ""/.test(FUENTE), "el link no se lee de la fila del servidor");
+  afirmar(/link: s\.link \|\| null/.test(FUENTE), "el link no se sube al servidor");
+});
+
+await prueba("si la base todavia no tiene la columna, se sincroniza igual", () => {
+  /* Mientras haya un telefono con la version nueva y una base sin migrar,
+     este camino se usa de verdad. Sin el, la persona se queda sin sincronizar
+     NADA por una columna que ni sabia que existia. */
+  afirmar(/const NUEVAS = \["fpl_keys", "fpl_times", "link"\]/.test(FUENTE),
+    "el link no esta entre las columnas que se pueden dejar caer");
+  afirmar(/fpl_keys\|fpl_times\|link\|PGRST204/.test(FUENTE),
+    "el reintento no reconoce el error de la columna que falta");
+});
+
+await prueba("la migracion del link existe y recrea el catalogo", () => {
+  const sql = readFileSync(new URL("../db/10-link-de-la-cancion.sql", import.meta.url), "utf8");
+  afirmar(/add column if not exists link text/.test(sql), "no anade la columna");
+  /* La vista hay que rehacerla entera: una vista no admite anadirle una
+     columna por partes, y si se olvida, el alumno nunca ve el link porque el
+     catalogo se lee de ahi. */
+  afirmar(/create view public\.songs_catalog[\s\S]*\blink\b/.test(sql),
+    "la vista del catalogo se quedo sin el link");
+  afirmar(/revoke all on public\.songs_catalog from anon/.test(sql),
+    "el catalogo quedo abierto a visitantes");
+});
+
+await prueba("todos los textos nuevos estan en los dos idiomas", () => {
+  const claves = ["assist", "assistOn", "assistOff", "assistHint", "assistStart",
+    "assistHelp", "assistFirst", "assistOdd", "assistGo", "assistFine",
+    "assistFixed", "assistTaps", "assistWait", "assistOk", "assistLost",
+    "link", "phLink", "linkHint", "openSong"];
+  for (const k of claves) {
+    const veces = [...FUENTE.matchAll(new RegExp("\\b" + k + ":\\s*\"", "g"))].length;
+    igual(veces, 2, `"${k}" tendria que estar en espanol y en ingles`);
+  }
 });
 
 /* Sin esto, un fallo se veia en rojo por pantalla pero el archivo terminaba
