@@ -9,7 +9,9 @@ import { cargar, FUENTE } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual, resumen } from "./marco.mjs";
 
 const M = await cargar([
-  "exportarCanciones", "importarCanciones", "mensajeDeBusqueda", "STR"
+  "exportarCanciones", "importarCanciones", "mensajeDeBusqueda", "STR",
+  // Importar limpia los consejos de baile al entrar, asi que los necesita
+  "CONSEJOS", "tipDef", "limpiarConsejos"
 ]);
 
 const cancion = (id, n) => ({

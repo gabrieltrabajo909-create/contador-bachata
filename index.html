@@ -417,6 +417,62 @@
   .beat.on.one { background: var(--accent); border-color: var(--accent); color: #fff; }
   .beat.on.tapb { background: var(--accent2); border-color: var(--accent2); color: #04140d; }
 
+  /* ---------- Consejos de baile ----------
+
+     Del lado del ALUMNO. La regla que manda aquí es que se lee de un vistazo
+     mientras se baila: dos líneas grandes y quién las escribió. Nada más.
+     Cualquier cosa que se añada aquí se lee en vez de la cuenta, no además. */
+  #a-tips { margin-top: 12px; text-align: center; }
+  .a-tip {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    font-size: 1.15rem; font-weight: 700; letter-spacing: .02em;
+    text-transform: uppercase; line-height: 1.25; padding: 3px 0;
+  }
+  .a-tip .e { font-size: 1.35rem; line-height: 1; }
+  /* El emoji ya distingue cuál es cuál; el color separa las dos preguntas:
+     energía en el color de la app, movimiento en el otro. */
+  #a-tip-energia { color: var(--accent); }
+  #a-tip-mov { color: var(--accent2); }
+  /* Todavía sin consejo de esa clase: se deja el hueco para que las dos líneas
+     no salten de sitio cuando llegue el primero. */
+  .a-tip.vacio { color: var(--dim); opacity: .45; }
+  .a-tip-quien { margin-top: 6px; font-size: .76rem; color: var(--dim); }
+
+  /* Del lado del PROFESOR: los seis botones. Grandes porque se tocan sin
+     mirar, con la canción sonando y el teléfono en la mano. */
+  .ct-grupo { margin: 12px 0 4px; }
+  .ct-cat {
+    font-size: .74rem; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--dim); margin: 10px 0 6px;
+  }
+  .ct-fila { display: flex; gap: 8px; margin-bottom: 8px; }
+  button.tip {
+    flex: 1; min-height: 62px; padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: .84rem; font-weight: 600; line-height: 1.15; text-align: center;
+  }
+  button.tip .e { font-size: 1.5rem; line-height: 1; }
+  /* Un destello al tocar. Es la única confirmación de que entró, porque el
+     profesor está mirando el reloj, no el botón. */
+  button.tip.puesto { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+  .ct-reloj {
+    text-align: center; font-size: 1.6rem; font-weight: 700;
+    font-variant-numeric: tabular-nums; margin: 10px 0 2px;
+  }
+  .ct-reloj.vivo { color: var(--accent2); }
+
+  /* La lista de lo marcado. Cada línea: cuándo, qué, y los mandos para
+     correrlo o quitarlo. */
+  .ct-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 0; border-bottom: 1px solid var(--line);
+  }
+  .ct-item .cuando { font-variant-numeric: tabular-nums; color: var(--dim); font-size: .82rem; min-width: 3.4em; }
+  .ct-item .que { flex: 1; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ct-item button { width: auto; flex: none; padding: 5px 8px; font-size: .8rem; }
+  .ct-vacia { color: var(--dim); font-size: .85rem; padding: 10px 0; }
+
   /* ---------- Medidores ---------- */
   .meter { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
   .meter > i { display: block; height: 100%; width: 0%; background: var(--accent2); }
@@ -620,6 +676,8 @@
     <g id="g-star"><path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.7l5.4-.8z"/></g>
     <g id="g-undo"><path d="M4 9h9a6 6 0 0 1 0 12h-3"/><path d="M7.5 5.5L4 9l3.5 3.5"/></g>
     <g id="g-play"><circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8l5.4 3.2-5.4 3.2z"/></g>
+    <!-- Un bocadillo: el profesor diciendo algo. Es el que abre los consejos. -->
+    <g id="g-tip"><path d="M4 6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 3.5V16.5H6a2 2 0 0 1-2-2z"/></g>
   </defs>
 </svg>
 
@@ -887,6 +945,51 @@
         <p class="status" id="e-status"></p>
       </div>
 
+      <!-- Consejos de baile: aparece al tocar el bocadillo de una canción
+           propia. Es un paso aparte y opcional a propósito: una canción con
+           los "1" y sin un solo consejo está completa. -->
+      <div class="card dentro" id="p-tips" hidden>
+        <h2 data-i18n="tips">Consejos de baile</h2>
+        <p class="editando" id="ct-cual"></p>
+        <p class="hint" id="ct-hint" data-i18n="tipsHelp">Poné la canción y dale a escuchar. Cuando enganche, tocá lo que recomendás.</p>
+
+        <div class="meter"><i id="ct-level"></i></div>
+        <button class="primary" id="ct-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-head"/></svg><span data-i18n="tipsListen">Escuchar la canción</span></button>
+        <button class="ghost" id="ct-stop" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-stop"/></svg><span data-i18n="stop">Parar</span></button>
+
+        <!-- El reloj de la canción. Sin esto el profesor no sabe si lo que
+             está marcando cae donde cree. -->
+        <div class="ct-reloj"><span id="ct-time">0:00</span></div>
+        <p class="status" id="ct-status"></p>
+
+        <!-- Los seis botones. Grandes y siempre en el mismo sitio: se tocan
+             sin mirar, mientras suena. Nada de desplegables. -->
+        <div class="ct-grupo" id="ct-botones" hidden>
+          <div class="ct-cat" data-i18n="tipEnergy">Energía</div>
+          <div class="ct-fila">
+            <button class="tip" data-k="up"><span class="e">⬆️</span><span data-i18n="tipUp">Sube energía</span></button>
+            <button class="tip" data-k="soft"><span class="e">🤍</span><span data-i18n="tipSoft">Suave / cerca</span></button>
+          </div>
+          <div class="ct-cat" data-i18n="tipMove">Movimiento</div>
+          <div class="ct-fila">
+            <button class="tip" data-k="waves"><span class="e">🌊</span><span data-i18n="tipWaves">Waves</span></button>
+            <button class="tip" data-k="turns"><span class="e">🔄</span><span data-i18n="tipTurns">Vueltas</span></button>
+          </div>
+          <div class="ct-fila">
+            <button class="tip" data-k="foot"><span class="e">👣</span><span data-i18n="tipFoot">Footwork</span></button>
+            <button class="tip" data-k="pause"><span class="e">⏸️</span><span data-i18n="tipPause">Pausa / acento</span></button>
+          </div>
+        </div>
+
+        <div id="ct-lista"></div>
+
+        <div class="row">
+          <button class="primary" id="ct-save" data-i18n="saveChanges">Guardar cambios</button>
+          <button class="ghost" id="ct-close" data-i18n="cancel">Cancelar</button>
+        </div>
+        <p class="status" id="ct-saved"></p>
+      </div>
+
       <input type="file" id="p-file" accept="application/json" hidden>
     </div>
 
@@ -928,6 +1031,15 @@
         <div class="sub" id="a-sub" data-i18n="notListening">Sin escuchar</div>
       </div>
       <div class="beats" id="a-beats"></div>
+
+      <!-- Los consejos del profesor. Solo aparece si esta canción tiene, que
+           es lo normal que no. Dos etiquetas y un nombre: nada más, porque el
+           alumno está bailando y solo puede darle un vistazo. -->
+      <div id="a-tips" hidden>
+        <div class="a-tip" id="a-tip-energia"><span class="e"></span><span class="tx"></span></div>
+        <div class="a-tip" id="a-tip-mov"><span class="e"></span><span class="tx"></span></div>
+        <div class="a-tip-quien" id="a-tip-quien"></div>
+      </div>
     </div>
 
     <!-- --- Modo juego: la cuenta queda oculta --- -->
@@ -1170,6 +1282,31 @@ const STR = {
     link: "Link de la canción", phLink: "https://open.spotify.com/...",
     linkHint: "Opcional. En Spotify: Compartir → Copiar enlace, y pegalo acá. Así tus alumnos la ponen de un toque, y es la versión exacta que estás grabando.",
     openSong: "Abrir la canción",
+
+    /* Consejos de baile. Los seis nombres son los que ve el profesor en los
+       botones Y el alumno en pantalla: son el mismo texto a propósito, para
+       que lo que uno marca sea literalmente lo que el otro lee. */
+    tips: "Consejos de baile",
+    tipEnergy: "Energía", tipMove: "Movimiento",
+    tipUp: "Sube energía", tipSoft: "Suave / cerca",
+    tipWaves: "Waves", tipTurns: "Vueltas",
+    tipFoot: "Footwork", tipPause: "Pausa / acento",
+    tipNone: "—",
+    tipsBy: "Consejos de {0}",
+    tipsHelp: "Poné la canción y dale a escuchar. Cuando enganche, tocá lo que recomendás para cada parte. Es opcional: una canción con los UNO ya está completa.",
+    tipsListen: "Escuchar la canción",
+    tipsSearching: "Buscando la canción…",
+    tipsNotFound: "No la reconozco. Comprobá que suena esta canción y no otra versión.",
+    tipsGo: "Enganchado. Tocá lo que recomendás.",
+    tipsWait: "Esperá a que enganche la canción.",
+    tipsFull: "Ya hay muchos consejos en esta canción.",
+    tipsEmpty: "Todavía no marcaste ninguno.",
+    tipsEarlier: "Medio segundo antes",
+    tipsLater: "Medio segundo después",
+    tipsSaved: "Consejos guardados: {0}",
+    tipsDiscard: "Se pierde lo que marcaste. Tocá otra vez para salir.",
+    tipsNoColumn: "La base todavía no tiene los consejos. Hay que correr db/11-consejos-de-baile.sql.",
+
     rhythm: "Ritmo", bachata: "Bachata", salsa1: "Salsa en 1",
     startRec: "Empezar a grabar", recording: "Grabando",
     tapOne: "Toca en cada UNO", tapHint: "Empieza cuando entre el 1 de la canción",
@@ -1424,6 +1561,28 @@ const STR = {
     link: "Link to the song", phLink: "https://open.spotify.com/...",
     linkHint: "Optional. In Spotify: Share → Copy link, and paste it here. Your students then play it with one tap, and it's the exact version you're recording.",
     openSong: "Open the song",
+
+    tips: "Dance tips",
+    tipEnergy: "Energy", tipMove: "Movement",
+    tipUp: "Energy up", tipSoft: "Soft / close",
+    tipWaves: "Waves", tipTurns: "Turns",
+    tipFoot: "Footwork", tipPause: "Pause / accent",
+    tipNone: "—",
+    tipsBy: "Dance tips by {0}",
+    tipsHelp: "Play the song and hit listen. Once it locks on, tap what you'd recommend for each part. It's optional: a song with the ONEs is already complete.",
+    tipsListen: "Listen to the song",
+    tipsSearching: "Looking for the song…",
+    tipsNotFound: "I can't recognise it. Check it's this song playing and not another version.",
+    tipsGo: "Locked on. Tap what you'd recommend.",
+    tipsWait: "Wait until it locks on to the song.",
+    tipsFull: "This song already has plenty of tips.",
+    tipsEmpty: "You haven't marked any yet.",
+    tipsEarlier: "Half a second earlier",
+    tipsLater: "Half a second later",
+    tipsSaved: "Dance tips saved: {0}",
+    tipsDiscard: "You'll lose what you marked. Tap again to leave.",
+    tipsNoColumn: "The database doesn't have dance tips yet. Run db/11-consejos-de-baile.sql.",
+
     rhythm: "Rhythm", bachata: "Bachata", salsa1: "Salsa on 1",
     startRec: "Start recording", recording: "Recording",
     tapOne: "Tap on every ONE", tapHint: "Start when the 1 comes round",
@@ -1715,6 +1874,125 @@ function linkSeguro(txt) {
 }
 
 /* =========================================================================
+   CONSEJOS DE BAILE
+
+   El profesor ya no solo dice DÓNDE está el uno. Puede dejar también un mapa
+   corto de cómo recomienda bailar la canción: en este trozo, suave; aquí,
+   arriba; por acá van bien las vueltas.
+
+   Dos cosas distintas, y por eso dos categorías:
+
+     energía   cómo debería SENTIRSE el baile
+     mov       qué tipo de movimiento podría funcionar
+
+   Son categorías y no una lista sola porque el alumno tiene que ver siempre
+   una de cada: "suave" y "waves" a la vez responden a preguntas distintas, y
+   mezclarlas en una lista única obligaría a elegir cuál de las dos tapa a la
+   otra. Con dos categorías, cada consejo nuevo solo reemplaza al de su tipo.
+
+   Y son recomendaciones, no órdenes. El alumno no está obligado a hacer ese
+   movimiento; es lo que ese profesor haría ahí.
+
+   Lo que se guarda es lo mínimo: cuándo y cuál. [{t: 18.4, k: "soft"}, ...]
+   El emoji, el color y el texto viven aquí y se pueden cambiar mañana sin
+   tocar una sola canción ya grabada. Si se guardara el texto, cambiar una
+   palabra o traducir la app dejaría las canciones viejas en el idioma de
+   quien las grabó.
+   ========================================================================= */
+const CONSEJOS = {
+  /* Tope por canción. No es por espacio -son cuatro bytes cada uno- sino
+     porque un mapa de doscientos avisos ya no es un mapa: es ruido, y el
+     alumno deja de mirarlo. Y de paso, ninguna canción puede engordar la
+     sincronización de todos los demás. */
+  MAX: 200,
+  /* Dos toques de la MISMA categoría más juntos que esto: el segundo manda.
+     Es el dedo rebotando o el profesor cambiando de idea sobre la marcha, no
+     dos consejos de verdad. Medio segundo es menos de un compás en cualquier
+     bachata, así que no puede tragarse un cambio real. */
+  JUNTOS: 0.5,
+  LISTA: [
+    { k: "up",    cat: "energia", emoji: "⬆️", i18n: "tipUp" },
+    { k: "soft",  cat: "energia", emoji: "🤍", i18n: "tipSoft" },
+    { k: "waves", cat: "mov",     emoji: "🌊", i18n: "tipWaves" },
+    { k: "turns", cat: "mov",     emoji: "🔄", i18n: "tipTurns" },
+    { k: "foot",  cat: "mov",     emoji: "👣", i18n: "tipFoot" },
+    { k: "pause", cat: "mov",     emoji: "⏸️", i18n: "tipPause" }
+  ]
+};
+
+const tipDef = (k) => CONSEJOS.LISTA.find(d => d.k === k) || null;
+
+/* Deja una lista de consejos en la única forma que el resto del código sabe
+   leer: válidos, ordenados y sin duplicados pegados.
+
+   Se pasa por aquí TODO lo que entra —lo del servidor, lo del archivo de
+   copia, lo que acaba de tocar el profesor— y no solo lo que parece
+   sospechoso. Un `tips` puede llegar de un teléfono con una versión más nueva
+   que invente una clave que aquí no existe, o de un archivo editado a mano.
+   Que la lista esté ordenada no es cosmética: el alumno busca "el último
+   consejo antes de este segundo", y sin orden esa pregunta no tiene
+   respuesta. */
+function limpiarConsejos(lista) {
+  if (!Array.isArray(lista)) return [];
+  const buenos = [];
+  for (const x of lista) {
+    if (!x || !tipDef(x.k)) continue;
+    /* `cuando` y no `t`: en esta app `t` es la función de traducir, y llamarle
+       t a una variable local la tapa. Ha pasado dos veces, las dos en código
+       nuevo, y las dos veces el fallo pasó desapercibido porque lo de al lado
+       seguía funcionando. Aquí ahora mismo no se traduce nada, pero la
+       siguiente línea que alguien añada sí podría. */
+    const cuando = Number(x.t);
+    if (!isFinite(cuando) || cuando < 0) continue;
+    // A la milésima: viene de un reloj de audio y arrastra decimales que no
+    // significan nada, pero que sí abultan al subir y al guardar.
+    buenos.push({ t: Math.round(cuando * 1000) / 1000, k: x.k });
+  }
+  buenos.sort((a, b) => a.t - b.t);
+
+  const fuera = [];
+  for (const c of buenos) {
+    // Se compara con el último de SU categoría, no con el anterior a secas:
+    // tocar "suave" y enseguida "waves" son dos consejos buenos y a la vez.
+    const cat = tipDef(c.k).cat;
+    let i = fuera.length - 1;
+    while (i >= 0 && tipDef(fuera[i].k).cat !== cat) i--;
+    if (i >= 0 && c.t - fuera[i].t < CONSEJOS.JUNTOS) { fuera[i] = c; continue; }
+    fuera.push(c);
+  }
+  /* Reemplazar un consejo por otro más tardío puede haberlo dejado detrás de
+     uno de la otra categoría. Es raro pero pasa, y una lista desordenada
+     rompe la búsqueda del alumno sin dar ningún síntoma. */
+  fuera.sort((a, b) => a.t - b.t);
+  // Si alguien manda mil, se queda con los primeros y no se rompe nada.
+  return fuera.slice(0, CONSEJOS.MAX);
+}
+
+/* Qué recomienda el profesor en el segundo `t`: el último consejo de cada
+   categoría que ya pasó. Devuelve las definiciones, no las claves, porque
+   quien pinta necesita el emoji y el texto.
+
+   Antes del primer consejo de una categoría eso es `null`, y está bien: el
+   profesor no dijo nada todavía de eso, y la pantalla tiene que poder
+   distinguir "no dijo" de "dijo suave". */
+function consejosEn(lista, t) {
+  const fuera = { energia: null, mov: null };
+  if (!Array.isArray(lista)) return fuera;
+  for (const c of lista) {
+    /* Lo normal es que la lista venga ya limpia, porque se limpia al bajarla
+       del servidor y al importarla. Aun así se comprueba: esto lo llama la
+       pantalla del alumno veintiuna veces por segundo con la música sonando,
+       y una excepción aquí no da un mensaje de error, para la cuenta en seco.
+       Salir barato de un dato raro vale más que confiar en que no llegue. */
+    if (!c || typeof c.t !== "number") continue;
+    if (c.t > t) break;              // la lista viene ordenada
+    const d = tipDef(c.k);
+    if (d) fuera[d.cat] = d;
+  }
+  return fuera;
+}
+
+/* =========================================================================
    Huella de audio (constelación de picos, estilo landmark)
 
    El espectro se muestrea a intervalo fijo. En cada frame se toman los picos
@@ -1734,7 +2012,7 @@ function linkSeguro(txt) {
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.26.0";
+const VERSION = "2.27.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -2942,6 +3220,11 @@ function selectTab(which) {
   if (which === "admin") renderAdmin();
   if (which !== "alum") stopStudent();
   if (which !== "prof") stopTeacher(true);
+  /* Los consejos tienen su propio micrófono, así que se apaga aparte. Va
+     suelto y no dentro de stopTeacher porque grabar los "1" y anotar consejos
+     se cortan el uno al otro a propósito, y meterlo allí haría que apagar uno
+     apagara el otro en cadena. */
+  if (which !== "prof") pararConsejos();
   scrollTo({ top: 0, behavior: "instant" });
 }
 for (const nombre of Object.keys(PESTANAS)) {
@@ -3050,6 +3333,9 @@ function pintarAyuda() {
 $("p-start").addEventListener("click", async () => {
   const title = $("f-title").value.trim();
   if (!title) { setP(t("needName"), "err"); return; }
+
+  // Un micrófono a la vez: si estaba anotando consejos, eso se cierra.
+  pararConsejos();
 
   teacher.meta = {
     title,
@@ -3369,6 +3655,9 @@ $("p-save").addEventListener("click", async () => {
        grabada se veria de pago en el telefono de quien acaba de grabarla,
        hasta la siguiente sincronizada. */
     free: true,
+    // Nace sin consejos y puede quedarse así para siempre: los "1" ya son una
+    // canción completa. Se ponen después, desde la lista, y solo si se quiere.
+    tips: [],
     downbeats: teacher.downbeats.slice(),
     fp: { keys: fp.keys, times: fp.times }
   };
@@ -3652,6 +3941,323 @@ $("e-save").addEventListener("click", async () => {
   }
 });
 
+/* ---------- Consejos de baile: el editor del profesor ----------
+
+   Un paso aparte del de grabar, y opcional. Una canción con los "1" y sin un
+   solo consejo está completa; esto se hace después, o no se hace.
+
+   Lo interesante es de dónde sale el reloj. La app no reproduce música: sabe
+   escuchar. Así que aquí no hay un reproductor con una barra que arrastrar,
+   sino lo mismo que hace el alumno —oír y reconocer— pero apuntando a UNA
+   canción concreta, la que se está anotando. El profesor le da al play en
+   Spotify donde quiera, la app engancha en unos segundos y a partir de ahí
+   sabe en qué segundo de la canción va.
+
+   Sale bien por dos motivos: los tiempos quedan en segundos de la CANCIÓN, no
+   del móvil, así que da igual dónde arranque y puede saltar al minuto tres
+   para arreglar un consejo suelto. Y no hay que subir el audio a ninguna
+   parte, que es la razón por la que esta app no tiene servidor de música.
+
+   Todo lo que se toca aquí es `tips`. La huella, las marcas del uno, el
+   título y el ritmo no se rozan. */
+const tipsEd = {
+  song: null, lista: [], listener: null, fp: null,
+  matching: false, lastMatchTry: 0, offset: 0, anclado: false,
+  pintando: null, sucio: false, saliendo: false, desde: 0
+};
+
+const setCT = (msg, kind) => {
+  const el = $("ct-status");
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
+};
+
+/* El segundo de la canción en el que vamos. Antes de enganchar es 0 y no
+   sirve: por eso los botones están escondidos hasta que `anclado`. */
+const relojTips = () =>
+  tipsEd.listener ? Math.max(0, tipsEd.listener.time + tipsEd.offset) : 0;
+
+function abrirConsejos(s) {
+  /* Un micrófono a la vez. Si estaba grabando marcas del uno, eso se corta:
+     son dos cosas distintas y compartir el micro entre las dos no es que dé
+     error, es que daría datos mezclados sin avisar. */
+  stopTeacher(true);
+  cerrarEditor();
+  tipsEd.song = s;
+  tipsEd.lista = limpiarConsejos(s.tips);
+  tipsEd.sucio = false;
+  tipsEd.saliendo = false;
+  $("ct-cual").textContent = s.title;
+  $("ct-saved").textContent = "";
+  setCT("");
+  pintarListaTips();
+  $("p-tips").hidden = false;
+  $("p-tips").scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function cerrarConsejos() {
+  pararConsejos();
+  tipsEd.song = null;
+  tipsEd.lista = [];
+  tipsEd.sucio = false;
+  tipsEd.saliendo = false;
+  $("p-tips").hidden = true;
+}
+
+function pararConsejos() {
+  if (tipsEd.listener) { tipsEd.listener.stop(); tipsEd.listener = null; }
+  if (tipsEd.pintando) { clearInterval(tipsEd.pintando); tipsEd.pintando = null; }
+  tipsEd.anclado = false;
+  tipsEd.offset = 0;
+  tipsEd.matching = false;
+  $("ct-botones").hidden = true;
+  $("ct-start").hidden = false;
+  $("ct-stop").hidden = true;
+  $("ct-level").style.width = "0%";
+  $("ct-time").parentElement.classList.remove("vivo");
+}
+
+function onTipsFrame(spec, frame, elapsed, cual) {
+  tipsEd.fp[cual || 0].push(spec, frame);
+  /* Más seguido antes de enganchar que después: al principio no se puede
+     marcar nada y cada segundo de espera se nota; ya enganchado, buscar solo
+     sirve para corregir la deriva del reloj. */
+  const need = tipsEd.anclado ? 6 : 3;
+  if (!tipsEd.matching && elapsed - tipsEd.lastMatchTry > need) {
+    tipsEd.lastMatchTry = elapsed;
+    matchTips(elapsed);
+  }
+}
+
+function matchTips(elapsed) {
+  tipsEd.matching = true;
+  /* `ventanaTips` y no `ventana` a secas: hay una prueba que vigila la
+     escalera de ventanas del ALUMNO buscando `const ventana =`, y con dos en
+     el archivo se quedaba mirando esta, que es otra cosa y tiene otros
+     números. La prueba pasaba a estar comprobando código que no era el suyo,
+     sin decir nada. Se llama distinto porque es distinto. */
+  const ventanaTips = tipsEd.anclado ? 6 : (elapsed - tipsEd.desde > 12 ? 14 : 9);
+  const minFrame = Math.max(0, Math.floor((elapsed - ventanaTips) / FP.HOP));
+  const podarBajo = Math.max(0, Math.floor((elapsed - 26) / FP.HOP));
+
+  let res = null;
+  for (const fp of tipsEd.fp) {
+    fp.podar(podarBajo);
+    const { keys, times } = fp.result();
+    const qk = [], qt = [];
+    for (let i = 0; i < keys.length; i++) {
+      if (times[i] >= minFrame) { qk.push(keys[i]); qt.push(times[i]); }
+    }
+    /* Forzada a ESTA canción. No es por ahorrar trabajo: el profesor ya dijo
+       cuál está anotando, y dejar que gane otra parecida pondría los consejos
+       en la canción equivocada sin que nada lo delatara. */
+    const r = matcher.match(qk, qt, tipsEd.song.id);
+    if (r && (!res || r.score > res.score)) res = r;
+  }
+  tipsEd.matching = false;
+
+  if (!res) {
+    /* Perder el hilo un rato no apaga nada: el reloj sigue con el desfase que
+       ya tenía, igual que hace el juego. La canción no cambió de velocidad
+       porque el micrófono se despistara tres segundos. */
+    if (!tipsEd.anclado) {
+      const va = elapsed - tipsEd.desde;
+      setCT(va < 20 ? t("tipsSearching") : t("tipsNotFound"), va < 20 ? undefined : "err");
+    }
+    return;
+  }
+
+  tipsEd.offset = res.offsetFrames * FP.HOP;
+  if (!tipsEd.anclado) {
+    tipsEd.anclado = true;
+    $("ct-botones").hidden = false;
+    setCT(t("tipsGo"), "ok");
+  }
+}
+
+function pintarRelojTips() {
+  $("ct-time").textContent = fmt(relojTips());
+  $("ct-time").parentElement.classList.toggle("vivo", tipsEd.anclado);
+}
+
+$("ct-start").addEventListener("click", async () => {
+  if (!tipsEd.song) return;
+  /* El alumno no puede estar escuchando al mismo tiempo: es el mismo
+     micrófono y dos capturas a la vez se estorban. */
+  stopStudent();
+  tipsEd.fp = Array.from({ length: FP.SUBS }, () => new Fingerprinter());
+  tipsEd.lastMatchTry = 0;
+  tipsEd.offset = 0;
+  tipsEd.anclado = false;
+  tipsEd.desde = 0;
+  tipsEd.listener = new Listener();
+  try {
+    await tipsEd.listener.start(
+      onTipsFrame,
+      (lvl, saturando) => {
+        const barra = $("ct-level");
+        barra.style.width = (lvl * 100) + "%";
+        barra.classList.toggle("sat", saturando);
+      },
+      () => setCT(t("micSat"), "err"),
+      FP.SUBS
+    );
+  } catch (e) {
+    tipsEd.listener = null;
+    setCT(t("micFail") + e.name, "err");
+    return;
+  }
+  $("ct-start").hidden = true;
+  $("ct-stop").hidden = false;
+  setCT(t("tipsSearching"));
+  /* Nada de requestAnimationFrame: en esta app el reloj de la pantalla no
+     manda sobre nada que tenga que ver con el audio. Está prohibido por una
+     prueba, y con razón. */
+  if (tipsEd.pintando) clearInterval(tipsEd.pintando);
+  tipsEd.pintando = setInterval(pintarRelojTips, 100);
+});
+
+$("ct-stop").addEventListener("click", () => { pararConsejos(); setCT(""); });
+
+/* Los seis botones cuelgan del contenedor y no uno a uno: así añadir o quitar
+   un consejo mañana es tocar el HTML y la lista CONSEJOS, nada más. */
+$("ct-botones").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-k]");
+  if (!b) return;
+  ponerConsejo(b.dataset.k, b);
+});
+
+function ponerConsejo(k, boton) {
+  if (!tipDef(k)) return;
+  if (!tipsEd.anclado) { setCT(t("tipsWait")); return; }
+  if (tipsEd.lista.length >= CONSEJOS.MAX) { setCT(t("tipsFull"), "err"); return; }
+  tipsEd.lista = limpiarConsejos(tipsEd.lista.concat([{ t: relojTips(), k }]));
+  tipsEd.sucio = true;
+  tipsEd.saliendo = false;
+  pintarListaTips();
+  /* La confirmación tiene que llegar sin mirar: el profesor está atento a la
+     canción, no al botón que acaba de tocar. */
+  buzz(20);
+  if (boton) {
+    boton.classList.add("puesto");
+    setTimeout(() => boton.classList.remove("puesto"), 180);
+  }
+}
+
+function correrConsejo(i, ds) {
+  const c = tipsEd.lista[i];
+  if (!c) return;
+  const movida = tipsEd.lista.map((x, j) =>
+    j === i ? { t: Math.max(0, x.t + ds), k: x.k } : x);
+  tipsEd.lista = limpiarConsejos(movida);
+  tipsEd.sucio = true;
+  tipsEd.saliendo = false;
+  pintarListaTips();
+}
+
+function quitarConsejo(i) {
+  if (!tipsEd.lista[i]) return;
+  tipsEd.lista = tipsEd.lista.filter((x, j) => j !== i);
+  tipsEd.sucio = true;
+  tipsEd.saliendo = false;
+  pintarListaTips();
+}
+
+function pintarListaTips() {
+  const el = $("ct-lista");
+  el.textContent = "";
+  if (!tipsEd.lista.length) {
+    const p = document.createElement("p");
+    p.className = "ct-vacia";
+    p.textContent = t("tipsEmpty");
+    el.appendChild(p);
+    return;
+  }
+  tipsEd.lista.forEach((c, i) => {
+    const d = tipDef(c.k);
+    const row = document.createElement("div");
+    row.className = "ct-item";
+
+    const cuando = document.createElement("span");
+    cuando.className = "cuando";
+    cuando.textContent = fmt(c.t);
+
+    const que = document.createElement("span");
+    que.className = "que";
+    que.textContent = d.emoji + " " + t(d.i18n);
+
+    /* Correr medio segundo para cada lado. Es el error típico: se toca al
+       oírlo, o sea un pelín tarde. Medio segundo es lo que se tarda en
+       reaccionar, y por eso "antes" se usa mucho más que "después". */
+    const antes = document.createElement("button");
+    antes.className = "ghost";
+    antes.textContent = "−½s";
+    antes.title = t("tipsEarlier");
+    antes.addEventListener("click", () => correrConsejo(i, -0.5));
+
+    const despues = document.createElement("button");
+    despues.className = "ghost";
+    despues.textContent = "+½s";
+    despues.title = t("tipsLater");
+    despues.addEventListener("click", () => correrConsejo(i, 0.5));
+
+    const fuera = document.createElement("button");
+    fuera.className = "solo-ic peligro";
+    fuera.appendChild(icono("trash"));
+    fuera.title = t("del");
+    fuera.setAttribute("aria-label", t("del") + ": " + t(d.i18n) + " " + fmt(c.t));
+    fuera.addEventListener("click", () => quitarConsejo(i));
+
+    row.append(cuando, que, antes, despues, fuera);
+    el.appendChild(row);
+  });
+}
+
+$("ct-close").addEventListener("click", () => {
+  /* Salir con cambios sin guardar pide una segunda pulsación. Marcar quince
+     consejos y perderlos por rozar "Cancelar" no se puede deshacer de ninguna
+     manera: no están en ningún sitio todavía. */
+  if (tipsEd.sucio && !tipsEd.saliendo) {
+    tipsEd.saliendo = true;
+    $("ct-saved").textContent = t("tipsDiscard");
+    $("ct-saved").className = "status err";
+    return;
+  }
+  cerrarConsejos();
+});
+
+$("ct-save").addEventListener("click", async () => {
+  if (!tipsEd.song) return;
+  const s = tipsEd.song;
+  const lista = limpiarConsejos(tipsEd.lista);
+  $("ct-save").disabled = true;
+  try {
+    /* Igual que al editar el título: si está en la nube se cambia allí
+       primero, y si eso falla no se toca el teléfono. Es preferible no haber
+       cambiado nada a que cada aparato diga una cosa distinta. */
+    if (s.owner && cloud.session) {
+      await cloud.rest("songs?id=eq." + encodeURIComponent(s.id), {
+        method: "PATCH", body: JSON.stringify({ tips: lista })
+      });
+    }
+    await DB.put({ ...s, tips: lista }, "songs");
+    tipsEd.sucio = false;
+    await reload();
+    cerrarConsejos();
+    setP(t("tipsSaved", lista.length), "ok");
+  } catch (e) {
+    const msg = String(e.message || e);
+    /* El caso concreto de que la base todavía no tenga la columna merece su
+       propio mensaje: "error PGRST204" no le dice nada a nadie, y la salida
+       es una sola y conocida. */
+    $("ct-saved").className = "status err";
+    $("ct-saved").textContent = /PGRST204|tips/.test(msg)
+      ? t("tipsNoColumn") : t("editFailed") + msg;
+  } finally {
+    $("ct-save").disabled = false;
+  }
+});
+
 /* ---------- Exportar / importar ----------
 
    Esta es la copia de seguridad de verdad: un archivo que se guarda donde uno
@@ -3685,6 +4291,8 @@ function importarCanciones(texto) {
     return {
       ...s,
       downbeats: Array.from(s.downbeats || []),
+      // Un archivo de copia se puede abrir con un editor de texto y tocar
+      tips: limpiarConsejos(s.tips),
       fp: {
         keys: Uint32Array.from(s.fp.keys),
         times: Uint16Array.from(s.fp.times)
@@ -3724,6 +4332,9 @@ const student = {
   listener: null, fp: null, song: null, offset: 0, syncAt: 0,
   vibe: true, lastIdx: -1, matching: false, lastMatchTry: 0, forced: null,
   nivel: 0, huellas: 0,
+  /* Qué consejo hay puesto en pantalla ahora mismo, para no reescribirlo
+     veintiuna veces por segundo cuando no ha cambiado. */
+  tipVisto: "",
   /* searchFrom: momento en que empezo la busqueda ACTUAL. No es lo mismo que el
      tiempo total escuchando: al perder una cancion la busqueda vuelve a empezar,
      y los mensajes tienen que volver a empezar con ella.
@@ -4101,6 +4712,7 @@ function stopStudent() {
   $("a-sub").textContent = "Sin escuchar";
   $("a-level").style.width = "0%";
   beatCells.forEach(c => c.classList.remove("on"));
+  esconderConsejosAlumno();
 }
 
 function onStudentFrame(spec, frame, elapsed, cual) {
@@ -4209,6 +4821,7 @@ function tryMatch(elapsed) {
         $("a-big").className = "big";
         $("a-sub").textContent = c.title + (c.artist ? " \u00b7 " + c.artist : "");
         beatCells.forEach(x => x.classList.remove("on"));
+        esconderConsejosAlumno();
         setA(t("thisIsLocked", c.title), "err");
       }
       return;
@@ -4279,6 +4892,9 @@ function perdioLaCancion(silencioso) {
   $("a-big").className = "big";
   $("a-sub").textContent = t("notListening");
   beatCells.forEach(c => c.classList.remove("on"));
+  // Sin canción no hay de quién eran los consejos: dejarlos puestos sería
+  // recomendar algo para una canción que ya no suena.
+  esconderConsejosAlumno();
 
   if (silencioso) return;
   /* Durante una partida no se avisa: el juego sigue puntuando con su propia
@@ -4294,6 +4910,8 @@ function paintStudent() {
   if (game.on) return;
 
   const songTime = student.listener.time + student.offset;
+  pintarConsejoAlumno(songTime);
+
   const c = countAt(student.song.downbeats, songTime);
   if (!c) return;
 
@@ -4307,6 +4925,58 @@ function paintStudent() {
 
     buzz(isOne(c.index) ? 60 : 15);
   }
+}
+
+/* ---------- Los consejos, del lado del alumno ----------
+
+   Dos etiquetas: qué energía y qué movimiento recomienda el profesor en este
+   trozo. Siempre las dos, aunque una todavía no tenga nada que decir: si
+   aparecieran y desaparecieran, la de abajo cambiaría de sitio sola y habría
+   que volver a buscarla cada vez, justo cuando la persona está bailando y
+   solo puede darle un vistazo.
+
+   Y solo eso. La tentación de poner aquí una explicación de qué es un wave se
+   resiste: lo que se añada a esta zona no se lee ADEMÁS de la cuenta, se lee
+   EN VEZ de la cuenta. */
+function pintarConsejoAlumno(songTime) {
+  const caja = $("a-tips");
+  const s = student.song;
+  const lista = s && Array.isArray(s.tips) ? s.tips : null;
+
+  if (!lista || !lista.length) {
+    if (!caja.hidden) { caja.hidden = true; student.tipVisto = ""; }
+    return;
+  }
+
+  const ahora = consejosEn(lista, songTime);
+  /* Se compara antes de tocar el DOM. Esto se llama veintiuna veces por
+     segundo y el consejo cambia cada medio minuto: reescribir el texto en
+     cada vuelta sería trabajo tirado, y de la clase que se nota en un
+     teléfono viejo. */
+  const firma = (ahora.energia ? ahora.energia.k : "-") + "/" +
+                (ahora.mov ? ahora.mov.k : "-") + "/" + s.id;
+  if (firma === student.tipVisto && !caja.hidden) return;
+  student.tipVisto = firma;
+  caja.hidden = false;
+
+  const poner = (id, def) => {
+    const el = $(id);
+    el.classList.toggle("vacio", !def);
+    el.querySelector(".e").textContent = def ? def.emoji : "·";
+    el.querySelector(".tx").textContent = def ? t(def.i18n) : t("tipNone");
+  };
+  poner("a-tip-energia", ahora.energia);
+  poner("a-tip-mov", ahora.mov);
+
+  /* Quién lo recomienda. Importa porque son opiniones: dos profesores pueden
+     leer la misma canción distinto, y el alumno tiene derecho a saber a quién
+     está haciendo caso. */
+  $("a-tip-quien").textContent = s.teacher ? t("tipsBy", s.teacher) : t("tips");
+}
+
+function esconderConsejosAlumno() {
+  $("a-tips").hidden = true;
+  student.tipVisto = "";
 }
 
 function setA(msg, kind) {
@@ -4519,6 +5189,19 @@ function ponerDatos(info, s) {
     por.textContent = t("byTeacher", s.teacher);
     info.appendChild(por);
   }
+
+  /* Que esta canción trae consejos se dice también en el catálogo, o sea en
+     las bloqueadas. Es a propósito y es la misma regla que el título: se
+     puede saber que existen; lo que no sale del servidor son los tiempos.
+     `has_tips` es lo que manda la vista del catálogo -un sí o un no-, y
+     `tips` lo que hay en las canciones que sí se pueden usar. */
+  const hayConsejos = s.has_tips || (Array.isArray(s.tips) && s.tips.length > 0);
+  if (hayConsejos) {
+    const c = document.createElement("div");
+    c.className = "by";
+    c.append(icono("tip"), document.createTextNode(" " + t("tips")));
+    info.appendChild(c);
+  }
 }
 
 /* El botón para abrir la canción donde esté, o null si no tiene link.
@@ -4587,6 +5270,20 @@ function renderLists() {
         edit.addEventListener("click", () => abrirEditor(s));
         if (info) { row.appendChild(info); info = null; }
         row.appendChild(edit);
+
+        /* Los consejos de baile viven en su propio botón y no dentro del
+           editor de título y ritmo. Aquel es un formulario que se rellena y se
+           guarda; este necesita el micrófono y la canción sonando, y meterlo
+           allí habría hecho que abrir el editor para corregir una tilde
+           pidiera permiso de micrófono. */
+        const tips = document.createElement("button");
+        tips.className = "solo-ic";
+        tips.appendChild(icono("tip"));
+        tips.title = t("tips");
+        tips.setAttribute("aria-label", t("tips") + ": " + s.title);
+        if (Array.isArray(s.tips) && s.tips.length) tips.classList.add("chip", "on");
+        tips.addEventListener("click", () => abrirConsejos(s));
+        row.appendChild(tips);
 
         btn.className = "solo-ic peligro";
         btn.appendChild(icono("trash"));
@@ -5151,6 +5848,11 @@ const rowToSong = (r) => ({
      perdio: era solo lo que se veia. */
   free: !!r.free,
   link: r.link || "",
+  /* Se limpia al entrar y no solo al salir. Lo que llega puede venir de un
+     teléfono con una versión más nueva -con consejos que aquí no existen- o
+     de una fila tocada a mano, y el alumno da por hecho que la lista está
+     ordenada. Filtrar aquí es lo que hace que eso sea verdad siempre. */
+  tips: limpiarConsejos(r.tips),
   createdAt: new Date(r.created_at).getTime(),
   downbeats: r.downbeats,
   fp: { keys: fromB64(r.fp_keys, Uint32Array), times: fromB64(r.fp_times, Uint16Array) }
@@ -5174,6 +5876,12 @@ const songToRow = (s, uid) => ({
      decide el administrador y por eso no se manda, pero el link es de quien
      grabo la cancion -es la version que eligio- y nadie mas lo va a poner. */
   link: s.link || null,
+  /* Los consejos suben con la canción, como el link y por el mismo motivo:
+     son de quien la preparó. Y viajan dentro de `songs`, o sea protegidos por
+     la misma regla que las marcas del uno: a quien tiene la canción bloqueada
+     el servidor no le manda esta fila, y por tanto tampoco esto. Al catálogo
+     -que sí ve todo el mundo- solo llega un sí o un no. */
+  tips: limpiarConsejos(s.tips),
   fpv: fpVersionOf(s), downbeats: Array.from(s.downbeats),
   fp_keys: toB64(s.fp.keys), fp_times: toB64(s.fp.times), shared: true,
   fpl_keys: toB64(huellaRala(s.fp).keys), fpl_times: toB64(huellaRala(s.fp).times)
@@ -5219,7 +5927,7 @@ async function syncNow() {
        preferible sincronizar de menos que no sincronizar en absoluto. Y esto
        no es una hipotesis: mientras haya un solo telefono con la version vieja
        o una base sin migrar, este camino se usa de verdad. */
-    const NUEVAS = ["fpl_keys", "fpl_times", "link"];
+    const NUEVAS = ["fpl_keys", "fpl_times", "link", "tips"];
     const subir = (completo) => cloud.rest("songs", Object.assign({
       method: "POST",
       body: JSON.stringify(misSongs.map(s => {
@@ -5231,7 +5939,7 @@ async function syncNow() {
     try {
       await subir(true);
     } catch (e) {
-      if (!/fpl_keys|fpl_times|link|PGRST204/.test(String(e.message || e))) throw e;
+      if (!/fpl_keys|fpl_times|link|tips|PGRST204/.test(String(e.message || e))) throw e;
       await subir(false);
     }
     // Quedan marcadas como mias para no volver a dudar en la proxima subida

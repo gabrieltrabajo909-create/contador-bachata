@@ -1081,10 +1081,27 @@ await prueba("si la base todavia no tiene la columna, se sincroniza igual", () =
   /* Mientras haya un telefono con la version nueva y una base sin migrar,
      este camino se usa de verdad. Sin el, la persona se queda sin sincronizar
      NADA por una columna que ni sabia que existia. */
-  afirmar(/const NUEVAS = \["fpl_keys", "fpl_times", "link"\]/.test(FUENTE),
-    "el link no esta entre las columnas que se pueden dejar caer");
-  afirmar(/fpl_keys\|fpl_times\|link\|PGRST204/.test(FUENTE),
-    "el reintento no reconoce el error de la columna que falta");
+  /* Se comprueba que ESTEN, no que sean exactamente esas. La version anterior
+     de esta prueba clavaba la lista entera y por tanto fallaba cada vez que
+     llegaba una columna nueva -que es justo lo que hay que poder hacer sin
+     miedo-. Lo que hay que proteger es que ninguna se caiga de la lista, no
+     que la lista no crezca nunca. */
+  const nuevas = /const NUEVAS = \[([^\]]*)\]/.exec(FUENTE);
+  afirmar(nuevas, "ya no existe la lista de columnas que se pueden dejar caer");
+
+  /* Y la lista de la izquierda tiene que coincidir con la de la derecha: se
+     dejan caer unas columnas, pero el reintento solo se dispara con los
+     errores que reconoce. Si una columna esta en NUEVAS y no aqui, el
+     reintento no llega a ocurrir y no sincroniza nada. */
+  const reintento = /fpl_keys\|([^/]*)PGRST204/.exec(FUENTE);
+  afirmar(reintento, "el reintento ya no reconoce el error de columna que falta");
+
+  for (const col of ["fpl_keys", "fpl_times", "link", "tips"]) {
+    afirmar(nuevas[1].includes('"' + col + '"'),
+      col + " no esta entre las columnas que se pueden dejar caer");
+    afirmar(("fpl_keys|" + reintento[1]).includes(col + "|"),
+      "el reintento no reconoce el error de la columna " + col);
+  }
 });
 
 await prueba("la migracion del link existe y recrea el catalogo", () => {
@@ -1099,11 +1116,151 @@ await prueba("la migracion del link existe y recrea el catalogo", () => {
     "el catalogo quedo abierto a visitantes");
 });
 
+/* ========================================================================= */
+seccion("Los consejos de baile");
+
+await prueba("los consejos se guardan dentro de la cancion, no aparte", () => {
+  /* La decision de fondo, y la que hay que poder recordar dentro de un ano.
+     Una fila de `songs` YA es de un profesor: si dos preparan el mismo tema,
+     hoy ya son dos filas con su huella y sus marcas. Metiendolos aqui, el
+     permiso que protege los tiempos del uno protege estos igual, sin escribir
+     una politica nueva. Una tabla aparte habria sido RLS nueva -o sea, una
+     forma nueva de equivocarse- para repetir un permiso que ya existe. */
+  afirmar(/tips: limpiarConsejos\(r\.tips\)/.test(FUENTE),
+    "los consejos no se leen de la fila de la cancion");
+  afirmar(/tips: limpiarConsejos\(s\.tips\)/.test(FUENTE),
+    "los consejos no se suben con la cancion");
+});
+
+await prueba("lo que llega de fuera se limpia siempre", () => {
+  /* Tres puertas de entrada, y las tres tienen que filtrar: el servidor, el
+     archivo de copia -que se puede abrir con el bloc de notas- y lo que toca
+     el profesor. Si una sola se saltara el filtro, la pantalla del alumno
+     recibiria una lista desordenada y mostraria el consejo equivocado sin que
+     nada avisara. */
+  const puertas = [
+    [/rowToSong = \(r\) => \(\{[\s\S]*?\}\);/, "lo que baja del servidor"],
+    [/function importarCanciones[\s\S]*?\n}\n/, "lo que viene del archivo de copia"],
+    [/ct-save"\)\.addEventListener[\s\S]*?\n\}\);/, "lo que marca el profesor"]
+  ];
+  for (const [re, quien] of puertas) {
+    const trozo = re.exec(FUENTE);
+    afirmar(trozo, "no encuentro el codigo de " + quien);
+    afirmar(/limpiarConsejos\(/.test(trozo[0]), quien + " no se limpia");
+  }
+});
+
+await prueba("al catalogo solo va un si o un no, nunca los tiempos", () => {
+  /* Esta es LA prueba de esta funcion. El catalogo lo ve todo el mundo, tenga
+     o no acceso a la cancion: es lo que permite ensenar con candado lo que no
+     se puede usar. Los consejos son contenido preparado por el profesor,
+     igual que las marcas del uno, y no pueden salir por ahi. */
+  const sql = readFileSync(new URL("../db/11-consejos-de-baile.sql", import.meta.url), "utf8");
+  const vista = /create view public\.songs_catalog[\s\S]*?;/.exec(sql);
+  afirmar(vista, "la migracion no recrea la vista del catalogo");
+  afirmar(/has_tips/.test(vista[0]), "el catalogo no dice si la cancion trae consejos");
+  /* Que no aparezca `tips` suelto como columna de la vista. Se admite dentro
+     de la expresion que calcula has_tips, que es donde tiene que estar. */
+  const columnas = vista[0].replace(/case[\s\S]*?end as has_tips/, "");
+  afirmar(!/\btips\b/.test(columnas),
+    "los tiempos de los consejos se estan publicando en el catalogo");
+});
+
+await prueba("la migracion anade la columna y no toca nada mas", () => {
+  const sql = readFileSync(new URL("../db/11-consejos-de-baile.sql", import.meta.url), "utf8");
+  afirmar(/add column if not exists tips jsonb/.test(sql), "no anade la columna");
+  afirmar(/revoke all on public\.songs_catalog from anon/.test(sql),
+    "el catalogo quedo abierto a visitantes");
+  /* Ni politicas nuevas ni tablas nuevas: ese era el punto de meterlos dentro
+     de la cancion. Si algun dia hace falta tocar esto, que sea a sabiendas. */
+  afirmar(!/create table|create policy/.test(sql),
+    "la migracion crea tablas o politicas, y no deberia hacer falta ninguna");
+  /* Y que no se lleve por delante lo que ya publicaba el catalogo. */
+  for (const col of ["title", "artist", "teacher", "rhythm", "free", "link", "fpl_keys"]) {
+    afirmar(new RegExp("\\b" + col + "\\b").test(sql),
+      "la vista recreada se dejo por el camino la columna " + col);
+  }
+});
+
+await prueba("los consejos no se cuelan en la grabacion", () => {
+  /* Un anadido de verdad no toca lo de abajo. Si el editor de consejos
+     escribiera en downbeats o en la huella, un fallo aqui se llevaria por
+     delante la cuenta, que es la app entera. Solo puede tocar `tips`. */
+  const guardar = /ct-save"\)\.addEventListener[\s\S]*?\n\}\);/.exec(FUENTE);
+  afirmar(guardar, "no encuentro el guardado de los consejos");
+  afirmar(!/downbeats|fp_keys|fpv|rhythm/.test(guardar[0]),
+    "guardar los consejos toca la grabacion");
+  afirmar(/JSON\.stringify\(\{ tips: lista \}\)/.test(guardar[0]),
+    "al servidor se le manda algo mas que los consejos");
+});
+
+await prueba("el editor de consejos apunta a UNA cancion, no a la que suene", () => {
+  /* Sin forzar la cancion, una version parecida podria ganar el
+     reconocimiento y los consejos acabarian en la cancion equivocada, sin que
+     nada lo delatara hasta que un alumno viera "vueltas" en mitad de un
+     silencio. */
+  afirmar(/matcher\.match\(qk, qt, tipsEd\.song\.id\)/.test(FUENTE),
+    "el editor de consejos acepta cualquier cancion que suene");
+});
+
+await prueba("un microfono a la vez", () => {
+  /* Tres sitios abren el microfono: grabar los uno, escuchar de alumno y
+     anotar consejos. Dos a la vez no dan error, dan datos mezclados. */
+  afirmar(/ct-start"\)\.addEventListener[\s\S]*?stopStudent\(\)/.test(FUENTE),
+    "anotar consejos no corta la escucha del alumno");
+  const start = /\$\("p-start"\)\.addEventListener[\s\S]{0,400}/.exec(FUENTE);
+  afirmar(start && /pararConsejos\(\)/.test(start[0]),
+    "empezar a grabar no corta el microfono de los consejos");
+  afirmar(/which !== "prof"\) pararConsejos\(\)/.test(FUENTE),
+    "cambiar de pestana deja el microfono de los consejos abierto");
+});
+
+await prueba("nada de requestAnimationFrame, tampoco aqui", () => {
+  /* La regla es de toda la app y nacio de un fallo real: colgar trabajo del
+     reloj de la pantalla hacia que en el telefono de Gabriel se perdieran
+     tres de cada cuatro frames de audio. El reloj de los consejos se repinta
+     con un temporizador normal. */
+  afirmar(/tipsEd\.pintando = setInterval\(/.test(FUENTE),
+    "el reloj de los consejos no usa un temporizador");
+  afirmar(/clearInterval\(tipsEd\.pintando\)/.test(FUENTE),
+    "el temporizador de los consejos no se apaga nunca");
+});
+
+await prueba("una cancion nueva nace sin consejos y eso esta bien", () => {
+  /* No obligar al profesor. Una cancion con los uno y sin un solo consejo
+     esta completa, y la pantalla del alumno no puede enseñar un hueco vacio
+     por ello. */
+  afirmar(/tips: \[\]/.test(FUENTE), "al grabar no se deja la lista de consejos vacia");
+  const pintar = /function pintarConsejoAlumno[\s\S]*?\n}\n/.exec(FUENTE);
+  afirmar(pintar, "no encuentro lo que pinta los consejos del alumno");
+  afirmar(/caja\.hidden = true/.test(pintar[0]),
+    "sin consejos, la zona del alumno no se esconde");
+});
+
+await prueba("los seis botones del profesor estan en la pantalla", () => {
+  /* Grandes y a la vista, sin desplegables: se tocan sin mirar mientras suena
+     la cancion. Si alguno se cayera del HTML no habria error en ningun lado,
+     simplemente no se podria marcar. */
+  for (const k of ["up", "soft", "waves", "turns", "foot", "pause"]) {
+    afirmar(new RegExp('class="tip" data-k="' + k + '"').test(SOLO_HTML),
+      "falta el boton de " + k);
+  }
+  /* Y que el codigo sepa leer ese atributo. Sin esto, los botones estarian
+     dibujados y no harian nada. */
+  afirmar(/closest\("button\[data-k\]"\)/.test(FUENTE),
+    "nadie escucha los botones de consejos");
+});
+
 await prueba("todos los textos nuevos estan en los dos idiomas", () => {
   const claves = ["assist", "assistOn", "assistOff", "assistHint", "assistStart",
     "assistHelp", "assistFirst", "assistOdd", "assistGo", "assistFine",
     "assistFixed", "assistTaps", "assistWait", "assistOk", "assistLost",
-    "link", "phLink", "linkHint", "openSong"];
+    "link", "phLink", "linkHint", "openSong",
+    "tips", "tipEnergy", "tipMove", "tipUp", "tipSoft", "tipWaves", "tipTurns",
+    "tipFoot", "tipPause", "tipNone", "tipsBy", "tipsHelp", "tipsListen",
+    "tipsSearching", "tipsNotFound", "tipsGo", "tipsWait", "tipsFull",
+    "tipsEmpty", "tipsEarlier", "tipsLater", "tipsSaved", "tipsDiscard",
+    "tipsNoColumn"];
   for (const k of claves) {
     const veces = [...FUENTE.matchAll(new RegExp("\\b" + k + ":\\s*\"", "g"))].length;
     igual(veces, 2, `"${k}" tendria que estar en espanol y en ingles`);

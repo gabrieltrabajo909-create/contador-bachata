@@ -256,7 +256,37 @@ def _():
     assert "fp_keys" not in fila, "EL CATALOGO REGALA LA HUELLA ENTERA"
     assert "fp_times" not in fila, "EL CATALOGO REGALA LOS TIEMPOS"
     assert "downbeats" not in fila, "EL CATALOGO REGALA LAS MARCAS DEL PROFESOR"
+    assert "tips" not in fila, "EL CATALOGO REGALA LOS CONSEJOS DEL PROFESOR"
     assert fila.get("title"), "el catalogo no trae ni el titulo"
+
+@prueba("los consejos de una cancion bloqueada tampoco se entregan")
+def _():
+    """Los consejos de baile son contenido preparado por el profesor, igual que
+    las marcas del uno, y siguen la misma regla: si no tenes acceso a la
+    cancion, el servidor no te manda la fila y por tanto tampoco esto.
+
+    Se comprueba aqui y no en la pantalla a proposito. Esconder un boton no es
+    proteger nada: quien quiera los datos no va a pedirlos usando la app."""
+    consejos = [{"t": 18.0, "k": "soft"}, {"t": 51.0, "k": "up"}]
+    r = rest(f"songs?id=eq.{ID_PAGA}", "PATCH", {"tips": consejos}, token=tokenA)
+    assert r.codigo < 400, (
+        f"no pude guardar los consejos: {r.codigo} {r.texto[:150]}\n"
+        "Corre db/11-consejos-de-baile.sql en el editor SQL de Supabase.")
+
+    v = rest(f"songs?select=tips&id=eq.{ID_PAGA}", token=tokenB)
+    assert not v.datos, "SE FILTRAN LOS CONSEJOS de una cancion bloqueada"
+
+@prueba("pero el catalogo si puede decir que la cancion trae consejos")
+def _():
+    """La otra mitad, y es igual de importante: que existan SI se puede contar.
+    Es un dato de la portada, como el titulo. Lo que se paga es poder usarlos,
+    no enterarse de que estan."""
+    r = rest("songs_catalog?select=has_tips&id=eq." + ID_PAGA, token=tokenB)
+    assert r.codigo < 400, (
+        f"el catalogo no tiene has_tips: {r.codigo} {r.texto[:150]}\n"
+        "Corre db/11-consejos-de-baile.sql: recrea la vista songs_catalog.")
+    assert r.datos and r.datos[0]["has_tips"] is True, \
+        f"el catalogo no avisa de que la cancion trae consejos: {r.datos}"
 
 @prueba("con suscripcion se abren todas")
 def _():
@@ -343,6 +373,45 @@ def _():
     assert r.codigo < 400, (
         f"el catalogo no tiene la columna link: {r.codigo} {r.texto[:150]}\n"
         "Corre db/10-link-de-la-cancion.sql: recrea la vista songs_catalog.")
+
+@prueba("los consejos de baile se guardan y vuelven igual")
+def _():
+    """Suben, se guardan y bajan sin cambiarse. Y con el orden intacto: el
+    alumno pregunta "cual es el ultimo consejo antes de este segundo", y esa
+    pregunta no tiene respuesta si la lista vuelve barajada."""
+    id_ = MARCA + "-tips"
+    consejos = [{"t": 18.0, "k": "soft"}, {"t": 34.5, "k": "waves"},
+                {"t": 51.0, "k": "up"}, {"t": 53.25, "k": "turns"}]
+    fila = cancion(id_, "Con consejos", uidA)
+    fila["tips"] = consejos
+    try:
+        r = rest("songs", "POST", [fila], token=tokenA)
+        assert r.codigo < 400, (
+            f"no pude subirla: {r.codigo} {r.texto[:150]}\n"
+            "Corre db/11-consejos-de-baile.sql en el editor SQL de Supabase.")
+        v = rest(f"songs?select=tips&id=eq.{id_}", token=tokenA)
+        assert v.datos, "la cancion con consejos no volvio"
+        assert v.datos[0]["tips"] == consejos, \
+            f"los consejos no volvieron igual: {v.datos[0]['tips']}"
+    finally:
+        rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
+
+@prueba("una cancion sin consejos se sube igual que siempre")
+def _():
+    """Lo mas importante de esta funcion es lo que NO cambia. Marcar consejos
+    es opcional: una cancion con los uno y sin un solo consejo esta completa y
+    tiene que subir exactamente como subia antes de que esto existiera."""
+    id_ = MARCA + "-sintips"
+    try:
+        r = rest("songs", "POST", [cancion(id_, "Sin consejos", uidA)], token=tokenA)
+        assert r.codigo < 400, f"no pude subirla: {r.codigo} {r.texto[:150]}"
+        v = rest(f"songs?select=tips,downbeats&id=eq.{id_}", token=tokenA)
+        assert v.datos, "la cancion sin consejos no volvio"
+        assert v.datos[0]["tips"] is None, \
+            "una cancion que no marco consejos volvio con algo dentro"
+        assert v.datos[0]["downbeats"], "se perdieron las marcas del uno"
+    finally:
+        rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
 
 # --------------------------------------------------------------------------
 seccion("Borrar")
