@@ -26,8 +26,12 @@
 import { cargar, FUENTE } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual, resumen } from "./marco.mjs";
 
-const M = await cargar(["CONSEJOS", "tipDef", "limpiarConsejos", "consejosEn"]);
-const { CONSEJOS, tipDef, limpiarConsejos, consejosEn } = M;
+const M = await cargar([
+  "CONSEJOS", "tipDef", "catDe", "limpiarConsejos", "consejosEn",
+  // pegarAlUno se apoya en nearestOne, la misma que usa el juego
+  "nearestOne", "pegarAlUno"
+]);
+const { CONSEJOS, tipDef, catDe, limpiarConsejos, consejosEn, pegarAlUno } = M;
 
 const claves = CONSEJOS.LISTA.map(d => d.k);
 const energia = CONSEJOS.LISTA.filter(d => d.cat === "energia").map(d => d.k);
@@ -279,6 +283,155 @@ await prueba("preguntar por una lista rota no revienta", () => {
 });
 
 /* ========================================================================= */
+seccion("Los consejos caen en el UNO, como la cuenta");
+
+/* Un compas cada dos segundos, que es una bachata de unos 120. */
+const compases = Array.from({ length: 60 }, (_, i) => i * 2);
+
+await prueba("un toque tarde cae en el uno que acaba de pasar", () => {
+  /* EL FALLO QUE SE ARREGLO. Se guardaba el segundo crudo del toque, con el
+     retraso de reaccion incluido, y el consejo entraba a destiempo. La cuenta
+     del alumno lleva desde siempre pegada a las marcas del profesor; esto no
+     lo estaba, y esa incoherencia es la que se veia bailando. */
+  igual(pegarAlUno(compases, 20.28), 20, "no se pego al uno que acababa de pasar");
+  igual(pegarAlUno(compases, 20.05), 20);
+});
+
+await prueba("un toque adelantado cae en el uno que viene", () => {
+  igual(pegarAlUno(compases, 21.7), 22, "no se pego al uno mas cercano");
+});
+
+await prueba("justo en medio no se queda en medio", () => {
+  // Caiga donde caiga, tiene que caer en UN uno, nunca entre dos
+  const r = pegarAlUno(compases, 21);
+  afirmar(compases.includes(r), "se quedo a mitad de compas");
+});
+
+await prueba("sigue funcionando fuera del tramo marcado", () => {
+  /* El profesor puede anotar un consejo despues del ultimo uno que marco, o
+     antes del primero. Se extrapola con el compas del borde, igual que hace
+     el juego. */
+  const tarde = pegarAlUno(compases, 200.4);
+  afirmar(Math.abs(tarde - 200) < 0.001, "fuera del tramo no se pego a nada");
+});
+
+await prueba("sin marcas suficientes no se pega, pero tampoco se rompe", () => {
+  /* Una cancion a medio grabar no puede quedarse sin poder anotarse. Se
+     devuelve el segundo tal cual y ya esta. */
+  igual(pegarAlUno([], 18.4), 18.4, "se rompio sin marcas");
+  igual(pegarAlUno([5], 18.4), 18.4, "se rompio con una sola marca");
+  igual(pegarAlUno(null, 18.4), 18.4, "se rompio sin lista");
+});
+
+await prueba("nunca devuelve un tiempo negativo", () => {
+  // Pegar un consejo del segundo 0.2 podria llevarlo antes del principio
+  afirmar(pegarAlUno(compases, 0.2) >= 0, "un consejo se fue antes de empezar");
+  afirmar(pegarAlUno(compases, 0) >= 0);
+});
+
+await prueba("pegar dos veces da lo mismo que pegar una", () => {
+  // Si moviera un poco cada vez, corregir un consejo lo iria desplazando
+  const una = pegarAlUno(compases, 20.28);
+  igual(pegarAlUno(compases, una), una, "pegarlo otra vez lo movio");
+});
+
+/* ========================================================================= */
+seccion("El mensaje escrito del profesor");
+
+await prueba("un mensaje se guarda con su texto", () => {
+  const r = limpiarConsejos([{ t: 18, m: "abri el pecho" }]);
+  igual(r.length, 1, "se perdio el mensaje");
+  igual(r[0].m, "abri el pecho");
+  igual(r[0].t, 18);
+});
+
+await prueba("es su propia categoria: no tapa ni energia ni movimiento", () => {
+  /* Un mensaje no reemplaza a "suave" ni a "waves". Son tres cosas distintas
+     y el alumno tiene que poder ver las tres a la vez. */
+  const r = limpiarConsejos([
+    { t: 18, k: "soft" }, { t: 18.1, k: "waves" }, { t: 18.2, m: "no corras" }
+  ]);
+  igual(r.length, 3, "el mensaje se comio un consejo de boton, o al reves");
+  const v = consejosEn(r, 30);
+  igual(v.energia.k, "soft");
+  igual(v.mov.k, "waves");
+  igual(v.msg, "no corras");
+});
+
+await prueba("un mensaje dura hasta que llegue el siguiente", () => {
+  /* Lo que pidio Gabriel: se muestra, y se muestra, hasta que otro lo
+     sobrescriba. Sin "durante cuanto tiempo", que obligaria al profesor a
+     decidir un numero que no sabe. */
+  const r = limpiarConsejos([
+    { t: 10, m: "primero" }, { t: 40, m: "segundo" }, { t: 90, m: "tercero" }
+  ]);
+  igual(consejosEn(r, 5).msg, null, "aparecio antes de tiempo");
+  igual(consejosEn(r, 10).msg, "primero");
+  igual(consejosEn(r, 39.9).msg, "primero", "se borro solo antes del siguiente");
+  igual(consejosEn(r, 40).msg, "segundo", "no lo sobrescribio el siguiente");
+  igual(consejosEn(r, 5000).msg, "tercero", "el ultimo no se quedo puesto");
+});
+
+await prueba("los mensajes vacios no se guardan", () => {
+  const r = limpiarConsejos([
+    { t: 1, m: "" }, { t: 2, m: "   " }, { t: 3, m: "\n\t " }, { t: 4, m: "vale" }
+  ]);
+  igual(r.length, 1, "se guardo un mensaje sin nada dentro");
+  igual(r[0].m, "vale");
+});
+
+await prueba("un mensaje larguisimo se recorta", () => {
+  /* Sin tope, un profesor pega un parrafo y le tapa la cuenta a todos sus
+     alumnos. Y estas canciones se comparten: el destrozo no es solo suyo. */
+  const r = limpiarConsejos([{ t: 1, m: "x".repeat(500) }]);
+  igual(r[0].m.length, CONSEJOS.LARGO, "el mensaje no se recorto");
+});
+
+await prueba("los saltos de linea se aplastan", () => {
+  // Descolocan la pantalla del alumno, y ahi no hay sitio para dos lineas
+  const r = limpiarConsejos([{ t: 1, m: "una\nlinea\n\n  y   otra" }]);
+  igual(r[0].m, "una linea y otra", "quedaron saltos de linea dentro");
+});
+
+await prueba("lo que no es texto no es un mensaje", () => {
+  const r = limpiarConsejos([
+    { t: 1, m: 42 }, { t: 2, m: {} }, { t: 3, m: ["hola"] }, { t: 4, m: null }
+  ]);
+  igual(r.length, 0, "acepto como mensaje algo que no es texto");
+});
+
+await prueba("dos mensajes pegados: manda el ultimo", () => {
+  // Mismo criterio que los botones: es el dedo, no dos mensajes de verdad
+  const r = limpiarConsejos([{ t: 20, m: "uno" }, { t: 20.2, m: "dos" }]);
+  igual(r.length, 1, "se guardaron los dos");
+  igual(r[0].m, "dos", "gano el primero en vez del ultimo");
+});
+
+await prueba("catDe sabe distinguir las tres cosas", () => {
+  igual(catDe({ t: 1, k: "soft" }), "energia");
+  igual(catDe({ t: 1, k: "waves" }), "mov");
+  igual(catDe({ t: 1, m: "hola" }), "msg");
+  igual(catDe({ t: 1, k: "no_existe" }), null, "acepto una clave inventada");
+  igual(catDe(null), null);
+  igual(catDe({ t: 1 }), null, "acepto una entrada sin nada dentro");
+});
+
+await prueba("un mensaje sobrevive el viaje por JSON", () => {
+  // Sube al servidor y baja como jsonb; y va al archivo de copia
+  const ida = limpiarConsejos([{ t: 18, m: "abrí el pecho — despacio" }]);
+  const vuelta = limpiarConsejos(JSON.parse(JSON.stringify(ida)));
+  igual(vuelta[0].m, ida[0].m, "el texto cambio en el viaje");
+});
+
+await prueba("mezclar botones y mensajes no desordena la lista", () => {
+  const r = limpiarConsejos([
+    { t: 51, k: "up" }, { t: 18, m: "arranca suave" },
+    { t: 87, k: "foot" }, { t: 34, m: "ahora si" }
+  ]);
+  igual(r.map(c => c.t).join(","), "18,34,51,87", "la lista mezclada quedo desordenada");
+});
+
+/* ========================================================================= */
 seccion("Lo que se guarda no cambia de forma");
 
 await prueba("solo se guardan dos datos por consejo: cuando y cual", () => {
@@ -287,6 +440,11 @@ await prueba("solo se guardan dos datos por consejo: cuando y cual", () => {
      tocar todas las canciones ya grabadas. */
   const r = limpiarConsejos([{ t: 12, k: "soft", texto: "Suave", color: "rojo" }]);
   igual(Object.keys(r[0]).sort().join(","), "k,t", "se guarda mas de lo necesario");
+
+  // Y de un mensaje, cuando y que dice. Nada del profesor ni de la cancion:
+  // eso ya esta una vez en la fila, y repetirlo es tener dos verdades.
+  const m = limpiarConsejos([{ t: 12, m: "hola", autor: "Gabriel", color: "azul" }]);
+  igual(Object.keys(m[0]).sort().join(","), "m,t", "el mensaje guarda mas de lo necesario");
 });
 
 await prueba("los consejos son texto plano, sin funciones ni referencias", () => {

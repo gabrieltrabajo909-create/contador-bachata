@@ -1237,6 +1237,66 @@ await prueba("una cancion nueva nace sin consejos y eso esta bien", () => {
     "sin consejos, la zona del alumno no se esconde");
 });
 
+await prueba("lo que se marca cae en el UNO, no donde cayo el dedo", () => {
+  /* La incoherencia que se arreglo: la cuenta del alumno lleva desde siempre
+     pegada a las marcas del profesor, y los consejos guardaban el segundo
+     crudo del toque -retraso de reaccion incluido-, asi que salian corridos.
+     Se pegan con la MISMA lista que manda sobre la cuenta. */
+  afirmar(/pegarAlUno\(tipsEd\.song\.downbeats, relojTips\(\)\)/.test(FUENTE),
+    "los consejos se guardan sin pegarlos al uno");
+  const poner = /function ponerConsejo[\s\S]*?\n}\n/.exec(FUENTE);
+  afirmar(poner && /cuandoTips\(\)/.test(poner[0]),
+    "el boton de consejo no usa el tiempo pegado al uno");
+
+  /* Y corregir tiene que mover un compas entero. Media un segundo suelto lo
+     sacaria del uno otra vez, deshaciendo justo lo anterior. */
+  const correr = /function correrConsejo[\s\S]*?\n}\n/.exec(FUENTE);
+  afirmar(correr, "no encuentro lo que corrige la posicion de un consejo");
+  afirmar(/pegarAlUno\(/.test(correr[0]), "correr un consejo lo saca del uno");
+  afirmar(/nearestOne\(/.test(correr[0]), "correr un consejo no sabe cuanto dura un compas");
+});
+
+await prueba("el mensaje escrito se pinta como texto, nunca como HTML", () => {
+  /* Lo escribe un profesor y lo leen todos sus alumnos a traves del catalogo
+     compartido. Con innerHTML, cualquiera podria dejar codigo corriendo en el
+     telefono de otro, con su sesion abierta. Es el mismo cuidado que ya se
+     tuvo con el link. */
+  for (const re of [/function pintarConsejoAlumno[\s\S]*?\n}\n/,
+                    /function pintarListaTips[\s\S]*?\n}\n/]) {
+    const trozo = re.exec(FUENTE);
+    afirmar(trozo, "no encuentro uno de los sitios que pintan consejos");
+    /* Con el punto delante: se busca la LLAMADA, no la palabra. Sin eso, un
+       comentario que diga "textContent y no innerHTML" hace fallar la prueba,
+       que es exactamente lo que paso al escribirla. */
+    afirmar(!/\.innerHTML|insertAdjacentHTML|\.outerHTML/.test(trozo[0]),
+      "un consejo se esta metiendo en el HTML");
+  }
+  afirmar(/msg\.textContent = ahora\.msg/.test(FUENTE),
+    "el mensaje del alumno no se pinta con textContent");
+});
+
+await prueba("el mensaje tiene tope y no puede tapar la cuenta", () => {
+  /* Sin tope, un profesor pega un parrafo y le tapa la pantalla a todos sus
+     alumnos. Y estas canciones se comparten: el destrozo no seria solo suyo. */
+  afirmar(/LARGO: \d+/.test(FUENTE), "el mensaje no tiene tope de largo");
+  afirmar(/maxlength="80"/.test(SOLO_HTML), "el campo deja escribir sin limite");
+  const limpiar = /function limpiarConsejos[\s\S]*?\n}\n/.exec(FUENTE);
+  afirmar(/slice\(0, CONSEJOS\.LARGO\)/.test(limpiar[0]),
+    "el tope no se aplica al guardar, solo al escribir");
+});
+
+await prueba("los mensajes viajan en la misma lista que los botones", () => {
+  /* Y por eso NO hacen falta ni columna nueva ni migracion: se guardan, se
+     suben, se exportan y se borran por el mismo camino que ya estaba probado.
+     Si algun dia alguien los saca a un sitio aparte, esta prueba avisa de todo
+     lo que habria que volver a montar. */
+  afirmar(!/msgs:|mensajes:|add column if not exists (msg|mensajes)/.test(FUENTE),
+    "los mensajes se fueron a su propia lista y ahora hay dos caminos que mantener");
+  const consejos = /function consejosEn[\s\S]*?\n}\n/.exec(FUENTE);
+  afirmar(/fuera\.msg = c\.m/.test(consejos[0]),
+    "el alumno no lee el mensaje de la misma lista");
+});
+
 await prueba("los seis botones del profesor estan en la pantalla", () => {
   /* Grandes y a la vista, sin desplegables: se tocan sin mirar mientras suena
      la cancion. Si alguno se cayera del HTML no habria error en ningun lado,
@@ -1260,7 +1320,8 @@ await prueba("todos los textos nuevos estan en los dos idiomas", () => {
     "tipFoot", "tipPause", "tipNone", "tipsBy", "tipsHelp", "tipsListen",
     "tipsSearching", "tipsNotFound", "tipsGo", "tipsWait", "tipsFull",
     "tipsEmpty", "tipsEarlier", "tipsLater", "tipsSaved", "tipsDiscard",
-    "tipsNoColumn"];
+    "tipsNoColumn", "tipsMsg", "phTipsMsg", "tipsMsgAdd", "tipsMsgSave",
+    "tipsMsgHelp", "tipsMsgEmpty", "tipsMsgEdited", "tipsMsgEditing"];
   for (const k of claves) {
     const veces = [...FUENTE.matchAll(new RegExp("\\b" + k + ":\\s*\"", "g"))].length;
     igual(veces, 2, `"${k}" tendria que estar en espanol y en ingles`);

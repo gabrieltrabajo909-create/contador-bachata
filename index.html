@@ -436,6 +436,15 @@
   /* Todavía sin consejo de esa clase: se deja el hueco para que las dos líneas
      no salten de sitio cuando llegue el primero. */
   .a-tip.vacio { color: var(--dim); opacity: .45; }
+  /* El mensaje del profesor: en letra normal y entre comillas, para que se lea
+     como lo que es -alguien hablando- y no como otra etiqueta mas. */
+  .a-tip-msg {
+    margin-top: 8px; font-size: .95rem; line-height: 1.35;
+    color: var(--ink); font-style: italic;
+    max-width: 30em; margin-left: auto; margin-right: auto;
+  }
+  .a-tip-msg::before { content: "\201C"; }
+  .a-tip-msg::after  { content: "\201D"; }
   .a-tip-quien { margin-top: 6px; font-size: .76rem; color: var(--dim); }
 
   /* Del lado del PROFESOR: los seis botones. Grandes porque se tocan sin
@@ -471,7 +480,14 @@
   .ct-item .cuando { font-variant-numeric: tabular-nums; color: var(--dim); font-size: .82rem; min-width: 3.4em; }
   .ct-item .que { flex: 1; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ct-item button { width: auto; flex: none; padding: 5px 8px; font-size: .8rem; }
+  /* Los mensajes escritos se distinguen de un vistazo de los seis botones */
+  .ct-item.msg .que { font-style: italic; color: var(--accent2); }
   .ct-vacia { color: var(--dim); font-size: .85rem; padding: 10px 0; }
+
+  /* El campo libre del profesor: el texto ancho y el botón justo a su lado */
+  .ct-msgfila { display: flex; gap: 8px; align-items: stretch; }
+  .ct-msgfila input { flex: 1; min-width: 0; margin: 0; }
+  .ct-msgfila button { width: auto; flex: none; white-space: nowrap; }
 
   /* ---------- Medidores ---------- */
   .meter { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
@@ -979,6 +995,17 @@
             <button class="tip" data-k="foot"><span class="e">👣</span><span data-i18n="tipFoot">Footwork</span></button>
             <button class="tip" data-k="pause"><span class="e">⏸️</span><span data-i18n="tipPause">Pausa / acento</span></button>
           </div>
+
+          <!-- El campo libre. Va aquí abajo y no arriba porque se usa distinto:
+               los botones se tocan sin mirar mientras suena, y esto se escribe
+               con calma y se suelta cuando toca. -->
+          <div class="ct-cat" data-i18n="tipsMsg">Tu mensaje</div>
+          <div class="ct-msgfila">
+            <input type="text" id="ct-msg" maxlength="80" autocomplete="off"
+                   placeholder="abrí el pecho, no corras" data-i18n-ph="phTipsMsg">
+            <button class="ghost" id="ct-msg-add" data-i18n="tipsMsgAdd">Poner aquí</button>
+          </div>
+          <p class="hint" data-i18n="tipsMsgHelp">Se muestra desde ese punto hasta que pongas el siguiente mensaje.</p>
         </div>
 
         <div id="ct-lista"></div>
@@ -1038,6 +1065,9 @@
       <div id="a-tips" hidden>
         <div class="a-tip" id="a-tip-energia"><span class="e"></span><span class="tx"></span></div>
         <div class="a-tip" id="a-tip-mov"><span class="e"></span><span class="tx"></span></div>
+        <!-- El mensaje del profesor, con sus palabras. Va debajo y en letra
+             normal: las dos de arriba se leen de un golpe, esta se lee. -->
+        <div class="a-tip-msg" id="a-tip-msg" hidden></div>
         <div class="a-tip-quien" id="a-tip-quien"></div>
       </div>
     </div>
@@ -1301,8 +1331,16 @@ const STR = {
     tipsWait: "Esperá a que enganche la canción.",
     tipsFull: "Ya hay muchos consejos en esta canción.",
     tipsEmpty: "Todavía no marcaste ninguno.",
-    tipsEarlier: "Medio segundo antes",
-    tipsLater: "Medio segundo después",
+    tipsEarlier: "Un compás antes",
+    tipsLater: "Un compás después",
+    tipsMsg: "Tu mensaje",
+    phTipsMsg: "abrí el pecho, no corras",
+    tipsMsgAdd: "Poner aquí",
+    tipsMsgSave: "Guardar el texto",
+    tipsMsgHelp: "Se muestra desde ese punto hasta que pongas el siguiente mensaje. Escribilo antes y tocá «Poner aquí» cuando llegue el momento.",
+    tipsMsgEmpty: "Escribí algo primero.",
+    tipsMsgEdited: "Mensaje cambiado.",
+    tipsMsgEditing: "Cambiando el mensaje de {0}.",
     tipsSaved: "Consejos guardados: {0}",
     tipsDiscard: "Se pierde lo que marcaste. Tocá otra vez para salir.",
     tipsNoColumn: "La base todavía no tiene los consejos. Hay que correr db/11-consejos-de-baile.sql.",
@@ -1577,8 +1615,16 @@ const STR = {
     tipsWait: "Wait until it locks on to the song.",
     tipsFull: "This song already has plenty of tips.",
     tipsEmpty: "You haven't marked any yet.",
-    tipsEarlier: "Half a second earlier",
-    tipsLater: "Half a second later",
+    tipsEarlier: "One bar earlier",
+    tipsLater: "One bar later",
+    tipsMsg: "Your message",
+    phTipsMsg: "open your chest, don't rush",
+    tipsMsgAdd: "Put it here",
+    tipsMsgSave: "Save the text",
+    tipsMsgHelp: "Shown from that point until you put the next message. Type it beforehand and tap “Put it here” when the moment comes.",
+    tipsMsgEmpty: "Type something first.",
+    tipsMsgEdited: "Message changed.",
+    tipsMsgEditing: "Changing the message at {0}.",
     tipsSaved: "Dance tips saved: {0}",
     tipsDiscard: "You'll lose what you marked. Tap again to leave.",
     tipsNoColumn: "The database doesn't have dance tips yet. Run db/11-consejos-de-baile.sql.",
@@ -1880,24 +1926,34 @@ function linkSeguro(txt) {
    corto de cómo recomienda bailar la canción: en este trozo, suave; aquí,
    arriba; por acá van bien las vueltas.
 
-   Dos cosas distintas, y por eso dos categorías:
+   Tres cosas distintas, y por eso tres categorías:
 
      energía   cómo debería SENTIRSE el baile
      mov       qué tipo de movimiento podría funcionar
+     msg       lo que el profesor quiera escribir, con sus palabras
 
    Son categorías y no una lista sola porque el alumno tiene que ver siempre
    una de cada: "suave" y "waves" a la vez responden a preguntas distintas, y
    mezclarlas en una lista única obligaría a elegir cuál de las dos tapa a la
-   otra. Con dos categorías, cada consejo nuevo solo reemplaza al de su tipo.
+   otra. Con tres categorías, cada consejo nuevo solo reemplaza al de su tipo.
+
+   Los seis botones son cerrados a propósito -se tocan sin mirar, con la
+   canción sonando- y el mensaje escrito es la válvula de escape para todo lo
+   que seis botones no pueden decir. Los dos van en la MISMA lista: se marcan
+   en el mismo sitio, se corrigen igual y viajan juntos.
 
    Y son recomendaciones, no órdenes. El alumno no está obligado a hacer ese
    movimiento; es lo que ese profesor haría ahí.
 
-   Lo que se guarda es lo mínimo: cuándo y cuál. [{t: 18.4, k: "soft"}, ...]
-   El emoji, el color y el texto viven aquí y se pueden cambiar mañana sin
-   tocar una sola canción ya grabada. Si se guardara el texto, cambiar una
-   palabra o traducir la app dejaría las canciones viejas en el idioma de
-   quien las grabó.
+   Lo que se guarda de un botón es lo mínimo: cuándo y cuál.
+   [{t: 18.4, k: "soft"}, ...]  El emoji, el color y el texto viven aquí y se
+   pueden cambiar mañana sin tocar una sola canción ya grabada. Si se guardara
+   el texto, cambiar una palabra o traducir la app dejaría las canciones
+   viejas en el idioma de quien las grabó.
+
+   Y de un mensaje escrito, cuándo y qué dice: [{t: 18.4, m: "abrí el pecho"}]
+   Ese sí lleva el texto, claro: son las palabras del profesor y no hay nada
+   que traducir. Se distinguen por la letra: `k` es un botón, `m` un mensaje.
    ========================================================================= */
 const CONSEJOS = {
   /* Tope por canción. No es por espacio -son cuatro bytes cada uno- sino
@@ -1910,6 +1966,11 @@ const CONSEJOS = {
      dos consejos de verdad. Medio segundo es menos de un compás en cualquier
      bachata, así que no puede tragarse un cambio real. */
   JUNTOS: 0.5,
+  /* Tope del mensaje escrito. Ochenta caracteres es una frase corta, y esa es
+     justo la idea: el alumno lo lee de reojo mientras baila. Con doscientos
+     entraría un párrafo, y un párrafo en esa pantalla no se lee: tapa la
+     cuenta, que es a lo que la persona vino. */
+  LARGO: 80,
   LISTA: [
     { k: "up",    cat: "energia", emoji: "⬆️", i18n: "tipUp" },
     { k: "soft",  cat: "energia", emoji: "🤍", i18n: "tipSoft" },
@@ -1921,6 +1982,15 @@ const CONSEJOS = {
 };
 
 const tipDef = (k) => CONSEJOS.LISTA.find(d => d.k === k) || null;
+
+/* De qué categoría es una entrada, sea botón o mensaje escrito. Null si no es
+   ninguna de las dos cosas, que es como se filtra la basura. */
+function catDe(c) {
+  if (!c) return null;
+  if (typeof c.m === "string") return "msg";
+  const d = tipDef(c.k);
+  return d ? d.cat : null;
+}
 
 /* Deja una lista de consejos en la única forma que el resto del código sabe
    leer: válidos, ordenados y sin duplicados pegados.
@@ -1936,7 +2006,7 @@ function limpiarConsejos(lista) {
   if (!Array.isArray(lista)) return [];
   const buenos = [];
   for (const x of lista) {
-    if (!x || !tipDef(x.k)) continue;
+    if (!x) continue;
     /* `cuando` y no `t`: en esta app `t` es la función de traducir, y llamarle
        t a una variable local la tapa. Ha pasado dos veces, las dos en código
        nuevo, y las dos veces el fallo pasó desapercibido porque lo de al lado
@@ -1946,7 +2016,22 @@ function limpiarConsejos(lista) {
     if (!isFinite(cuando) || cuando < 0) continue;
     // A la milésima: viene de un reloj de audio y arrastra decimales que no
     // significan nada, pero que sí abultan al subir y al guardar.
-    buenos.push({ t: Math.round(cuando * 1000) / 1000, k: x.k });
+    const t = Math.round(cuando * 1000) / 1000;
+
+    if (typeof x.m === "string") {
+      /* El mensaje del profesor. Se aplasta a una sola línea y se recorta:
+         un salto de línea o un texto larguísimo no rompen nada, pero
+         descolocan la pantalla del alumno, y eso lo ve todo el mundo porque
+         estas canciones se comparten.
+
+         El texto se pinta SIEMPRE con textContent, nunca metiéndolo en el
+         HTML. Es lo que hace que no importe lo que alguien escriba aquí. */
+      const texto = x.m.replace(/\s+/g, " ").trim().slice(0, CONSEJOS.LARGO);
+      if (!texto) continue;          // un mensaje vacío no es un mensaje
+      buenos.push({ t, m: texto });
+      continue;
+    }
+    if (tipDef(x.k)) buenos.push({ t, k: x.k });
   }
   buenos.sort((a, b) => a.t - b.t);
 
@@ -1954,9 +2039,9 @@ function limpiarConsejos(lista) {
   for (const c of buenos) {
     // Se compara con el último de SU categoría, no con el anterior a secas:
     // tocar "suave" y enseguida "waves" son dos consejos buenos y a la vez.
-    const cat = tipDef(c.k).cat;
+    const cat = catDe(c);
     let i = fuera.length - 1;
-    while (i >= 0 && tipDef(fuera[i].k).cat !== cat) i--;
+    while (i >= 0 && catDe(fuera[i]) !== cat) i--;
     if (i >= 0 && c.t - fuera[i].t < CONSEJOS.JUNTOS) { fuera[i] = c; continue; }
     fuera.push(c);
   }
@@ -1968,15 +2053,20 @@ function limpiarConsejos(lista) {
   return fuera.slice(0, CONSEJOS.MAX);
 }
 
-/* Qué recomienda el profesor en el segundo `t`: el último consejo de cada
-   categoría que ya pasó. Devuelve las definiciones, no las claves, porque
-   quien pinta necesita el emoji y el texto.
+/* Qué recomienda el profesor en el segundo `t`: lo último de cada categoría
+   que ya pasó, y que sigue valiendo hasta que llegue otro de su tipo. Ese es
+   el modelo entero: un consejo no es un aviso que pasa, es cómo se baila ESE
+   trozo.
+
+   `energia` y `mov` vienen como definiciones -con su emoji y su texto- porque
+   quien pinta las necesita enteras. `msg` viene como la cadena que escribió
+   el profesor, que es todo lo que hay.
 
    Antes del primer consejo de una categoría eso es `null`, y está bien: el
    profesor no dijo nada todavía de eso, y la pantalla tiene que poder
    distinguir "no dijo" de "dijo suave". */
 function consejosEn(lista, t) {
-  const fuera = { energia: null, mov: null };
+  const fuera = { energia: null, mov: null, msg: null };
   if (!Array.isArray(lista)) return fuera;
   for (const c of lista) {
     /* Lo normal es que la lista venga ya limpia, porque se limpia al bajarla
@@ -1986,10 +2076,34 @@ function consejosEn(lista, t) {
        Salir barato de un dato raro vale más que confiar en que no llegue. */
     if (!c || typeof c.t !== "number") continue;
     if (c.t > t) break;              // la lista viene ordenada
+    if (typeof c.m === "string") { fuera.msg = c.m; continue; }
     const d = tipDef(c.k);
     if (d) fuera[d.cat] = d;
   }
   return fuera;
+}
+
+/* Pega un segundo suelto al UNO más cercano del profesor.
+
+   Esto es lo que hacía falta y no estaba, y es la diferencia entre que un
+   consejo caiga en su sitio o a destiempo. La cuenta del alumno lleva desde
+   siempre pegada a los golpes que marcó el profesor; los consejos no, y por
+   eso salían corridos: se guardaba el segundo crudo en el que él tocó el
+   botón, con el retraso de reacción incluido.
+
+   La música no cambia a mitad de compás: cambia cuando entra un UNO. Así que
+   el sitio correcto de un consejo es siempre un UNO, y cuál es lo dice la
+   misma lista que ya manda sobre la cuenta. De paso se arregla solo el
+   retraso del dedo, porque tocar dos décimas tarde sigue cayendo más cerca
+   del uno que acaba de pasar que del siguiente.
+
+   Sin marcas suficientes no hay a qué pegarlo y se devuelve tal cual: una
+   canción a medio grabar no puede quedarse sin poder anotarse. */
+function pegarAlUno(downbeats, t) {
+  const r = nearestOne(downbeats, t);
+  if (!r) return t;
+  const pegado = t - r.err;
+  return Math.max(0, Math.round(pegado * 1000) / 1000);
 }
 
 /* =========================================================================
@@ -2012,7 +2126,7 @@ function consejosEn(lista, t) {
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.27.0";
+const VERSION = "2.28.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
@@ -3963,7 +4077,9 @@ $("e-save").addEventListener("click", async () => {
 const tipsEd = {
   song: null, lista: [], listener: null, fp: null,
   matching: false, lastMatchTry: 0, offset: 0, anclado: false,
-  pintando: null, sucio: false, saliendo: false, desde: 0
+  pintando: null, sucio: false, saliendo: false, desde: 0,
+  /* Qué mensaje se está retocando, o null si el próximo será uno nuevo. */
+  editando: null
 };
 
 const setCT = (msg, kind) => {
@@ -3987,9 +4103,12 @@ function abrirConsejos(s) {
   tipsEd.lista = limpiarConsejos(s.tips);
   tipsEd.sucio = false;
   tipsEd.saliendo = false;
+  tipsEd.editando = null;
   $("ct-cual").textContent = s.title;
   $("ct-saved").textContent = "";
+  $("ct-msg").value = "";
   setCT("");
+  pintarBotonMensaje();
   pintarListaTips();
   $("p-tips").hidden = false;
   $("p-tips").scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -4001,6 +4120,8 @@ function cerrarConsejos() {
   tipsEd.lista = [];
   tipsEd.sucio = false;
   tipsEd.saliendo = false;
+  tipsEd.editando = null;
+  $("ct-msg").value = "";
   $("p-tips").hidden = true;
 }
 
@@ -4127,11 +4248,19 @@ $("ct-botones").addEventListener("click", (ev) => {
   ponerConsejo(b.dataset.k, b);
 });
 
+/* El segundo en el que hay que apuntar lo que se acaba de tocar: el reloj de
+   la canción, pegado al UNO más cercano de los que marcó el profesor.
+
+   Pegarlo no es un adorno. La cuenta del alumno lleva desde siempre pegada a
+   esas marcas, y los consejos no lo estaban: se guardaba el segundo crudo del
+   toque, retraso del dedo incluido, y por eso salían corridos. */
+const cuandoTips = () => pegarAlUno(tipsEd.song.downbeats, relojTips());
+
 function ponerConsejo(k, boton) {
   if (!tipDef(k)) return;
   if (!tipsEd.anclado) { setCT(t("tipsWait")); return; }
   if (tipsEd.lista.length >= CONSEJOS.MAX) { setCT(t("tipsFull"), "err"); return; }
-  tipsEd.lista = limpiarConsejos(tipsEd.lista.concat([{ t: relojTips(), k }]));
+  tipsEd.lista = limpiarConsejos(tipsEd.lista.concat([{ t: cuandoTips(), k }]));
   tipsEd.sucio = true;
   tipsEd.saliendo = false;
   pintarListaTips();
@@ -4144,11 +4273,23 @@ function ponerConsejo(k, boton) {
   }
 }
 
-function correrConsejo(i, ds) {
+/* Correr un consejo un compás entero, no medio segundo.
+
+   Empezó siendo medio segundo y estaba mal por lo mismo que lo otro: mover
+   una cantidad suelta lo saca del UNO y lo deja a destiempo, que es
+   exactamente lo que se acaba de arreglar. Un compás lo lleva al UNO de al
+   lado y sigue alineado. Y es lo que se quiere de verdad: cuando un consejo
+   "está corrido" es porque entra un compás antes o después, no porque sobren
+   unas décimas. */
+function correrConsejo(i, pasos) {
   const c = tipsEd.lista[i];
   if (!c) return;
-  const movida = tipsEd.lista.map((x, j) =>
-    j === i ? { t: Math.max(0, x.t + ds), k: x.k } : x);
+  const db = tipsEd.song.downbeats;
+  const r = nearestOne(db, c.t);
+  // Sin marcas suficientes no hay compás: se mueve un segundo y a otra cosa.
+  const salto = r ? r.per : 1;
+  const nuevo = pegarAlUno(db, Math.max(0, c.t + pasos * salto));
+  const movida = tipsEd.lista.map((x, j) => j === i ? { ...x, t: nuevo } : x);
   tipsEd.lista = limpiarConsejos(movida);
   tipsEd.sucio = true;
   tipsEd.saliendo = false;
@@ -4174,9 +4315,12 @@ function pintarListaTips() {
     return;
   }
   tipsEd.lista.forEach((c, i) => {
-    const d = tipDef(c.k);
+    const esMsg = typeof c.m === "string";
+    const d = esMsg ? null : tipDef(c.k);
+    const comoSeLlama = esMsg ? c.m : d.emoji + " " + t(d.i18n);
+
     const row = document.createElement("div");
-    row.className = "ct-item";
+    row.className = "ct-item" + (esMsg ? " msg" : "");
 
     const cuando = document.createElement("span");
     cuando.className = "cuando";
@@ -4184,34 +4328,115 @@ function pintarListaTips() {
 
     const que = document.createElement("span");
     que.className = "que";
-    que.textContent = d.emoji + " " + t(d.i18n);
+    // textContent y no innerHTML: el mensaje lo escribe un profesor y lo leen
+    // todos sus alumnos. Aquí es donde eso deja de importar.
+    que.textContent = comoSeLlama;
 
-    /* Correr medio segundo para cada lado. Es el error típico: se toca al
-       oírlo, o sea un pelín tarde. Medio segundo es lo que se tarda en
-       reaccionar, y por eso "antes" se usa mucho más que "después". */
+    /* Un compás para cada lado, no medio segundo. Mover una cantidad suelta
+       lo sacaría del UNO y lo dejaría a destiempo otra vez. Cuando un consejo
+       "está corrido" es porque entra un compás antes o después. */
     const antes = document.createElement("button");
     antes.className = "ghost";
-    antes.textContent = "−½s";
+    antes.textContent = "−1";
     antes.title = t("tipsEarlier");
-    antes.addEventListener("click", () => correrConsejo(i, -0.5));
+    antes.addEventListener("click", () => correrConsejo(i, -1));
 
     const despues = document.createElement("button");
     despues.className = "ghost";
-    despues.textContent = "+½s";
+    despues.textContent = "+1";
     despues.title = t("tipsLater");
-    despues.addEventListener("click", () => correrConsejo(i, 0.5));
+    despues.addEventListener("click", () => correrConsejo(i, 1));
 
     const fuera = document.createElement("button");
     fuera.className = "solo-ic peligro";
     fuera.appendChild(icono("trash"));
     fuera.title = t("del");
-    fuera.setAttribute("aria-label", t("del") + ": " + t(d.i18n) + " " + fmt(c.t));
+    fuera.setAttribute("aria-label", t("del") + ": " + comoSeLlama + " " + fmt(c.t));
     fuera.addEventListener("click", () => quitarConsejo(i));
 
-    row.append(cuando, que, antes, despues, fuera);
+    row.append(cuando, que);
+    /* Los mensajes se pueden retocar sin volver a marcarlos. Una errata en el
+       móvil es de lo más normal, y borrarlo y rehacerlo obligaría a poner otra
+       vez la canción para recuperar el segundo exacto. Los botones no llevan
+       lápiz porque no hay nada que escribir en ellos. */
+    if (esMsg) {
+      const lapiz = document.createElement("button");
+      lapiz.className = "solo-ic";
+      lapiz.appendChild(icono("pencil"));
+      lapiz.title = t("edit");
+      lapiz.setAttribute("aria-label", t("edit") + ": " + c.m);
+      lapiz.addEventListener("click", () => retocarMensaje(i));
+      row.appendChild(lapiz);
+    }
+    row.append(antes, despues, fuera);
     el.appendChild(row);
   });
 }
+
+/* ---------- El mensaje escrito del profesor ----------
+
+   Los seis botones son cerrados a propósito: se tocan sin mirar. Esto es lo
+   contrario, y por eso funciona distinto: se escribe con calma y se suelta en
+   el momento. El sitio en el tiempo lo decide el botón, no el teclado.
+
+   Un mensaje dura hasta que llegue el siguiente, igual que los botones. No
+   hay "durante cuánto": eso obligaría al profesor a decidir un número que no
+   sabe, y dejaría huecos donde no dice nada. */
+function ponerMensaje() {
+  const campo = $("ct-msg");
+  const texto = campo.value.replace(/\s+/g, " ").trim();
+  if (!texto) { setCT(t("tipsMsgEmpty")); campo.focus(); return; }
+
+  if (tipsEd.editando !== null) {
+    /* Retocando uno que ya existía: se le cambia el texto y se le respeta el
+       segundo. Si se le pusiera el del reloj, corregir una errata movería el
+       mensaje de sitio, y encima con el micrófono apagado lo mandaría al
+       segundo cero. */
+    const i = tipsEd.editando;
+    tipsEd.lista = limpiarConsejos(
+      tipsEd.lista.map((x, j) => j === i ? { t: x.t, m: texto } : x));
+    tipsEd.editando = null;
+    setCT(t("tipsMsgEdited"), "ok");
+  } else {
+    if (!tipsEd.anclado) { setCT(t("tipsWait")); return; }
+    if (tipsEd.lista.length >= CONSEJOS.MAX) { setCT(t("tipsFull"), "err"); return; }
+    tipsEd.lista = limpiarConsejos(tipsEd.lista.concat([{ t: cuandoTips(), m: texto }]));
+    buzz(20);
+  }
+  // Se vacía: si se quedara escrito, el siguiente toque repetiría el mismo
+  // mensaje sin querer, y eso no se ve hasta que lo mira un alumno.
+  campo.value = "";
+  tipsEd.sucio = true;
+  tipsEd.saliendo = false;
+  pintarBotonMensaje();
+  pintarListaTips();
+}
+
+function retocarMensaje(i) {
+  const c = tipsEd.lista[i];
+  if (!c || typeof c.m !== "string") return;
+  tipsEd.editando = i;
+  $("ct-msg").value = c.m;
+  $("ct-msg").focus();
+  pintarBotonMensaje();
+  setCT(t("tipsMsgEditing", fmt(c.t)));
+}
+
+/* El botón dice lo que va a hacer. Poner uno nuevo y arreglar el de las 0:34
+   no son la misma acción, y con la misma etiqueta se confunden. */
+function pintarBotonMensaje() {
+  const b = $("ct-msg-add");
+  b.textContent = "";
+  b.append(icono(tipsEd.editando !== null ? "pencil" : "tip"),
+           document.createTextNode(t(tipsEd.editando !== null ? "tipsMsgSave" : "tipsMsgAdd")));
+}
+
+$("ct-msg-add").addEventListener("click", ponerMensaje);
+/* Enter en el campo hace lo mismo que el botón: escribiendo en el móvil, la
+   tecla de al lado del pulgar es esa y no la de la pantalla. */
+$("ct-msg").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") { ev.preventDefault(); ponerMensaje(); }
+});
 
 $("ct-close").addEventListener("click", () => {
   /* Salir con cambios sin guardar pide una segunda pulsación. Marcar quince
@@ -4954,7 +5179,8 @@ function pintarConsejoAlumno(songTime) {
      cada vuelta sería trabajo tirado, y de la clase que se nota en un
      teléfono viejo. */
   const firma = (ahora.energia ? ahora.energia.k : "-") + "/" +
-                (ahora.mov ? ahora.mov.k : "-") + "/" + s.id;
+                (ahora.mov ? ahora.mov.k : "-") + "/" +
+                (ahora.msg || "-") + "/" + s.id;
   if (firma === student.tipVisto && !caja.hidden) return;
   student.tipVisto = firma;
   caja.hidden = false;
@@ -4967,6 +5193,15 @@ function pintarConsejoAlumno(songTime) {
   };
   poner("a-tip-energia", ahora.energia);
   poner("a-tip-mov", ahora.mov);
+
+  /* El mensaje SÍ se esconde cuando no hay: al revés que las dos etiquetas de
+     arriba, que dejan su hueco para no saltar de sitio. Aquí es al contrario
+     porque no hay dos, hay una, y una línea vacía debajo de las etiquetas se
+     lee como que falta algo. */
+  const msg = $("a-tip-msg");
+  msg.hidden = !ahora.msg;
+  // textContent: lo escribió otra persona y lo lee todo el mundo.
+  msg.textContent = ahora.msg || "";
 
   /* Quién lo recomienda. Importa porque son opiniones: dos profesores pueden
      leer la misma canción distinto, y el alumno tiene derecho a saber a quién
