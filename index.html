@@ -429,7 +429,7 @@
     text-transform: uppercase; line-height: 1.25; padding: 3px 0;
   }
   .a-tip .e { display: flex; line-height: 1; }
-  .a-tip .e .ic { width: 1.5rem; height: 1.5rem; margin: 0; }
+  .a-tip .e .ic { width: 1.9rem; height: 1.9rem; margin: 0; }
   /* Cada consejo lleva su propio color, puesto desde CONSEJOS.LISTA. El de
      reserva es por si algún día se añade uno sin color: mejor que se vea del
      color de la app a que se vea negro sobre negro. */
@@ -457,20 +457,23 @@
   }
   .ct-fila { display: flex; gap: 8px; margin-bottom: 8px; }
   button.tip {
-    flex: 1; min-height: 88px; padding: 10px 6px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+    flex: 1; min-height: 108px; padding: 12px 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px;
     font-size: .8rem; font-weight: 600; line-height: 1.15; text-align: center;
   }
   /* El redondel. Es lo que hace que los seis se distingan sin leer: un
      círculo del color del consejo con su dibujo dentro. */
   button.tip .e {
-    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    width: 56px; height: 56px; border-radius: 50%; flex: none;
     display: flex; align-items: center; justify-content: center;
     border: 1.5px solid var(--tipc, var(--accent));
     background: color-mix(in srgb, var(--tipc, var(--accent)) 14%, transparent);
     color: var(--tipc, var(--accent));
   }
-  button.tip .e .ic { width: 22px; height: 22px; margin: 0; }
+  /* Grande a propósito. Esto se toca sin mirar, con la canción sonando y el
+     teléfono en la mano: lo que se busca con el pulgar es el redondel de
+     color, no la palabra de debajo. */
+  button.tip .e .ic { width: 34px; height: 34px; margin: 0; }
   /* Un destello al tocar. Es la única confirmación de que entró, porque el
      profesor está mirando el reloj, no el botón. */
   button.tip.puesto {
@@ -497,7 +500,7 @@
     display: flex; align-items: center; gap: 6px;
   }
   .ct-item .que > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ct-item .que .ic { width: 1.1rem; height: 1.1rem; margin: 0; flex: none; color: var(--tipc, var(--ink)); }
+  .ct-item .que .ic { width: 1.3rem; height: 1.3rem; margin: 0; flex: none; color: var(--tipc, var(--ink)); }
   .ct-item button { width: auto; flex: none; padding: 5px 8px; font-size: .8rem; }
   /* Los mensajes escritos se distinguen de un vistazo de los seis botones */
   .ct-item.msg .que { font-style: italic; color: var(--accent2); }
@@ -2203,7 +2206,7 @@ function pegarAlUno(downbeats, t) {
 
    Al cambiar esto hay que cambiar tambien el nombre del deposito en sw.js, o
    la copia vieja se queda para siempre. Hay una prueba que lo vigila. */
-const VERSION = "2.28.0";
+const VERSION = "2.29.0";
 
 const FP = {
   // Si algún día cambia cómo se calculan las huellas, sube este número.
