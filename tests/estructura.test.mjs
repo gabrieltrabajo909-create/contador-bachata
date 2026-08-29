@@ -1311,6 +1311,43 @@ await prueba("los seis botones del profesor estan en la pantalla", () => {
     "nadie escucha los botones de consejos");
 });
 
+await prueba("el dibujo y el color de un consejo se escriben en un solo sitio", () => {
+  /* Los seis botones se pintan leyendo CONSEJOS.LISTA. Si el texto o el
+     dibujo estuvieran ADEMAS escritos a mano en el HTML habria dos verdades,
+     y la que se cambia nunca es la que se mira. */
+  const grupo = /<div class="ct-grupo"[\s\S]*?<div class="ct-cat" data-i18n="tipsMsg"/.exec(SOLO_HTML);
+  afirmar(grupo, "no encuentro los botones de consejos en la pantalla");
+  afirmar(!/data-i18n="tip(Up|Soft|Waves|Turns|Foot|Pause)"/.test(grupo[0]),
+    "el nombre de un consejo esta escrito a mano en el HTML ademas de en la tabla");
+  afirmar(/function pintarBotonesConsejo/.test(FUENTE),
+    "los botones ya no se pintan desde la tabla");
+});
+
+await prueba("al cambiar de idioma los consejos cambian con el", () => {
+  /* Lo que se pinta desde codigo no lo alcanza el barrido de data-i18n. Ya
+     paso antes en esta app con otros botones: al pasar a ingles se quedaban
+     en castellano hasta recargar. */
+  const aplicar = /function applyLang[\s\S]*?\n}\n/.exec(FUENTE);
+  afirmar(aplicar, "no encuentro el cambio de idioma");
+  for (const fn of ["pintarBotonesConsejo", "pintarBotonMensaje"]) {
+    afirmar(new RegExp(fn + "\\(\\)").test(aplicar[0]),
+      fn + " no se repinta al cambiar de idioma");
+  }
+  afirmar(/student\.tipVisto = ""/.test(aplicar[0]),
+    "el consejo que ve el alumno se queda en el idioma viejo");
+});
+
+await prueba("ningun consejo se dibuja con un emoji", () => {
+  /* Un emoji lo pinta cada telefono a su manera: el mismo boton sale distinto
+     en Android, en iPhone y en el ordenador, y ninguno se parece al resto de
+     la app. Los seis son dibujos de la propia app. */
+  const lista = /LISTA: \[[\s\S]*?\n  \]/.exec(FUENTE);
+  afirmar(lista, "no encuentro la tabla de consejos");
+  afirmar(!/emoji/.test(lista[0]), "un consejo volvio a ser un emoji");
+  afirmar((lista[0].match(/icon: "tip-/g) || []).length === 6,
+    "no hay seis dibujos en la tabla de consejos");
+});
+
 await prueba("todos los textos nuevos estan en los dos idiomas", () => {
   const claves = ["assist", "assistOn", "assistOff", "assistHint", "assistStart",
     "assistHelp", "assistFirst", "assistOdd", "assistGo", "assistFine",

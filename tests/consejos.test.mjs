@@ -23,7 +23,7 @@
         consejos tiene que comportarse exactamente igual que antes de que esto
         existiera. */
 
-import { cargar, FUENTE } from "./extraer.mjs";
+import { cargar, FUENTE, HTML } from "./extraer.mjs";
 import { seccion, prueba, afirmar, igual, resumen } from "./marco.mjs";
 
 const M = await cargar([
@@ -52,15 +52,34 @@ await prueba("dos de energia y cuatro de movimiento", () => {
   igual(mov.length, 4, "el movimiento no tiene cuatro opciones");
 });
 
-await prueba("cada uno tiene emoji y texto traducible", () => {
+await prueba("cada uno tiene dibujo, color y texto traducible", () => {
   /* El texto NO se guarda en la cancion: se guarda la clave y el texto sale
      de aqui. Asi, traducir la app o cambiar una palabra no deja las canciones
-     viejas escritas en el idioma de quien las grabo. */
+     viejas escritas en el idioma de quien las grabo. Con el dibujo y el color
+     pasa igual: cambiarlos no toca ni una cancion ya grabada. */
   for (const d of CONSEJOS.LISTA) {
-    afirmar(d.emoji && d.emoji.length, d.k + " se quedo sin emoji");
+    afirmar(d.icon && /^tip-/.test(d.icon), d.k + " se quedo sin dibujo");
+    afirmar(/^#[0-9a-f]{6}$/i.test(d.color || ""), d.k + " no tiene un color valido");
     afirmar(d.i18n && /^tip/.test(d.i18n), d.k + " no apunta a un texto traducible");
     afirmar(d.cat === "energia" || d.cat === "mov", d.k + " no es ni energia ni movimiento");
   }
+});
+
+await prueba("los dibujos existen de verdad en la app", () => {
+  /* Un nombre de icono mal escrito no da error en ningun sitio: el <use>
+     apunta a nada y el boton sale vacio. Es el fallo silencioso tipico, y
+     solo se ve mirando la pantalla. */
+  for (const d of CONSEJOS.LISTA) {
+    afirmar(HTML.includes('id="g-' + d.icon + '"'),
+      "el dibujo de " + d.k + " no esta en la app: el boton saldria vacio");
+  }
+});
+
+await prueba("cada consejo tiene un color distinto", () => {
+  // Si dos comparten color, se dejan de distinguir de un vistazo, que es
+  // justo para lo que estan
+  const colores = CONSEJOS.LISTA.map(d => d.color.toLowerCase());
+  igual(new Set(colores).size, colores.length, "hay dos consejos del mismo color");
 });
 
 await prueba("las claves no se repiten", () => {
@@ -255,10 +274,11 @@ await prueba("despues del ultimo se queda el ultimo", () => {
   igual(r.mov.k, "foot");
 });
 
-await prueba("devuelve el emoji y el texto, no solo la clave", () => {
-  // Quien pinta necesita las dos cosas y no deberia tener que buscarlas
+await prueba("devuelve el dibujo y el color, no solo la clave", () => {
+  // Quien pinta necesita las tres cosas y no deberia tener que buscarlas
   const r = consejosEn(mapa, 60);
-  afirmar(r.energia.emoji, "no vino el emoji");
+  afirmar(r.energia.icon, "no vino el dibujo");
+  afirmar(r.energia.color, "no vino el color");
   afirmar(r.energia.i18n, "no vino el texto");
 });
 

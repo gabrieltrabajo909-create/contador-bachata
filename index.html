@@ -428,11 +428,12 @@
     font-size: 1.15rem; font-weight: 700; letter-spacing: .02em;
     text-transform: uppercase; line-height: 1.25; padding: 3px 0;
   }
-  .a-tip .e { font-size: 1.35rem; line-height: 1; }
-  /* El emoji ya distingue cuál es cuál; el color separa las dos preguntas:
-     energía en el color de la app, movimiento en el otro. */
-  #a-tip-energia { color: var(--accent); }
-  #a-tip-mov { color: var(--accent2); }
+  .a-tip .e { display: flex; line-height: 1; }
+  .a-tip .e .ic { width: 1.5rem; height: 1.5rem; margin: 0; }
+  /* Cada consejo lleva su propio color, puesto desde CONSEJOS.LISTA. El de
+     reserva es por si algún día se añade uno sin color: mejor que se vea del
+     color de la app a que se vea negro sobre negro. */
+  #a-tip-energia, #a-tip-mov { color: var(--tipc, var(--accent)); }
   /* Todavía sin consejo de esa clase: se deja el hueco para que las dos líneas
      no salten de sitio cuando llegue el primero. */
   .a-tip.vacio { color: var(--dim); opacity: .45; }
@@ -456,14 +457,27 @@
   }
   .ct-fila { display: flex; gap: 8px; margin-bottom: 8px; }
   button.tip {
-    flex: 1; min-height: 62px; padding: 8px 6px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    font-size: .84rem; font-weight: 600; line-height: 1.15; text-align: center;
+    flex: 1; min-height: 88px; padding: 10px 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+    font-size: .8rem; font-weight: 600; line-height: 1.15; text-align: center;
   }
-  button.tip .e { font-size: 1.5rem; line-height: 1; }
+  /* El redondel. Es lo que hace que los seis se distingan sin leer: un
+     círculo del color del consejo con su dibujo dentro. */
+  button.tip .e {
+    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--tipc, var(--accent));
+    background: color-mix(in srgb, var(--tipc, var(--accent)) 14%, transparent);
+    color: var(--tipc, var(--accent));
+  }
+  button.tip .e .ic { width: 22px; height: 22px; margin: 0; }
   /* Un destello al tocar. Es la única confirmación de que entró, porque el
      profesor está mirando el reloj, no el botón. */
-  button.tip.puesto { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  button.tip.puesto {
+    border-color: var(--tipc, var(--accent));
+    background: color-mix(in srgb, var(--tipc, var(--accent)) 18%, transparent);
+  }
+  button.tip.puesto .e { background: var(--tipc, var(--accent)); color: #100d18; }
 
   .ct-reloj {
     text-align: center; font-size: 1.6rem; font-weight: 700;
@@ -478,7 +492,12 @@
     padding: 6px 0; border-bottom: 1px solid var(--line);
   }
   .ct-item .cuando { font-variant-numeric: tabular-nums; color: var(--dim); font-size: .82rem; min-width: 3.4em; }
-  .ct-item .que { flex: 1; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ct-item .que {
+    flex: 1; min-width: 0; font-size: .9rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ct-item .que > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ct-item .que .ic { width: 1.1rem; height: 1.1rem; margin: 0; flex: none; color: var(--tipc, var(--ink)); }
   .ct-item button { width: auto; flex: none; padding: 5px 8px; font-size: .8rem; }
   /* Los mensajes escritos se distinguen de un vistazo de los seis botones */
   .ct-item.msg .que { font-style: italic; color: var(--accent2); }
@@ -694,6 +713,50 @@
     <g id="g-play"><circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8l5.4 3.2-5.4 3.2z"/></g>
     <!-- Un bocadillo: el profesor diciendo algo. Es el que abre los consejos. -->
     <g id="g-tip"><path d="M4 6.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 3.5V16.5H6a2 2 0 0 1-2-2z"/></g>
+
+    <!-- Los seis consejos de baile.
+
+         Se dibujan de línea y no se ponen como emoji porque un emoji lo pinta
+         cada teléfono a su manera: el mismo botón sale distinto en Android, en
+         iPhone y en el ordenador, y ninguno de los tres se parece al resto de
+         la app. Estos son parte del dibujo, no del texto.
+
+         La silueta manda sobre el detalle: esto se ve pequeño, con poca luz y
+         mientras alguien está bailando. Si hay que mirarlo dos veces, no
+         sirve. -->
+    <g id="g-tip-up">
+      <path d="M12.8 3.5 8.2 12.2h3.4l-1 8 4.7-8.7h-3.4z"/>
+      <path d="M4.6 15V9.4M2.7 11.2l1.9-1.8 1.9 1.8"/>
+      <path d="M19.4 15V9.4M17.5 11.2l1.9-1.8 1.9 1.8"/>
+    </g>
+    <g id="g-tip-soft">
+      <path d="M12 8.1c-.8-1.4-3.2-1-3.2.8 0 1.5 2.2 2.9 3.2 3.7 1-.8 3.2-2.2 3.2-3.7 0-1.8-2.4-2.2-3.2-.8z"/>
+      <circle cx="6.9" cy="10.4" r="2.1"/>
+      <circle cx="17.1" cy="10.4" r="2.1"/>
+      <path d="M2.9 20.6c0-3 1.8-5.1 4-5.1s4 2.1 4 5.1"/>
+      <path d="M13.1 20.6c0-3 1.8-5.1 4-5.1s4 2.1 4 5.1"/>
+    </g>
+    <g id="g-tip-waves">
+      <path d="M6.4 4.2q3 2.4 0 4.9-3 2.4 0 4.9 3 2.4 0 4.9"/>
+      <path d="M12 4.2q3 2.4 0 4.9-3 2.4 0 4.9 3 2.4 0 4.9"/>
+      <path d="M17.6 4.2q3 2.4 0 4.9-3 2.4 0 4.9 3 2.4 0 4.9"/>
+    </g>
+    <g id="g-tip-turns">
+      <path d="M20 12.4a8 8 0 1 1-2.9-6.2"/>
+      <path d="M17.3 2.9l.2 3.6-3.6.2"/>
+      <circle cx="12" cy="9.4" r="1.9"/>
+      <path d="M12 11.3v3.6M9.1 12.8h5.8M9.6 18.9l2.4-4 2.4 4"/>
+    </g>
+    <g id="g-tip-foot">
+      <path d="M6.7 3.9c1.7 0 2.6 1.2 2.6 2.9 0 1.5-.5 2.5-.5 3.8 0 1.2-.9 2.1-2.1 2.1s-2.1-.9-2.1-2.1c0-1.3-.5-2.3-.5-3.8 0-1.7.9-2.9 2.6-2.9z"/>
+      <path d="M17.3 8.2c1.7 0 2.6 1.2 2.6 2.9 0 1.5-.5 2.5-.5 3.8 0 1.2-.9 2.1-2.1 2.1s-2.1-.9-2.1-2.1c0-1.3-.5-2.3-.5-3.8 0-1.7.9-2.9 2.6-2.9z"/>
+      <path d="M3.4 19.8h8.4M9.9 18.1l1.9 1.7-1.9 1.7"/>
+    </g>
+    <g id="g-tip-pause">
+      <path d="M9.2 6.4v11.2M14.8 6.4v11.2"/>
+      <path d="M19 8.9l2.4-1.3M19.4 12.2h2.7M19 15.5l2.4 1.3"/>
+      <path d="M5 8.9L2.6 7.6M4.6 12.2H1.9M5 15.5l-2.4 1.3"/>
+    </g>
   </defs>
 </svg>
 
@@ -981,19 +1044,23 @@
         <!-- Los seis botones. Grandes y siempre en el mismo sitio: se tocan
              sin mirar, mientras suena. Nada de desplegables. -->
         <div class="ct-grupo" id="ct-botones" hidden>
+          <!-- El dibujo, el color y el texto de cada botón los pone
+               pintarBotonesConsejo() leyendo CONSEJOS.LISTA. Aquí solo va la
+               clave: si estuvieran escritos también aquí habría dos verdades,
+               y la que se cambia nunca es la que se mira. -->
           <div class="ct-cat" data-i18n="tipEnergy">Energía</div>
           <div class="ct-fila">
-            <button class="tip" data-k="up"><span class="e">⬆️</span><span data-i18n="tipUp">Sube energía</span></button>
-            <button class="tip" data-k="soft"><span class="e">🤍</span><span data-i18n="tipSoft">Suave / cerca</span></button>
+            <button class="tip" data-k="up"></button>
+            <button class="tip" data-k="soft"></button>
           </div>
           <div class="ct-cat" data-i18n="tipMove">Movimiento</div>
           <div class="ct-fila">
-            <button class="tip" data-k="waves"><span class="e">🌊</span><span data-i18n="tipWaves">Waves</span></button>
-            <button class="tip" data-k="turns"><span class="e">🔄</span><span data-i18n="tipTurns">Vueltas</span></button>
+            <button class="tip" data-k="waves"></button>
+            <button class="tip" data-k="turns"></button>
           </div>
           <div class="ct-fila">
-            <button class="tip" data-k="foot"><span class="e">👣</span><span data-i18n="tipFoot">Footwork</span></button>
-            <button class="tip" data-k="pause"><span class="e">⏸️</span><span data-i18n="tipPause">Pausa / acento</span></button>
+            <button class="tip" data-k="foot"></button>
+            <button class="tip" data-k="pause"></button>
           </div>
 
           <!-- El campo libre. Va aquí abajo y no arriba porque se usa distinto:
@@ -1971,13 +2038,23 @@ const CONSEJOS = {
      entraría un párrafo, y un párrafo en esa pantalla no se lee: tapa la
      cuenta, que es a lo que la persona vino. */
   LARGO: 80,
+  /* El dibujo y el color de cada uno viven AQUÍ y en ningún otro sitio. Los
+     botones del profesor, la lista de lo marcado y la pantalla del alumno se
+     pintan leyendo esta tabla, así que cambiar un icono o un color es tocar
+     una línea y ya está. Antes eran emoji, y un emoji lo dibuja cada teléfono
+     a su manera: el mismo botón salía distinto en Android, en iPhone y en el
+     ordenador, y ninguno de los tres se parecía al resto de la app.
+
+     El color no es decoración: son seis botones que se tocan sin mirar, con
+     la canción sonando, y el color es lo que se reconoce antes que la forma.
+     `icon` es el nombre del dibujo en el juego de iconos. */
   LISTA: [
-    { k: "up",    cat: "energia", emoji: "⬆️", i18n: "tipUp" },
-    { k: "soft",  cat: "energia", emoji: "🤍", i18n: "tipSoft" },
-    { k: "waves", cat: "mov",     emoji: "🌊", i18n: "tipWaves" },
-    { k: "turns", cat: "mov",     emoji: "🔄", i18n: "tipTurns" },
-    { k: "foot",  cat: "mov",     emoji: "👣", i18n: "tipFoot" },
-    { k: "pause", cat: "mov",     emoji: "⏸️", i18n: "tipPause" }
+    { k: "up",    cat: "energia", icon: "tip-up",    color: "#ff7a2f", i18n: "tipUp" },
+    { k: "soft",  cat: "energia", icon: "tip-soft",  color: "#c99ae8", i18n: "tipSoft" },
+    { k: "waves", cat: "mov",     icon: "tip-waves", color: "#4fc9e0", i18n: "tipWaves" },
+    { k: "turns", cat: "mov",     icon: "tip-turns", color: "#8b7bd8", i18n: "tipTurns" },
+    { k: "foot",  cat: "mov",     icon: "tip-foot",  color: "#e8c33a", i18n: "tipFoot" },
+    { k: "pause", cat: "mov",     icon: "tip-pause", color: "#f0545e", i18n: "tipPause" }
   ]
 };
 
@@ -4240,6 +4317,31 @@ $("ct-start").addEventListener("click", async () => {
 
 $("ct-stop").addEventListener("click", () => { pararConsejos(); setCT(""); });
 
+/* Pone en cada botón su dibujo, su color y su nombre, leyendo CONSEJOS.LISTA.
+
+   Se hace desde aquí y no escribiéndolo en el HTML para que la tabla sea la
+   única verdad: cambiar el icono de "vueltas" es tocar una línea, y no
+   buscarlo en tres sitios y olvidarse de uno.
+
+   Y se vuelve a llamar al cambiar de idioma, porque el nombre del consejo es
+   texto traducido: sin eso, cambiar a inglés dejaba los seis botones en
+   castellano hasta recargar. */
+function pintarBotonesConsejo() {
+  for (const d of CONSEJOS.LISTA) {
+    const b = document.querySelector('#ct-botones button[data-k="' + d.k + '"]');
+    if (!b) continue;
+    b.textContent = "";
+    b.style.setProperty("--tipc", d.color);
+    const redondel = document.createElement("span");
+    redondel.className = "e";
+    redondel.appendChild(icono(d.icon));
+    const nombre = document.createElement("span");
+    nombre.textContent = t(d.i18n);
+    b.append(redondel, nombre);
+    b.setAttribute("aria-label", t(d.i18n));
+  }
+}
+
 /* Los seis botones cuelgan del contenedor y no uno a uno: así añadir o quitar
    un consejo mañana es tocar el HTML y la lista CONSEJOS, nada más. */
 $("ct-botones").addEventListener("click", (ev) => {
@@ -4317,10 +4419,11 @@ function pintarListaTips() {
   tipsEd.lista.forEach((c, i) => {
     const esMsg = typeof c.m === "string";
     const d = esMsg ? null : tipDef(c.k);
-    const comoSeLlama = esMsg ? c.m : d.emoji + " " + t(d.i18n);
+    const comoSeLlama = esMsg ? c.m : t(d.i18n);
 
     const row = document.createElement("div");
     row.className = "ct-item" + (esMsg ? " msg" : "");
+    if (d) row.style.setProperty("--tipc", d.color);
 
     const cuando = document.createElement("span");
     cuando.className = "cuando";
@@ -4328,9 +4431,14 @@ function pintarListaTips() {
 
     const que = document.createElement("span");
     que.className = "que";
+    // El mismo dibujo que en el botón que se tocó: si en la lista se viera
+    // otra cosa, comprobar lo marcado obligaría a traducir de una a otra.
+    if (d) que.appendChild(icono(d.icon));
+    const comoTexto = document.createElement("span");
     // textContent y no innerHTML: el mensaje lo escribe un profesor y lo leen
     // todos sus alumnos. Aquí es donde eso deja de importar.
-    que.textContent = comoSeLlama;
+    comoTexto.textContent = comoSeLlama;
+    que.appendChild(comoTexto);
 
     /* Un compás para cada lado, no medio segundo. Mover una cantidad suelta
        lo sacaría del UNO y lo dejaría a destiempo otra vez. Cuando un consejo
@@ -5188,7 +5296,14 @@ function pintarConsejoAlumno(songTime) {
   const poner = (id, def) => {
     const el = $(id);
     el.classList.toggle("vacio", !def);
-    el.querySelector(".e").textContent = def ? def.emoji : "·";
+    /* El color lo pone el consejo, no la categoría. Antes energía iba siempre
+       de un color y movimiento de otro; ahora cada uno lleva el suyo, que es
+       lo que se reconoce de un vistazo bailando: el naranja es subir y el
+       celeste son waves, sin llegar a leer la palabra. */
+    el.style.setProperty("--tipc", def ? def.color : "");
+    const hueco = el.querySelector(".e");
+    hueco.textContent = "";
+    if (def) hueco.appendChild(icono(def.icon));
     el.querySelector(".tx").textContent = def ? t(def.i18n) : t("tipNone");
   };
   poner("a-tip-energia", ahora.energia);
@@ -6636,6 +6751,16 @@ function applyLang() {
 
   // Botones cuyo texto lleva un estado dentro
   pintarInterruptores();
+
+  /* Los seis botones de consejos no llevan su texto en el HTML -se pintan
+     desde CONSEJOS.LISTA-, así que el barrido de data-i18n no los alcanza y
+     hay que repintarlos a mano. Sin esto se quedaban en el idioma anterior
+     hasta recargar la página. */
+  pintarBotonesConsejo();
+  pintarBotonMensaje();
+  if (!$("p-tips").hidden) pintarListaTips();
+  // Y lo que el alumno tenga puesto ahora mismo, que también es texto traducido
+  student.tipVisto = "";
 
   // Listas y textos generados
   if (typeof cloud !== "undefined") renderAccount();
