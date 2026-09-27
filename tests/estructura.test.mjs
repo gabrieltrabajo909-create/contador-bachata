@@ -1348,6 +1348,101 @@ await prueba("ningun consejo se dibuja con un emoji", () => {
     "no hay seis dibujos en la tabla de consejos");
 });
 
+/* ========================================================================= */
+seccion("Que la base no se duerma");
+
+/* El 28 de septiembre de 2026 Supabase pauso el proyecto por un mes sin uso.
+   La app dejaba de entrar con "Failed to fetch" y desde dentro no habia forma
+   de saber por que. Se recupero entera, pero si en vez de pausarlo lo hubiera
+   borrado, no habia ni una copia de las canciones en ningun lado. */
+
+const LATIDO = (() => {
+  try { return readFileSync(new URL("../.github/workflows/latido.yml", import.meta.url), "utf8"); }
+  catch (e) { return null; }
+})();
+
+await prueba("hay un latido diario que despierta la base", () => {
+  afirmar(LATIDO, "no existe .github/workflows/latido.yml");
+  afirmar(/schedule:[\s\S]*cron:/.test(LATIDO), "el latido no tiene horario");
+  /* Supabase pausa a los 7 dias. Cualquier cosa menos seguida que diaria deja
+     demasiado poco margen, porque GitHub a veces se salta una ejecucion. */
+  const cron = /cron:\s*"([^"]+)"/.exec(LATIDO);
+  afirmar(cron && cron[1].trim().split(/\s+/).slice(2).every(x => x === "*"),
+    "el latido no es diario");
+  afirmar(/workflow_dispatch/.test(LATIDO),
+    "el latido no se puede lanzar a mano para comprobarlo");
+});
+
+await prueba("el latido entra de verdad en la base, no se queda en la puerta", () => {
+  /* Pedir algo sin permiso se rechaza antes de llegar a la base, y eso podria
+     no contar como actividad. Por eso llama a una funcion que cualquiera
+     puede ejecutar y que si toca la base. */
+  afirmar(/rpc\/latido/.test(LATIDO), "el latido no llama a la funcion latido");
+  afirmar(/"200"/.test(LATIDO), "el latido no comprueba que la base contesto");
+  afirmar(/exit 1/.test(LATIDO),
+    "si la base no contesta el latido no falla, y nadie se enteraria");
+});
+
+await prueba("el latido no guarda claves ni puede tocar el repositorio", () => {
+  /* El repositorio es publico. La clave la saca del index.html -la misma que
+     ve cualquiera que abra la web- para no tener dos sitios donde cambiarla
+     y para no dejar ninguna escrita en un archivo que lee todo el mundo. */
+  afirmar(!/eyJ[A-Za-z0-9_-]{20,}|sb_(publishable|secret)_[A-Za-z0-9]/.test(LATIDO),
+    "hay una clave escrita en el latido");
+  /* Por su NOMBRE y no por su forma. La primera version buscaba "eyJ", el
+     formato viejo de Supabase; la clave de ahora es "sb_publishable_", no
+     encontraba nada, y el latido habria salido cada dia con la clave vacia
+     sin que nada fallara hasta que la base se volviera a pausar. */
+  afirmar(/const SB_KEY = [^\n]*index\.html/.test(LATIDO),
+    "el latido no saca la clave de la app por su nombre");
+  afirmar(/test -n "\$CLAVE"/.test(LATIDO),
+    "si no encuentra la clave el latido sigue igual, con la clave vacia");
+  afirmar(/contents:\s*read/.test(LATIDO), "el latido puede escribir en el repositorio");
+  afirmar(!/service_role|secrets\./.test(LATIDO),
+    "el latido usa una clave privada, y no la necesita");
+});
+
+await prueba("la funcion del latido solo dice la hora", () => {
+  const sql = readFileSync(new URL("../db/12-latido.sql", import.meta.url), "utf8");
+  afirmar(/create or replace function public\.latido\(\)/.test(sql), "no crea la funcion");
+  afirmar(/select now\(\)/.test(sql), "la funcion hace algo mas que decir la hora");
+  /* Invoker y no definer: no se le prestan a nadie los permisos del dueno,
+     justamente porque no los necesita. */
+  afirmar(/security invoker/.test(sql), "la funcion corre con permisos prestados");
+  afirmar(!/security definer/.test(sql), "la funcion corre con los permisos del dueno");
+  afirmar(/revoke all on function public\.latido\(\) from public/.test(sql),
+    "no se le quitan antes los permisos que hubiera");
+  afirmar(!/\b(insert|update|delete|drop|alter table)\b/i.test(sql.replace(/--.*$/gm, "")),
+    "la migracion del latido cambia algo mas que la funcion");
+});
+
+await prueba("la copia de seguridad no se guarda nunca en el repositorio", () => {
+  /* El repositorio es publico, y las canciones llevan la huella y las marcas
+     del uno, que es lo que se paga. Una copia ahi dentro seria regalarlas. */
+  const py = readFileSync(new URL("../respaldo/copiar.py", import.meta.url), "utf8");
+  afirmar(/Path\.home\(\) \/ "Respaldos Feel The One"/.test(py),
+    "la copia no va a la carpeta de respaldos del usuario");
+  afirmar(/Path\.home\(\) \/ "\.config" \/ "feeltheone"/.test(py),
+    "la clave de servicio no vive fuera del proyecto");
+  afirmar(!/eyJ[A-Za-z0-9_-]{20,}|sb_(publishable|secret)_[A-Za-z0-9]/.test(py),
+    "hay una clave escrita en el programa de copia");
+  afirmar(/sb_publishable_/.test(py) && /sys\.exit/.test(py),
+    "la copia acepta la clave publica, y saldria casi vacia sin avisar");
+});
+
+await prueba("la copia no se corta en la fila mil sin avisar", () => {
+  /* El servidor devuelve como mucho mil filas si no se le pide por partes.
+     Una copia que se queda ahi parece completa, que es peor que no tenerla. */
+  const py = readFileSync(new URL("../respaldo/copiar.py", import.meta.url), "utf8");
+  afirmar(/offset=/.test(py) && /limit=/.test(py), "la copia no pide las filas por partes");
+  afirmar(/order=/.test(py), "la copia pide por partes sin orden, y puede repetir o saltarse filas");
+  for (const t of ["profiles", "songs", "scores", "ratings"]) {
+    afirmar(new RegExp('"' + t + '"').test(py), "la copia se olvida de la tabla " + t);
+  }
+  /* Y que no deje una copia rota con el nombre bueno si se corta a medias. */
+  afirmar(/\.replace\(final\)/.test(py), "la copia se escribe directa, y una a medias pisa la buena");
+});
+
 await prueba("todos los textos nuevos estan en los dos idiomas", () => {
   const claves = ["assist", "assistOn", "assistOff", "assistHint", "assistStart",
     "assistHelp", "assistFirst", "assistOdd", "assistGo", "assistFine",

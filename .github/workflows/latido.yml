@@ -1,0 +1,71 @@
+# Que Supabase no pause el proyecto por inactividad.
+#
+# QUE CUESTA: nada. No usa Claude, no usa tokens, no gasta dinero. Es una
+# peticion de texto de unos 200 bytes, una vez al dia. GitHub no cobra por
+# esto en repositorios publicos.
+#
+# POR QUE EXISTE: en el plan gratis de Supabase, una base que nadie toca
+# durante una semana se apaga sola, y al apagarse desaparece hasta su nombre
+# en internet. Paso el 28 de septiembre de 2026: la app dejo de entrar y el
+# mensaje que daba -"Failed to fetch"- no decia nada util.
+#
+# LA CLAVE QUE USA la saca del propio index.html. Es la misma que lleva la app
+# dentro y que ve cualquiera que abra la web: no es un secreto, y no sirve
+# para leer nada de nadie porque los permisos los decide la base, no quien
+# tenga la clave. Se lee del archivo y no se copia aqui para que no haya dos
+# sitios donde cambiarla.
+
+name: Latido
+
+on:
+  schedule:
+    # Todos los dias a las 06:10 UTC. Cada dia es siete veces mas seguido de
+    # lo que hace falta; el margen es a proposito, porque GitHub a veces
+    # retrasa o se salta una ejecucion cuando esta cargado.
+    - cron: "10 6 * * *"
+  # Y a mano, para poder comprobar que funciona sin esperar a mañana.
+  workflow_dispatch:
+
+# Solo lectura: este trabajo no tiene por que poder tocar el repositorio.
+permissions:
+  contents: read
+
+jobs:
+  latir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Despertar la base
+        run: |
+          set -u
+          # Se sacan por su NOMBRE -SB_URL y SB_KEY-, igual que las pruebas del
+          # servidor, y no por la forma que tienen. La primera version buscaba
+          # claves que empezaran por "eyJ", que era el formato viejo de
+          # Supabase: la de ahora empieza por "sb_publishable_", no encontraba
+          # nada, y el latido habria salido cada dia con la clave vacia.
+          URL=$(grep -oE 'const SB_URL = "[^"]+"' index.html | cut -d'"' -f2)
+          CLAVE=$(grep -oE 'const SB_KEY = "[^"]+"' index.html | cut -d'"' -f2)
+          test -n "$URL"   || { echo "::error::no encuentro la direccion en index.html"; exit 1; }
+          test -n "$CLAVE" || { echo "::error::no encuentro la clave en index.html"; exit 1; }
+          echo "Base: $URL"
+          # Se reintenta: un proyecto que estaba a punto de dormirse puede
+          # tardar en responder, y rendirse al primer intento seria dejar de
+          # latir justo el dia que mas falta hacia.
+          for intento in 1 2 3 4 5; do
+            codigo=$(curl -s -o /tmp/salida -w "%{http_code}" --max-time 30 \
+              -X POST "$URL/rest/v1/rpc/latido" \
+              -H "apikey: $CLAVE" \
+              -H "Authorization: Bearer $CLAVE" \
+              -H "Content-Type: application/json" \
+              -d '{}')
+            echo "intento $intento -> http $codigo"
+            if [ "$codigo" = "200" ]; then
+              echo "La base contesto: $(cat /tmp/salida)"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::La base no contesto en 5 intentos (ultimo: $codigo)"
+          cat /tmp/salida || true
+          exit 1

@@ -414,6 +414,27 @@ def _():
         rest(f"songs?id=eq.{id_}", "DELETE", token=tokenA)
 
 # --------------------------------------------------------------------------
+seccion("Que la base no se duerma")
+
+@prueba("el latido contesta aunque no tengas cuenta")
+def _():
+    """Lo llama GitHub una vez al dia, sin cuenta, con la clave publica de la
+    app. Si esto no contesta, el latido falla todos los dias en silencio y la
+    base se vuelve a pausar a la semana, como el 28 de septiembre de 2026."""
+    r = rest("rpc/latido", "POST", {})
+    assert r.codigo == 200, (
+        f"el latido no contesta: {r.codigo} {r.texto[:150]}\n"
+        "Corre db/12-latido.sql en el editor SQL de Supabase.")
+
+@prueba("y lo unico que dice es la hora")
+def _():
+    """Cualquiera puede llamarla, asi que no puede contar nada mas."""
+    r = rest("rpc/latido", "POST", {})
+    assert r.codigo == 200, f"no contesta: {r.codigo}"
+    assert isinstance(r.datos, str) and r.datos[:2] == "20", \
+        f"el latido devuelve algo que no es una hora: {r.datos!r}"
+
+# --------------------------------------------------------------------------
 seccion("Borrar")
 
 @prueba("quien no la creo no la puede borrar")
